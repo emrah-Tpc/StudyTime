@@ -1,0 +1,252 @@
+﻿@page "/"
+@using StudyTime.Application.DTOs.Tasks
+@using StudyTime.Application.DTOs.Lessons
+@using StudyTime.DesktopClient.Services
+@using DomainTaskStatus = StudyTime.Domain.Enums.TaskStatus
+
+@inject TaskApiService TaskApi
+@inject LessonApiService LessonApi
+@inject NavigationManager Nav
+
+<div class="dashboard-container">
+
+    @* --- HEADER --- *@
+    <header class="dash-header">
+        <div class="header-content">
+            <h1>Hoş geldin 👋</h1>
+            <p>Bugünkü üretkenlik özetin ve aktif görevlerin.</p>
+        </div>
+
+        <div class="header-actions">
+            <button class="btn-ghost" @onclick="QuickFocus">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+                Hızlı Odaklan
+            </button>
+            <button class="btn-primary" @onclick="GoWork">
+                <span>Çalışma Alanları</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+            </button>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert-error">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            @errorMessage
+        </div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <span>Veriler hazırlanıyor...</span>
+        </div>
+    }
+    else
+    {
+        @* --- İSTATİSTİKLER (Kartlar) --- *@
+        <section class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon purple">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                </div>
+                <div>
+                    <div class="stat-value">@lessons.Count</div>
+                    <div class="stat-label">Aktif Ders</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon blue">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                </div>
+                <div>
+                    <div class="stat-value">@pendingTasks.Count</div>
+                    <div class="stat-label">Bekleyen Görev</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon green">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                </div>
+                <div>
+                    <div class="stat-value">@completedTasksCount</div>
+                    <div class="stat-label">Tamamlanan</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon orange">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                </div>
+                <div>
+                    <div class="stat-value">@totalPlannedHoursStr</div>
+                    <div class="stat-label">Toplam Süre</div>
+                </div>
+            </div>
+        </section>
+
+        @* --- ANA İÇERİK (Grid) --- *@
+        <section class="content-grid">
+
+            @* SOL: DERSLER *@
+            <div class="content-card">
+                <div class="card-header">
+                    <h3>Çalışma Alanlarım</h3>
+                    <button class="link-btn" @onclick="GoWork">Tümünü Gör</button>
+                </div>
+
+                @if (!lessons.Any())
+                {
+                    <div class="empty-state">
+                        <div class="empty-icon">📂</div>
+                        <h4>Henüz alan yok</h4>
+                        <p>Yeni bir ders veya proje ekle.</p>
+                        <button class="btn-sm-primary" @onclick="GoWork">+ Ekle</button>
+                    </div>
+                }
+                else
+                {
+                    <div class="lessons-grid">
+                        @foreach (var l in lessons.Take(6))
+                        {
+                            <div class="lesson-card" style="--lesson-color: @l.Color" @onclick="() => OpenWorkspace(l.Id)">
+                                <div class="lesson-icon">
+                                    <span class="dot"></span>
+                                </div>
+                                <span class="lesson-name">@l.Name</span>
+                                <svg class="arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            @* SAĞ: BEKLEYEN İŞLER *@
+            <div class="content-card">
+                <div class="card-header">
+                    <h3>Bekleyen İşler</h3>
+                    <span class="badge">@pendingTasks.Count aktif</span>
+                </div>
+
+                @if (!pendingTasks.Any())
+                {
+                    <div class="empty-state">
+                        <div class="empty-icon">🎉</div>
+                        <h4>Her şey tamam!</h4>
+                        <p>Bugün için yapacak işin kalmadı.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="tasks-list">
+                        @foreach (var t in pendingTasks.Take(5))
+                        {
+                            <div class="task-row">
+                                <div class="task-indicator" style="background-color: @GetLessonColor(t.LessonId)"></div>
+                                <div class="task-info">
+                                    <div class="task-title">@t.Title</div>
+                                    <div class="task-meta">
+                                        <span class="lesson-tag">@GetLessonName(t.LessonId)</span>
+                                        @if (t.EndDate.HasValue)
+                                        {
+                                            <span class="sep">•</span>
+                                            <span class="date">@t.EndDate.Value.ToString("dd MMM")</span>
+                                        }
+                                    </div>
+                                </div>
+                                @* .GetValueOrDefault() kullanarak null ise boş Guid gönderiyoruz *@
+                                <button class="btn-action" title="Başla"
+                                        @onclick="() => OpenWorkspace(t.LessonId.GetValueOrDefault())">
+                                    ▶
+                                </button>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    private List<LessonListItemDto> lessons = new();
+    private List<TaskDto> pendingTasks = new();
+    private int completedTasksCount = 0;
+    private string totalPlannedHoursStr = "0s";
+    private bool isLoading = true;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+
+            lessons = await LessonApi.GetAllAsync() ?? new();
+
+            // Görevleri toplama
+            var all = new List<TaskDto>();
+            try
+            {
+                var generalTasks = await TaskApi.GetTasksByLessonIdAsync(Guid.Empty);
+                if (generalTasks != null) all.AddRange(generalTasks);
+            }
+            catch { }
+
+            foreach (var l in lessons)
+            {
+                try
+                {
+                    var lt = await TaskApi.GetTasksByLessonIdAsync(l.Id);
+                    if (lt != null) all.AddRange(lt);
+                }
+                catch { }
+            }
+
+            var allTasks = all.GroupBy(t => t.Id).Select(g => g.First()).ToList();
+
+            pendingTasks = allTasks
+                .Where(t => t.Status == DomainTaskStatus.Pending)
+                .OrderBy(t => t.EndDate ?? DateTime.MaxValue)
+                .ToList();
+
+            completedTasksCount = allTasks.Count(t => t.Status == DomainTaskStatus.Completed);
+
+            var totalPlannedMinutes = allTasks
+                .Where(t => t.PlannedDuration.HasValue)
+                .Sum(t => (int)t.PlannedDuration!.Value.TotalMinutes);
+
+            totalPlannedHoursStr = $"{Math.Max(0, totalPlannedMinutes / 60)}s";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Veriler yüklenirken bir hata oluştu.";
+            Console.WriteLine(ex);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private string GetLessonColor(Guid? lessonId)
+    {
+        if (!lessonId.HasValue) return "#94A3B8";
+        return lessons.FirstOrDefault(l => l.Id == lessonId.Value)?.Color ?? "#94A3B8";
+    }
+
+    private string GetLessonName(Guid? lessonId)
+    {
+        if (!lessonId.HasValue) return "Genel";
+        return lessons.FirstOrDefault(l => l.Id == lessonId.Value)?.Name ?? "Genel";
+    }
+
+    private void OpenWorkspace(Guid id) => Nav.NavigateTo($"/workspace/{id}");
+    private void GoWork() => Nav.NavigateTo("/work");
+    private void QuickFocus() => Nav.NavigateTo("/focus");
+}

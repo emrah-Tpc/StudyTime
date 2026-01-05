@@ -1,0 +1,70 @@
+﻿/* =========================================
+   1. PREMIUM RENK PALETİ VE DEĞİŞKENLER
+   ========================================= */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
+
+/* --- VIBRANT MODE (Light/Gradient) --- */
+:root {
+    /* Arka Plan: Daha yumuşak, göz yormayan modern gradient */
+    --bg-app: linear-gradient(135deg, #6366F1 0%, #A855F7 100%);
+    /* Kartlar: Beyaz Buzlu Cam */
+    /* ÖNEMLİ: Kartlar beyaz olduğu için metin koyu olmalı! */
+    --bg-card: rgba(255, 255, 255, 0.90);
+    --bg-header: rgba(255, 255, 255, 0.85);
+    /* Metinler: Koyu Lacivert (Okunabilirlik için) */
+    --text-primary: #1E293B; /* Koyu Gri/Lacivert */
+    --text-secondary: #475569; /* Orta Gri */
+    --text-muted: #94A3B8;
+    /* Kenarlıklar ve Gölgeler */
+    --border-color: rgba(255, 255, 255, 0.6);
+    --active-glow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    /* Vurgu Renkleri */
+    --accent-color: #7C3AED; /* Mor Vurgu */
+    --accent-text: #FFFFFF; /* Vurgu üstündeki yazı rengi */
+    /* Efektler */
+    --backdrop-blur: blur(16px);
+    --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    --radius: 20px;
+    --font-main: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+/* --- DARK MODE (Deep Space) --- */
+[data-theme='dark'] {
+    /* Arka Plan: Tamamen mat koyu lacivert (Flat değil, derin) */
+    --bg-app: #0F172A;
+    /* Kartlar: Koyu Lacivert (Daha açık ton) */
+    --bg-card: #1E293B;
+    --bg-header: #0F172A;
+    /* Metinler: Beyaz */
+    --text-primary: #F8FAFC;
+    --text-secondary: #94A3B8;
+    --text-muted: #64748B;
+    /* Kenarlıklar */
+    --border-color: #334155;
+    --active-glow: 0 0 15px rgba(245, 158, 11, 0.3);
+    /* Vurgu: Turuncu */
+    --accent-color: #F59E0B;
+    --accent-text: #0F172A; /* Turuncu üstüne siyah yazı */
+
+    --backdrop-blur: none;
+    --shadow-sm: 0 4px 6px rgba(0,0,0,0.3);
+    --shadow-md: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+/* Genel Ayarlar */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-main);
+    background: var(--bg-app);
+    color: var(--text-primary);
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    transition: background 0.5s ease, color 0.3s ease;
+}

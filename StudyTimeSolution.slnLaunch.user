@@ -1,0 +1,15 @@
+[
+  {
+    "Name": "Yeni Profil",
+    "Projects": [
+      {
+        "Path": "StudyTime\\StudyTime.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "StudyTime.DesktopClient\\StudyTime.DesktopClient.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

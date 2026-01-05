@@ -1,0 +1,39 @@
+﻿@inherits LayoutComponentBase
+@inject NavigationManager NavManager
+@inject StudyTime.DesktopClient.Services.ThemeService ThemeService
+@implements IDisposable
+
+<div class="app-layout" data-theme="@(ThemeService.IsDarkMode ? "dark" : "light")">
+
+    <header class="top-bar">
+        <div class="brand" @onclick='() => NavManager.NavigateTo("/")'>
+            <span class="logo-icon" style="color: var(--accent-color)">⏳</span>
+            <span class="brand-name">StudyTime</span>
+        </div>
+
+        <nav class="nav-menu">
+            <NavLink href="/" Match="NavLinkMatch.All" class="nav-link">Dashboard</NavLink>
+            <NavLink href="/work" class="nav-link">Workspaces</NavLink>
+            <NavLink href="/settings" class="nav-link">Settings</NavLink>
+        </nav>
+    </header>
+
+    <main class="content-area">
+        @Body
+    </main>
+
+    <MiniTimer />
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        // Tema değişince sayfayı yenile
+        ThemeService.OnThemeChanged += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        ThemeService.OnThemeChanged -= StateHasChanged;
+    }
+}

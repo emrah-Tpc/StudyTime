@@ -1,0 +1,8 @@
+C:\Program Files\Dev\StudyTimeSolution\StudyTime.DesktopClient\wwwroot\css\bootstrap\bootstrap.min.css.map
+C:\Program Files\Dev\StudyTimeSolution\StudyTime.DesktopClient\wwwroot\css\bootstrap\bootstrap.min.css
+C:\Program Files\Dev\StudyTimeSolution\StudyTime.DesktopClient\wwwroot\index.html
+C:\Program Files\Dev\StudyTimeSolution\StudyTime.DesktopClient\wwwroot\css\app.css
+wwwroot\css\app.css
+wwwroot\css\bootstrap\bootstrap.min.css
+wwwroot\css\bootstrap\bootstrap.min.css.map
+wwwroot\index.html

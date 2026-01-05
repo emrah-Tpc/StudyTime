@@ -1,0 +1,144 @@
+﻿@page "/settings"
+@inject StudyTime.DesktopClient.Services.ThemeService ThemeService
+
+<div class="settings-container">
+    <h1>Appearance</h1>
+    <p>Choose your preferred study atmosphere.</p>
+
+    <div class="theme-grid">
+        <div class="theme-card @(ThemeService.IsDarkMode ? "active" : "")"
+             @onclick="() => SetTheme(true)">
+            <div class="preview dark">
+                <div class="preview-header"></div>
+                <div class="preview-body"></div>
+            </div>
+            <h3>Dark Focus</h3>
+            <p>Professional Dark Navy & Orange Accent</p>
+        </div>
+
+        <div class="theme-card @(!ThemeService.IsDarkMode ? "active" : "")"
+             @onclick="() => SetTheme(false)">
+            <div class="preview light">
+                <div class="preview-header"></div>
+                <div class="preview-body"></div>
+            </div>
+            <h3>Vibrant Flow</h3>
+            <p>Energetic Gradient & Glowing Effects</p>
+        </div>
+    </div>
+</div>
+
+<style>
+    .settings-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    h1 {
+        color: var(--text-primary);
+    }
+
+    p {
+        color: var(--text-secondary);
+    }
+
+    .theme-grid {
+        display: flex;
+        gap: 30px;
+        margin-top: 30px;
+    }
+
+    .theme-card {
+        flex: 1;
+        background: var(--bg-card);
+        padding: 20px;
+        border-radius: 16px;
+        cursor: pointer;
+        border: 2px solid transparent;
+        transition: all 0.3s;
+        backdrop-filter: var(--backdrop-blur);
+    }
+
+        .theme-card:hover {
+            transform: translateY(-5px);
+        }
+
+        /* Seçili olan kartın kenarlığı turuncu veya beyaz olur */
+        .theme-card.active {
+            border-color: var(--accent-color);
+            box-shadow: var(--active-glow);
+        }
+
+        .theme-card h3 {
+            margin-top: 15px;
+            color: var(--text-primary);
+        }
+
+        .theme-card p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+    /* Küçük Önizleme Kutuları */
+    .preview {
+        height: 100px;
+        border-radius: 8px;
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 10px;
+    }
+
+    .preview-header {
+        height: 20px;
+        width: 100%;
+        position: absolute;
+        top: 0;
+    }
+
+    .preview-body {
+        position: absolute;
+        top: 30px;
+        left: 10px;
+        right: 10px;
+        height: 40px;
+        border-radius: 4px;
+    }
+
+    /* Dark Preview */
+    .preview.dark {
+        background: #1E1E2D;
+        border: 1px solid #333;
+    }
+
+        .preview.dark .preview-header {
+            background: #27293D;
+        }
+
+        .preview.dark .preview-body {
+            background: #27293D;
+            border-left: 3px solid #F59E0B;
+        }
+
+    /* Light Preview */
+    .preview.light {
+        background: linear-gradient(135deg, #8B5CF6, #3B82F6);
+    }
+
+        .preview.light .preview-header {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .preview.light .preview-body {
+            background: rgba(255,255,255,0.3);
+            box-shadow: 0 0 10px white;
+        }
+
+</style>
+
+@code {
+    private void SetTheme(bool isDark)
+    {
+        ThemeService.SetTheme(isDark);
+    }
+}

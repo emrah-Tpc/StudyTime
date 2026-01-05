@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="..\buildMultiTargeting\StudyTime.DesktopClient.props" />
+</Project>
