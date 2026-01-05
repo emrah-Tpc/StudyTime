@@ -18,7 +18,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("StudyTime.DesktopClient")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0+6163ae1034fecde7d4f84b4692faef6f2259d7d2")]
 [assembly: System.Reflection.AssemblyProductAttribute("StudyTime.DesktopClient")]
 [assembly: System.Reflection.AssemblyTitleAttribute("StudyTime.DesktopClient")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
