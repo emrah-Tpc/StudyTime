@@ -1,0 +1,68 @@
+# =========================
+# Visual Studio
+# =========================
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# =========================
+# Build outputs
+# =========================
+bin/
+obj/
+[Bb]uild/
+[Dd]ebug/
+[Rr]elease/
+
+# =========================
+# .NET
+# =========================
+*.dll
+*.exe
+*.pdb
+*.deps.json
+*.runtimeconfig.json
+
+# =========================
+# MAUI / Mobile
+# =========================
+**/platforms/android/
+**/platforms/ios/
+**/platforms/maccatalyst/
+**/platforms/windows/
+
+# =========================
+# Android / iOS junk
+# =========================
+**/net*-android/
+**/net*-ios/
+**/net*-maccatalyst/
+**/net*-windows*
+
+# =========================
+# Static web assets
+# =========================
+**/staticwebassets*
+**/*.cache
+**/*.br
+**/*.gz
+
+# =========================
+# Node / WebView2
+# =========================
+node_modules/
+wwwroot/**/*.gz
+wwwroot/**/*.br
+
+# =========================
+# OS junk
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Logs
+# =========================
+*.log

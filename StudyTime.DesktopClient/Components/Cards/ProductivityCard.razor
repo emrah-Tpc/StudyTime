@@ -1,0 +1,36 @@
+﻿<div class="st-card productivity-card">
+    <div class="productivity-left">
+        <div class="score-ring">
+            <svg viewBox="0 0 120 120">
+                <circle class="ring-bg" cx="60" cy="60" r="52" />
+                <circle class="ring-progress"
+                        cx="60" cy="60" r="52"
+                        style="stroke-dasharray:@Circumference;
+                               stroke-dashoffset:@DashOffset" />
+            </svg>
+
+            <div class="score-value">
+                <span class="score-number">@Score%</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="productivity-right">
+        <div class="score-title">Productivity Score</div>
+
+        <div class="score-status">
+            <span class="status-text">@StatusText</span>
+            <span class="status-trend">@TrendText</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Score { get; set; }
+    [Parameter] public int MaxScore { get; set; } = 100;
+    [Parameter] public string StatusText { get; set; } = "Good";
+    [Parameter] public string TrendText { get; set; } = "";
+
+    private double Circumference => 2 * Math.PI * 52;
+    private double DashOffset => Circumference * (1 - (double)Score / MaxScore);
+}

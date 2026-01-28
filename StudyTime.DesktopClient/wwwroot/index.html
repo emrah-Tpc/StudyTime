@@ -2,62 +2,67 @@
 <html lang="en">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+
     <title>StudyTime</title>
     <base href="/" />
 
-    <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />
+    <!-- DESIGN SYSTEM -->
     <link rel="stylesheet" href="css/app.css" />
+
+    <!-- MAUI Blazor styles -->
     <link rel="stylesheet" href="StudyTime.DesktopClient.styles.css" />
+
     <link rel="icon" href="data:,">
 </head>
 
 <body>
 
+    <!-- Safe area (Android / iOS) -->
     <div class="status-bar-safe-area"></div>
 
+    <!-- APP ROOT -->
     <div id="app">
+
+        <!-- =========================
+             LOADING SCREEN
+             ========================= -->
         <style>
-            /* Bu CSS sadece yükleme ekranı için buraya gömüldü, hızlı açılsın diye */
             .app-loading {
                 position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
+                inset: 0;
                 display: flex;
                 flex-direction: column;
                 justify-content: center;
                 align-items: center;
-                background-color: #F1F5F9; /* App.css'teki zemin rengiyle aynı */
-                font-family: 'Segoe UI', sans-serif;
+                background: var(--bg-app);
+                color: var(--text-primary);
+                font-family: var(--font-main);
                 z-index: 9999;
                 user-select: none;
             }
 
             .spinner {
-                width: 50px;
-                height: 50px;
-                border: 4px solid #CBD5E1; /* Pasif gri halka */
-                border-top: 4px solid #3B82F6; /* Aktif mavi dönen kısım */
+                width: 48px;
+                height: 48px;
                 border-radius: 50%;
+                border: 3px solid var(--border);
+                border-top-color: var(--accent);
                 animation: spin 1s linear infinite;
                 margin-bottom: 20px;
             }
 
             .loading-text {
-                font-size: 1.1rem;
+                font-size: 1rem;
                 font-weight: 600;
-                color: #475569; /* Koyu gri yazı */
+                color: var(--text-secondary);
+                letter-spacing: 0.3px;
                 animation: pulse 1.5s ease-in-out infinite;
             }
 
             @keyframes spin {
-                0% {
-                    transform: rotate(0deg);
-                }
-
-                100% {
+                to {
                     transform: rotate(360deg);
                 }
             }
@@ -68,23 +73,26 @@
                 }
 
                 50% {
-                    opacity: 0.6;
+                    opacity: 0.5;
                 }
             }
         </style>
 
         <div class="app-loading">
             <div class="spinner"></div>
-            <div class="loading-text">StudyTime Başlatılıyor...</div>
+            <div class="loading-text">StudyTime başlatılıyor…</div>
         </div>
+
     </div>
 
+    <!-- ERROR UI -->
     <div id="blazor-error-ui">
         An unhandled error has occurred.
         <a href="" class="reload">Reload</a>
         <a class="dismiss">🗙</a>
     </div>
 
+    <!-- BLAZOR -->
     <script src="_framework/blazor.webview.js" autostart="false"></script>
 
 </body>

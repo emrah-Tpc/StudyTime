@@ -1,0 +1,35 @@
+﻿<Card>
+    <div class="list-card">
+
+        <div class="list-card-header">
+            <h3>@Title</h3>
+
+            @if (Action.HasDelegate)
+            {
+                <Button Text="@ActionText"
+                        Variant="secondary"
+                        OnClick="Action" />
+            }
+        </div>
+
+        <div class="list">
+            @ChildContent
+        </div>
+
+    </div>
+</Card>
+
+
+@code {
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = default!;
+
+    [Parameter]
+    public string ActionText { get; set; } = "Tümünü Gör";
+
+    [Parameter]
+    public EventCallback Action { get; set; }
+
+    [Parameter, EditorRequired]
+    public RenderFragment ChildContent { get; set; } = default!;
+}

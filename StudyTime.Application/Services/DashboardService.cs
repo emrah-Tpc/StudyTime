@@ -1,35 +1,51 @@
 ﻿using StudyTime.Application.DTOs.Dashboard;
 using StudyTime.Application.Interfaces;
-using TaskStatus = StudyTime.Domain.Enums.TaskStatus;
+using StudyTime.Domain.Enums;
 
 namespace StudyTime.Application.Services
 {
     public class DashboardService
     {
         private readonly ITaskRepository _taskRepository;
+        private readonly ILessonRepository _lessonRepository;
+        private readonly IStudySessionRepository _studySessionRepository;
 
-        public DashboardService(ITaskRepository taskRepository)
+        public DashboardService(
+            ITaskRepository taskRepository,
+            ILessonRepository lessonRepository,
+            IStudySessionRepository studySessionRepository)
         {
             _taskRepository = taskRepository;
+            _lessonRepository = lessonRepository;
+            _studySessionRepository = studySessionRepository;
         }
+
         public async Task<DashboardSummaryDto> GetSummaryAsync()
         {
             var tasks = await _taskRepository.GetAllAsync();
-            var today = DateTime.Now;
+            var lessons = await _lessonRepository.GetAllAsync();
+            var todaySessions = await _studySessionRepository.GetByDateAsync(DateTime.Today);
+
+            var todayMinutes = todaySessions
+                .Sum(s => (int)s.CurrentDuration.TotalMinutes);
+
+            var completed = tasks.Count(t => t.Status == Domain.Enums.TaskStatus.Completed);
+            var total = tasks.Count;
+
             return new DashboardSummaryDto
             {
-                TotalTasks = tasks.Count,
-                PendingTasks = tasks.Count(t => t.Status == TaskStatus.Pending),
-                CompletedTasks = tasks.Count(t => t.Status == TaskStatus.Completed),
+                TotalTasks = total,
+                PendingTasks = tasks.Count(t => t.Status == Domain.Enums.TaskStatus.Pending),
+                CompletedTasks = completed,
+                CancelledTasks = tasks.Count(t => t.Status == Domain.Enums.TaskStatus.Cancelled),
 
-                TodayTasks = tasks.Count(t =>
-                t.StartDate.HasValue &&
-                t.StartDate.Value.Date == today),
+                ActiveLessons = lessons.Count(l => l.Status == LessonStatus.Active && !l.IsDeleted),
 
-                TotalPlannedMinutes = tasks
-                .Where(t => t.PlannedDuration.HasValue)
-                 .Sum(t => (int)(t.PlannedDuration?.TotalMinutes ?? 0))
+                TodayStudiedMinutes = todayMinutes,
 
+                ProductivityScore = total == 0
+                    ? 0
+                    : (int)((double)completed / total * 100)
             };
         }
     }

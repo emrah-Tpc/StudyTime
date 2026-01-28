@@ -15,7 +15,7 @@ namespace StudyTime.DesktopClient.Services
         public async Task<DashboardSummaryDto?> GetSummaryAsync()
         {
             return await _http.GetFromJsonAsync<DashboardSummaryDto>(
-                "api/dashboard/summary");
+                "/api/dashboard/summary");
         }
     }
 }

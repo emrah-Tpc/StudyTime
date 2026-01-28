@@ -1,0 +1,15 @@
+﻿/* ==== ZIP DASHBOARD DARK THEME OVERRIDE ==== */
+[data-theme="dark"] {
+    --bg-app: #020817; /* Zip arka plan */
+    --bg-card: #0f172a; /* Zip card */
+    --bg-header: #020817;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --border-color: #1e293b;
+    --accent-color: #38bdf8; /* Zip mavi */
+    --accent-text: #020817;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+    --shadow-md: 0 10px 25px rgba(0,0,0,.6);
+    --radius: 14px;
+}

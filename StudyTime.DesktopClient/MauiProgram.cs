@@ -1,4 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
+using StudyTime.Application.Interfaces;
+using StudyTime.Application.Services;
 using StudyTime.DesktopClient.Services;
 
 namespace StudyTime.DesktopClient
@@ -23,7 +25,7 @@ namespace StudyTime.DesktopClient
             builder.Logging.AddDebug();
 #endif
 
-            // --- HTTP Client Ayarları ---
+            // HTTP
             string baseUrl = DeviceInfo.Platform == DevicePlatform.Android
                 ? "https://10.0.2.2:7288"
                 : "https://localhost:7288";
@@ -32,7 +34,7 @@ namespace StudyTime.DesktopClient
             {
                 var handler = new HttpClientHandler
                 {
-                    ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true
+                    ServerCertificateCustomValidationCallback = (_, _, _, _) => true
                 };
 
                 return new HttpClient(handler)
@@ -41,16 +43,14 @@ namespace StudyTime.DesktopClient
                 };
             });
 
-            // --- API Servisleri ---
-            builder.Services.AddScoped<LessonApiService>();
-            builder.Services.AddScoped<TaskApiService>();
-            builder.Services.AddScoped<StudySessionApiService>();
-            builder.Services.AddScoped<DashboardApiService>();
+            // API SERVICES (Repository implement edenler)
+        
 
-            // --- UI Servisleri ---
+            // APPLICATION SERVICES
+            builder.Services.AddScoped<DashboardService>();
+
+            // UI SERVICES
             builder.Services.AddSingleton<GlobalTimerService>();
-
-            // 👇 BU EKSİKTİ, MUTLAKA EKLEYİN 👇
             builder.Services.AddSingleton<ThemeService>();
 
             return builder.Build();

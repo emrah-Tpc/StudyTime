@@ -1,0 +1,64 @@
+﻿<div class="st-card workspace-card" @onclick="OnClick">
+
+    <!-- HEADER -->
+    <div class="workspace-header">
+        <div class="workspace-icon" style="background:@IconBg">
+            @Icon
+        </div>
+
+        <div class="workspace-title">
+            <strong>@Title</strong>
+            <span class="muted">Progress</span>
+        </div>
+
+        <div class="workspace-percent">
+            @Progress%
+        </div>
+    </div>
+
+    <!-- PROGRESS BAR -->
+    <div class="workspace-progress">
+        <div class="workspace-progress-fill"
+             style="width:@($"{Progress}%"); background:@AccentColor">
+        </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="workspace-stats">
+        <div>
+            <strong>@Total</strong>
+            <span class="muted">Total</span>
+        </div>
+        <div style="color:@AccentColor">
+            <strong>@Done</strong>
+            <span class="muted">Done</span>
+        </div>
+        <div>
+            <strong>@Pending</strong>
+            <span class="muted">Pending</span>
+        </div>
+    </div>
+
+    <!-- TIME -->
+    <div class="workspace-time">
+        <span class="muted">Time tracked</span>
+        <strong>@TimeTracked</strong>
+    </div>
+
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = default!;
+    [Parameter] public string Icon { get; set; } = "📘";
+    [Parameter] public string IconBg { get; set; } = "rgba(56,189,248,0.15)";
+    [Parameter] public string AccentColor { get; set; } = "var(--accent)";
+
+    [Parameter] public int Total { get; set; }
+    [Parameter] public int Done { get; set; }
+    [Parameter] public int Pending { get; set; }
+
+    [Parameter] public int Progress { get; set; }   // 0–100
+    [Parameter] public string TimeTracked { get; set; } = "0h";
+
+    [Parameter] public EventCallback OnClick { get; set; }
+}

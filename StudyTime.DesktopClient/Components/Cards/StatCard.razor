@@ -1,0 +1,19 @@
+﻿<div class="st-card stat-card">
+    <div class="stat-header">
+        <span class="stat-icon">@Icon</span>
+    </div>
+
+    <div class="stat-value">@Value</div>
+    <div class="stat-label">@Label</div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public int Value { get; set; }
+
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = default!;
+
+    [Parameter]
+    public string Icon { get; set; } = "📊";
+}

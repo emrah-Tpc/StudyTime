@@ -1,0 +1,42 @@
+﻿@inject NavigationManager Nav
+
+<header class="top-bar">
+
+    <!-- Brand -->
+    <div class="brand" @onclick="GoHome">
+        <span class="logo-icon">⏱</span>
+        <span>StudyTime</span>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="nav-menu">
+        <NavItem Href="/" Match="NavLinkMatch.All">
+            Dashboard
+        </NavItem>
+
+        <NavItem Href="/lessons">
+            Lessons
+        </NavItem>
+
+        <NavItem Href="/tasks">
+            Tasks
+        </NavItem>
+
+        <NavItem Href="/statistics">
+            Statistics
+        </NavItem>
+    </nav>
+
+    <!-- User -->
+    <div class="user-profile" title="Profile">
+        👤
+    </div>
+
+</header>
+
+@code {
+    private void GoHome()
+    {
+        Nav.NavigateTo("/");
+    }
+}

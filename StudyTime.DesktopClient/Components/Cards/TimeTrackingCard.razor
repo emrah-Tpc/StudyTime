@@ -1,0 +1,97 @@
+﻿<div class="st-card time-tracking-card">
+
+    <div class="time-header">
+        <div class="time-title">
+            ⏱ Time Tracking
+        </div>
+
+        <div class="time-tabs">
+            <button class="time-tab @(ActiveTab == TimeView.Daily ? "active" : "")"
+                    @onclick="() => SetTab(TimeView.Daily)">
+                Daily
+            </button>
+
+            <button class="time-tab @(ActiveTab == TimeView.Weekly ? "active" : "")"
+                    @onclick="() => SetTab(TimeView.Weekly)">
+                Weekly
+            </button>
+
+            <button class="time-tab @(ActiveTab == TimeView.Category ? "active" : "")"
+                    @onclick="() => SetTab(TimeView.Category)">
+                Category
+            </button>
+        </div>
+    </div>
+
+    @if (ActiveTab == TimeView.Daily)
+    {
+        <div class="chart-placeholder">
+            <svg class="line-chart" viewBox="0 0 600 200">
+                <polyline fill="none"
+                          stroke="#38bdf8"
+                          stroke-width="3"
+                          points="0,160 80,80 160,110 240,60 320,120 400,150 480,170 560,160" />
+            </svg>
+
+            <div class="chart-labels">
+                <span>6am</span><span>9am</span><span>12pm</span>
+                <span>3pm</span><span>6pm</span><span>9pm</span>
+            </div>
+        </div>
+    }
+    else if (ActiveTab == TimeView.Weekly)
+    {
+        <div class="chart-placeholder">
+            <svg class="line-chart" viewBox="0 0 600 200">
+                <polyline fill="none"
+                          stroke="#22c55e"
+                          stroke-width="3"
+                          points="0,140 100,100 200,120 300,70 400,110 500,90 600,130" />
+            </svg>
+
+            <div class="chart-labels">
+                <span>Mon</span><span>Tue</span><span>Wed</span>
+                <span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="donut-layout">
+            <svg class="donut-chart" viewBox="0 0 42 42">
+                <circle cx="21" cy="21" r="15.9" fill="none"
+                        stroke="#3b82f6" stroke-width="4"
+                        stroke-dasharray="30 70" />
+                <circle cx="21" cy="21" r="15.9" fill="none"
+                        stroke="#d946ef" stroke-width="4"
+                        stroke-dasharray="45 55" stroke-dashoffset="-30" />
+                <circle cx="21" cy="21" r="15.9" fill="none"
+                        stroke="#22c55e" stroke-width="4"
+                        stroke-dasharray="15 85" stroke-dashoffset="-75" />
+            </svg>
+
+            <div class="donut-legend">
+                <div><span style="background:#3b82f6"></span> Study · 12h</div>
+                <div><span style="background:#d946ef"></span> Work · 18h</div>
+                <div><span style="background:#22c55e"></span> Hobby · 6h</div>
+            </div>
+        </div>
+    }
+
+</div>
+
+@code {
+    enum TimeView
+    {
+        Daily,
+        Weekly,
+        Category
+    }
+
+    private TimeView ActiveTab = TimeView.Daily;
+
+    private void SetTab(TimeView view)
+    {
+        ActiveTab = view;
+    }
+}
