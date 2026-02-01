@@ -5,7 +5,7 @@ namespace StudyTime.Domain.Services
 {
     public class ProductivityCalculator
     {
-        public static int CalculateScore(
+        public int CalculateScore(
             IEnumerable<StudySession> sessions,
             IEnumerable<TaskItem> tasks,
             DateTime from,

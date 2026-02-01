@@ -1,21 +1,21 @@
-﻿using StudyTime.Application.DTOs.Dashboard;
+﻿using System.Net.Http.Json;
+using StudyTime.Application.DTOs.Dashboard;
 
-namespace StudyTime.DesktopClient.Services;
-
-public sealed class DashboardApiService
+namespace StudyTime.DesktopClient.Services
 {
-    public async Task<DashboardSummaryDto> GetSummaryAsync()
+    public class DashboardApiService
     {
-        // TEMP: Backend yokken fake data
-        await Task.Delay(600);
+        private readonly HttpClient _http;
 
-        return new DashboardSummaryDto
+        public DashboardApiService(HttpClient http)
         {
-            ProductivityScore = 66,
-            ActiveLessons = 2,
-            PendingTasks = 1,
-            CompletedTasks = 2,
-            TodayStudiedMinutes = 0
-        };
+            _http = http;
+        }
+
+        public async Task<DashboardSummaryDto?> GetSummaryAsync()
+        {
+            return await _http.GetFromJsonAsync<DashboardSummaryDto>(
+                "/api/dashboard/summary");
+        }
     }
 }

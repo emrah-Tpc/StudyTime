@@ -2,85 +2,97 @@
 <html lang="en">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+
     <title>StudyTime</title>
     <base href="/" />
 
-    <link href="css/bootstrap/bootstrap.min.css" rel="stylesheet" />
-    <link href="css/app.css" rel="stylesheet" />
-    <link href="StudyTime.DesktopClient.styles.css" rel="stylesheet" />
+    <!-- DESIGN SYSTEM -->
+    <link rel="stylesheet" href="css/app.css" />
 
-    <style>
-        /* Varsayılan renkler (app.css yüklenmezse diye yedek renkler) */
-        :root {
-            --bg-app: #0f172a;
-            --text-primary: #ffffff;
-            --accent: #38bdf8;
-            --border: #1e293b;
-        }
+    <!-- MAUI Blazor styles -->
+    <link rel="stylesheet" href="StudyTime.DesktopClient.styles.css" />
 
-        .app-loading {
-            position: fixed;
-            inset: 0;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            background: var(--bg-app);
-            color: var(--text-primary);
-            font-family: sans-serif;
-            z-index: 9999;
-        }
-
-        .spinner {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            border: 3px solid var(--border);
-            border-top-color: var(--accent);
-            animation: spin 1s linear infinite;
-            margin-bottom: 20px;
-        }
-
-        .loading-text {
-            font-size: 1rem;
-            font-weight: 600;
-            animation: pulse 1.5s ease-in-out infinite;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        @keyframes pulse {
-            0%, 100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.5;
-            }
-        }
-    </style>
+    <link rel="icon" href="data:,">
 </head>
 
 <body>
 
+    <!-- Safe area (Android / iOS) -->
+    <div class="status-bar-safe-area"></div>
+
+    <!-- APP ROOT -->
     <div id="app">
+
+        <!-- =========================
+             LOADING SCREEN
+             ========================= -->
+        <style>
+            .app-loading {
+                position: fixed;
+                inset: 0;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                background: var(--bg-app);
+                color: var(--text-primary);
+                font-family: var(--font-main);
+                z-index: 9999;
+                user-select: none;
+            }
+
+            .spinner {
+                width: 48px;
+                height: 48px;
+                border-radius: 50%;
+                border: 3px solid var(--border);
+                border-top-color: var(--accent);
+                animation: spin 1s linear infinite;
+                margin-bottom: 20px;
+            }
+
+            .loading-text {
+                font-size: 1rem;
+                font-weight: 600;
+                color: var(--text-secondary);
+                letter-spacing: 0.3px;
+                animation: pulse 1.5s ease-in-out infinite;
+            }
+
+            @keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+
+            @keyframes pulse {
+                0%, 100% {
+                    opacity: 1;
+                }
+
+                50% {
+                    opacity: 0.5;
+                }
+            }
+        </style>
+
         <div class="app-loading">
             <div class="spinner"></div>
-            <div class="loading-text">StudyTime başlatılıyor...</div>
+            <div class="loading-text">StudyTime başlatılıyor…</div>
         </div>
+
     </div>
 
+    <!-- ERROR UI -->
     <div id="blazor-error-ui">
         An unhandled error has occurred.
         <a href="" class="reload">Reload</a>
         <a class="dismiss">🗙</a>
     </div>
 
+    <!-- BLAZOR -->
     <script src="_framework/blazor.webview.js" autostart="false"></script>
 
 </body>
