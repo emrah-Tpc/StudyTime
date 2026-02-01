@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using StudyTime.Application.Interfaces;
-using StudyTime.Application.Services; // Servislerin olduğu namespace
+using StudyTime.Application.Services;
 using StudyTime.DesktopClient.Services;
 
 namespace StudyTime.DesktopClient
@@ -25,10 +25,7 @@ namespace StudyTime.DesktopClient
             builder.Logging.AddDebug();
 #endif
 
-            // --- 1. HTTP Client Ayarları ---
-            // Android ve Windows için doğru adres seçimi
-            // --- 1. HTTP Client Ayarları ---
-            // Windows için tekrar localhost yapalım, bazen sertifika yüzünden IP adresi sorun çıkarabilir.
+            // HTTP
             string baseUrl = DeviceInfo.Platform == DevicePlatform.Android
                 ? "https://10.0.2.2:7288"
                 : "https://localhost:7288";
@@ -37,28 +34,22 @@ namespace StudyTime.DesktopClient
             {
                 var handler = new HttpClientHandler
                 {
-                    // Sertifika hatasını yoksay (Development ortamı için şart)
                     ServerCertificateCustomValidationCallback = (_, _, _, _) => true
                 };
 
                 return new HttpClient(handler)
                 {
-                    BaseAddress = new Uri(baseUrl),
-                    // Zaman aşımı ekleyelim ki sonsuza kadar dönmesin (10 saniye)
-                    Timeout = TimeSpan.FromSeconds(10)
+                    BaseAddress = new Uri(baseUrl)
                 };
             });
 
-            // --- 2. EKSİK OLAN SERVİSLERİ EKLEDİM ---
-            // Bu servisler MauiProgram'da kayıtlı olmadığı için uygulama açılmıyordu.
-            builder.Services.AddSingleton<DashboardApiService>();
+            // API SERVICES (Repository implement edenler)
+        
 
-            builder.Services.AddScoped<DashboardApiService>();
-            builder.Services.AddScoped<LessonApiService>();       // <--- EKLENDİ
-            builder.Services.AddScoped<TaskApiService>();         // <--- EKLENDİ
-            builder.Services.AddScoped<StudySessionApiService>(); // <--- EKLENDİ
+            // APPLICATION SERVICES
+            builder.Services.AddScoped<DashboardService>();
 
-            // --- 3. UI Servisleri ---
+            // UI SERVICES
             builder.Services.AddSingleton<GlobalTimerService>();
             builder.Services.AddSingleton<ThemeService>();
 
