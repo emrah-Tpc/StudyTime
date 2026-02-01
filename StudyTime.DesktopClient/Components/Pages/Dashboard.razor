@@ -1,34 +1,113 @@
 ﻿@page "/"
-@inject DashboardApiService DashboardApiService
 @using StudyTime.Application.DTOs.Dashboard
 @using StudyTime.DesktopClient.Services
+@using StudyTime.DesktopClient.Components.Cards
 
-<PageHeader Title="Hoş geldin 👋"
-            Subtitle="Bugünkü üretkenlik özetin ve aktif görevlerin." />
+@* 👇 İsimlendirmeyi değiştirdik (Çakışmayı önlemek için) *@
+@inject DashboardApiService _apiService
 
-@if (_summary is null)
+<div class="page-title" style="margin-bottom: 24px;">
+    <h1>Hoş geldin 👋</h1>
+    <p>Bugünkü üretkenlik özetin ve aktif görevlerin.</p>
+</div>
+
+@if (_isLoading)
 {
-    <p class="muted">Yükleniyor...</p>
+    <div class="app-loading" style="position:relative; height:300px; background:transparent;">
+        <div class="spinner"></div>
+    </div>
+}
+else if (_summary is not null)
+{
+    <div class="dashboard-section">
+        <ProductivityCard Score="@_summary.ProductivityScore"
+                          StatusText="Harika"
+                          TrendText="+12% geçen haftaya göre" />
+    </div>
+
+    <div class="dashboard-grid">
+        <StatCard Icon="📚"
+                  Value="@_summary.ActiveLessons.ToString()"
+                  Label="Aktif Ders" />
+
+        <StatCard Icon="⏳"
+                  Value="@_summary.PendingTasks.ToString()"
+                  Label="Bekleyen Görev" />
+
+        <StatCard Icon="✅"
+                  Value="@_summary.CompletedTasks.ToString()"
+                  Label="Tamamlanan" />
+
+        <StatCard Icon="⏱️"
+                  Value="@($"{_summary.TodayStudiedMinutes} dk")"
+                  Label="Bugün Süre" />
+    </div>
+
+    <div class="dashboard-main">
+
+        <div class="dashboard-left">
+
+            <TimeTrackingCard TotalHours="12.5" />
+
+            <WorkspaceCarousel />
+
+        </div>
+
+        <div class="dashboard-right">
+
+            <QuickActionsCard />
+
+        </div>
+    </div>
 }
 else
 {
-    <ProductivityCard Score="@_summary.ProductivityScore"
-                      StatusText="Good"
-                      TrendText="+12% from last week" />
-
-    <div class="dashboard-grid">
-        <StatCard Value="@_summary.ActiveLessons" Label="Aktif Ders" Icon="📚" />
-        <StatCard Value="@_summary.PendingTasks" Label="Bekleyen Görev" Icon="⏳" />
-        <StatCard Value="@_summary.CompletedTasks" Label="Tamamlanan" Icon="✅" />
-        <StatCard Value="@_summary.TodayStudiedMinutes" Label="Bugün Süre (dk)" Icon="⏱" />
+    <div class="st-card">
+        <p class="text-danger">Veriler yüklenemedi.</p>
+        <button class="btn-primary" @onclick="LoadDataAsync">Tekrar Dene</button>
     </div>
 }
 
 @code {
     private DashboardSummaryDto? _summary;
+    private bool _isLoading = true;
 
     protected override async Task OnInitializedAsync()
     {
-        _summary = await DashboardApiService.GetSummaryAsync();
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _isLoading = true;
+        StateHasChanged(); // Yükleniyor ekranını göster
+
+        try
+        {
+            // API isteği
+            _summary = await _apiService.GetSummaryAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"API ERROR: {ex}");
+
+            // 🛠️ DÜZELTME: İsim çakışmasını önlemek için tam yolu yazdık
+            var app = Microsoft.Maui.Controls.Application.Current;
+
+            if (app?.Windows.Count > 0)
+            {
+                var page = app.Windows[0].Page;
+                if (page is not null)
+                {
+                    await page.DisplayAlert("Bağlantı Hatası",
+                        $"Sunucuya ulaşılamadı.\nDetay: {ex.Message}", "Tamam");
+                }
+            }
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged(); // Yükleniyor ekranını kapat
+        }
     }
 }

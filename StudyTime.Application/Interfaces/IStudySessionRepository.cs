@@ -16,6 +16,7 @@ namespace StudyTime.Application.Interfaces
         Task<List<StudySession>> GetByDateAsync(DateTime date);
         Task<StudySession?> GetByIdAsync(Guid id);
 
+        Task<List<StudySession>> GetAllAsync(); // 👈 EKLE
 
     }
 }

@@ -50,5 +50,6 @@ namespace StudyTime.Application.Services
                 TotalMinutes = totalMinutes
             };
         }
+
     }
 }
