@@ -10,7 +10,7 @@ namespace StudyTime.Application.DTOs.Tasks
 
         // String yerine Enum kullanıyoruz, LessonListItemDto ile tutarlı olsun
         public TaskStatus Status { get; set; }
-
+        public bool IsCompleted { get; set; }
         public DateTime? StartDate { get; set; }
         public DateTime? EndDate { get; set; }
 

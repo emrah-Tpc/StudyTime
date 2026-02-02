@@ -8,7 +8,7 @@ namespace StudyTime.Application.Interfaces
         Task<TaskItem?> GetByIdAsync(Guid id);
         Task<List<TaskItem>> GetAllAsync();
         Task UpdateAsync(TaskItem task);
-
+        Task<List<Domain.Entities.TaskItem>> GetByLessonIdAsync(Guid lessonId);
         // Soft delete yapacağımız için Hard Delete metoduna (DeleteAsync) aslında gerek kalmadı
         // ama interface'de durabilir, implementasyonda kullanmayacağız.
         Task DeleteAsync(TaskItem task);

@@ -5,7 +5,7 @@ using StudyTime.Application.Services;
 namespace StudyTime.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/lessons")] // 👈 DÜZELTME: [controller] yerine "api/lessons" yazdık.
     public class LessonController : ControllerBase
     {
         private readonly LessonService _lessonService;
@@ -25,11 +25,13 @@ namespace StudyTime.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateLessonDto dto)
         {
+            // Servis ID dönüyor, bunu frontend'e iletiyoruz
             var id = await _lessonService.CreateAsync(dto);
-            return Ok(new { lessonId = id });
+            return Ok(new { lessonId = id }); // Frontend bu yanıtı bekliyor muhtemelen
         }
 
-        // --- YENİ EKLENEN ENDPOINTLER ---
+        // ... Diğer metodlar aynı kalabilir (Archive, Restore, Delete)
+        // Onların rotaları da artık otomatik olarak "api/lessons/{id}/archive" olacaktır.
 
         [HttpPut("{id}/archive")]
         public async Task<IActionResult> Archive(Guid id)
@@ -50,6 +52,19 @@ namespace StudyTime.Controllers
         {
             await _lessonService.DeleteAsync(id);
             return Ok(new { message = "Workspace deleted" });
+        }
+
+        // 👇 BU METOT EKSİKTİ, BUNU EKLE:
+        [HttpGet("{id}/workspace")]
+        public async Task<IActionResult> GetWorkspaceDetail(Guid id)
+        {
+            // Service katmanındaki metodu çağırıyoruz
+            var result = await _lessonService.GetWorkspaceDetailAsync(id);
+
+            if (result == null)
+                return NotFound("Ders bulunamadı.");
+
+            return Ok(result);
         }
     }
 }

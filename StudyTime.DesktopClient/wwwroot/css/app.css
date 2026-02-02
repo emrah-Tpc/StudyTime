@@ -1,562 +1,1277 @@
 ﻿/* =========================================
-   DESIGN TOKENS (Design System)
+   1. CORE VARIABLES (v0 - Premium Dark Theme)
    ========================================= */
 :root {
-    /* Colors */
-    --bg-app: #020817;
-    --bg-surface: #0f172a;
-    --bg-card: #020817;
-    --border: #1e293b;
-    --text-primary: #f8fafc;
-    --text-secondary: #94a3b8;
-    --text-muted: #64748b;
-    --accent: #38bdf8;
-    --accent-contrast: #020817;
-    /* Radius */
-    --radius-sm: 8px;
-    --radius-md: 12px;
-    --radius-lg: 16px;
+    /* Backgrounds */
+    --bg-app: #09090b; /* Zinc-950 */
+    --bg-card: #18181b; /* Zinc-900 */
+    --bg-card-hover: #27272a;
+    /* Borders */
+    --border-color: rgba(255, 255, 255, 0.08);
+    --border-highlight: rgba(255, 255, 255, 0.15);
+    /* Text */
+    --text-main: #FFFFFF; /* Tam Beyaz */
+    --text-muted: #D4D4D8;
+    /* Accents */
+    --accent-blue: #3B82F6;
+    --accent-green: #10B981;
+    --accent-pink: #EC4899;
+    --accent-orange: #F59E0B;
     /* Spacing */
-    --space-xs: 4px;
-    --space-sm: 8px;
-    --space-md: 16px;
-    --space-lg: 24px;
-    --space-xl: 32px;
-    /* Typography */
-    --font-main: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-.stat-header {
-    margin-bottom: var(--space-sm);
+    --radius-xl: 12px;
+    --radius-full: 9999px;
 }
 
-.stat-icon {
-    font-size: 1.4rem;
-    opacity: 0.85;
-}
-
-/* =========================================
-   BASE (Reset + Body)
-   ========================================= */
-*,
-*::before,
-*::after {
-    box-sizing: border-box;
-}
-
-html,
 body {
+    background-color: var(--bg-app);
+    color: var(--text-main);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     margin: 0;
-    padding: 0;
-    height: 100%;
-}
-
-body {
-    font-family: var(--font-main);
-    background: var(--bg-app);
-    color: var(--text-primary);
-    overflow: hidden;
-}
-
-button {
-    font-family: inherit;
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: inherit;
-}
-
-/* Text helpers */
-.muted {
-    color: var(--text-muted);
-    font-size: 0.85rem;
+    overflow-x: hidden;
 }
 
 /* =========================================
-   LAYOUT
+   2. LAYOUT & CONTAINERS
    ========================================= */
 .app-layout {
     display: flex;
     flex-direction: column;
-    height: 100vh;
-    width: 100vw;
+    min-height: 100vh;
 }
 
-/* ---------- Top Bar ---------- */
-.top-bar {
-    height: 56px;
+.content-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 2rem;
+    display: flex;
+    justify-content: center;
+}
+
+.dashboard-container {
+    width: 100%;
+    max-width: 1400px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* =========================================
+   3. HEADER & BUTTONS
+   ========================================= */
+.header-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 8px;
+}
+
+@media (min-width: 768px) {
+    .header-section {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+    }
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-outline {
+    background: rgba(39, 39, 42, 0.5); /* Zinc-800/50 */
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 500;
     display: flex;
     align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+    .btn-outline:hover {
+        background: var(--bg-card-hover);
+        border-color: var(--border-highlight);
+        color: white;
+    }
+
+/* =========================================
+   4. CARDS & GRID SYSTEM
+   ========================================= */
+.st-card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
+    padding: 24px;
+    transition: border-color 0.2s;
+}
+
+    .st-card:hover {
+        border-color: var(--border-highlight);
+    }
+
+/* --- Stat Grid --- */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(1, 1fr);
+    gap: 16px;
+}
+
+@media (min-width: 640px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (min-width: 1024px) {
+    .stats-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+/* Stat Card Styling */
+.stat-card-inner {
+    position: relative;
+    overflow: hidden;
+}
+.text-muted {
+    color: var(--text-muted) !important;
+}
+.stat-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #9ca3af; /* Biraz daha soft bir gri */
+    font-weight: 600;
+}
+.small {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #E4E4E7 !important; /* Zinc-200 (Neredeyse beyaz) */
+}
+.stat-value {
+    font-size: 1.875rem;
+    font-weight: 700;
+    margin-top: 8px;
+    color: var(--text-main);
+}
+
+.stat-trend {
+    font-size: 0.75rem;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+    .stat-trend.up {
+        color: var(--accent-green);
+    }
+
+    .stat-trend.down {
+        color: var(--accent-orange);
+    }
+
+.stat-icon-wrapper {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    padding: 8px;
+    background: rgba(39, 39, 42, 0.5);
+    border-radius: 8px;
+    color: var(--accent-blue);
+}
+
+/* --- Main Content Grid --- */
+.main-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+}
+
+@media (min-width: 1024px) {
+    .main-grid {
+        grid-template-columns: 1fr 2fr;
+    }
+}
+
+/* --- Bottom Grid --- */
+.bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+}
+
+@media (min-width: 1024px) {
+    .bottom-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+/* =========================================
+   5. COMPONENTS & FIXES
+   ========================================= */
+
+/* Productivity Circle */
+.prod-card-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 1rem;
+}
+
+.prod-text {
+    margin-top: 16px;
+    text-align: center;
+}
+
+.prod-status {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--accent-green);
+}
+
+.prod-quote {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+    text-align: center;
+}
+
+/* Charts & Headers */
+.card-header {
+    display: flex;
     justify-content: space-between;
-    padding: 0 var(--space-lg);
-    background: var(--bg-surface);
-    border-bottom: 1px solid var(--border);
+    align-items: center;
+    margin-bottom: 20px;
+    position: relative;
+    z-index: 20;
+}
+
+.card-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+/* app.css içine ekle veya kontrol et */
+.tab-group {
+    display: flex;
+    background-color: var(--bg-app);
+    padding: 2px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+
+.tab-btn {
+    background: none;
+    border: none;
+    padding: 4px 12px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+    .tab-btn:hover {
+        color: var(--text-main);
+    }
+
+    .tab-btn.active {
+        background-color: rgba(255, 255, 255, 0.1);
+        color: white;
+        font-weight: 600;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    }
+
+/* Work Areas */
+.work-item {
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    background: rgba(39, 39, 42, 0.3);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+    .work-item:hover {
+        border-color: rgba(255,255,255,0.2);
+        background: rgba(39, 39, 42, 0.5);
+    }
+
+.work-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.work-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.work-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.work-name {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-main);
+}
+
+.progress-bar-bg {
+    height: 6px;
+    background: #27272a;
+    border-radius: 99px;
+    overflow: hidden;
+    margin-top: 4px;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    border-radius: 99px;
+}
+
+/* Activity List */
+.activity-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    transition: background 0.2s;
+}
+
+    .activity-item:hover {
+        background: rgba(39, 39, 42, 0.5);
+    }
+
+.activity-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #27272a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
     flex-shrink: 0;
 }
 
-/* Brand */
-.brand {
+.activity-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.activity-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2px;
+}
+
+.activity-title {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.activity-badge {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 99px;
+    background: #27272a;
+    color: var(--text-muted);
+}
+
+.activity-meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* Avatar */
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #27272a;
+    border: 1px solid var(--border-color);
     display: flex;
     align-items: center;
-    gap: var(--space-sm);
+    justify-content: center;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+    .user-avatar:hover {
+        background-color: #3f3f46;
+        color: var(--text-main);
+        border-color: var(--border-highlight);
+    }
+
+/* Charts Config */
+.chart-wrapper {
+    position: relative;
+    width: 100%;
+    height: 220px;
+    overflow: hidden;
+    border-radius: 0 0 12px 12px;
+    z-index: 10;
+}
+
+.chart-container {
+    height: 200px;
+    width: 100%;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding-top: 20px;
+}
+
+.bar-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    height: 100%;
+    justify-content: flex-end;
+}
+
+.bar-track {
+    width: 100%;
+    max-width: 40px;
+    height: 100%;
+    border-radius: 6px 6px 0 0;
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+}
+
+.bar-fill-dynamic {
+    width: 100%;
+    border-radius: 4px 4px 0 0;
+    transition: height 0.5s ease;
+}
+
+.bar-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.line-chart-svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.line-path {
+    fill: none;
+    stroke: var(--accent-blue);
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    filter: drop-shadow(0 4px 6px rgba(59, 130, 246, 0.3));
+}
+/* =========================================
+   SIDEBAR & LAYOUT FIX
+   ========================================= */
+.page {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background-color: var(--bg-app);
+}
+
+main {
+    flex: 1;
+    overflow-y: auto; /* İçerik kaydırılabilir olsun */
+}
+
+/* Masaüstü Görünüm (Sidebar Solda) */
+@media (min-width: 641px) {
+    .page {
+        flex-direction: row;
+    }
+
+    .sidebar {
+        width: 250px;
+        height: 100vh;
+        position: sticky;
+        top: 0;
+        background-color: #18181b; /* Zinc-900 */
+        border-right: 1px solid var(--border-color);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .content {
+        padding-top: 2rem !important;
+    }
+}
+
+ /* =========================================
+   TOP BAR LAYOUT (Sidebar İptal)
+   ========================================= */
+/* Tüm Sayfa Düzeni */
+.app-layout-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background-color: var(--bg-app);
+    overflow: hidden; /* Taşmayı engelle */
+}
+
+/* 1. TOP BAR STİLİ */
+.topbar-header {
+    height: 64px;
+    background-color: rgba(24, 24, 27, 0.8); /* Zinc-900 + Transparan */
+    backdrop-filter: blur(10px); /* Buzlu cam efekti */
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    z-index: 100;
+    flex-shrink: 0; /* Küçülmesin */
+}
+
+/* Logo */
+.brand-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logo-icon {
+    color: var(--accent-blue);
+    font-size: 1.2rem;
+}
+
+.brand-name {
     font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--text-main);
+    letter-spacing: -0.5px;
+}
+
+/* Linkler (Ortadaki Menü) */
+.nav-links {
+    display: flex;
+    gap: 8px;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 99px; /* Hap şeklinde buton */
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+    .nav-item:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+        color: var(--text-main);
+    }
+
+    .nav-item.active {
+        background-color: var(--bg-card-hover); /* Daha belirgin arka plan */
+        color: white;
+        box-shadow: 0 0 0 1px var(--border-highlight);
+    }
+
+    .nav-item i {
+        font-size: 1rem;
+    }
+
+/* Sağ Taraf */
+.user-section {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.icon-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
     font-size: 1.1rem;
     cursor: pointer;
 }
 
-.logo-icon {
-    color: var(--accent);
-}
-
-/* Navigation */
-.nav-menu {
+.user-avatar-small {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #27272a;
+    border: 1px solid var(--border-color);
     display: flex;
-    gap: var(--space-md);
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
 }
 
-.nav-link {
-    padding: 6px 12px;
-    border-radius: var(--radius-sm);
-    text-decoration: none;
-    color: var(--text-secondary);
-    font-weight: 500;
-    transition: background 0.15s ease, color 0.15s ease;
+/* 2. MAIN CONTENT (Kaydırılabilir Alan) */
+.main-content-scrollable {
+    flex: 1;
+    overflow-y: auto; /* Sadece içerik kayar, menü sabit kalır */
+    padding: 24px;
+    display: flex;
+    justify-content: center;
 }
 
-    .nav-link:hover,
-    .nav-link.active {
-        color: var(--text-primary);
-        background: rgba(56, 189, 248, 0.18);
+.content-wrapper {
+    width: 100%;
+    max-width: 1400px; /* Geniş ekranlarda içeriği ortalar */
+}
+
+/* Mobilde Navigasyonu Gizle/Düzenle (Opsiyonel) */
+@media (max-width: 768px) {
+    .nav-links span {
+        display: none;
+    }
+    /* Yazıları gizle sadece ikon kalsın */
+    .topbar-header {
+        padding: 0 16px;
+    }
+}
+:root {
+    /* Yazı Renklerini Açıyoruz */
+    --text-main: #FFFFFF; /* Beyaz */
+    --text-muted: #E4E4E7; /* Zinc-200 (Çok açık gri - Eskisi karanlıktı) */
+}
+
+/* Kart Başlıklarını Parlat */
+.card-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-main) !important; /* Artık Bembeyaz olacak */
+    opacity: 0.9;
+}
+
+/* Küçük açıklamaları parlat */
+.small, .text-muted {
+    color: var(--text-muted) !important;
+    opacity: 0.8;
+}
+
+/* Verimlilik Skoru altındaki sayıların hizalamasını ve rengini düzelt */
+.stats-footer {
+    display: flex;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    margin-top: 1rem;
+    padding-top: 1rem;
+}
+
+.stats-col {
+    flex: 1; /* Eşit genişlik */
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+    /* Ortadaki kutuya kenarlık ekle */
+    .stats-col.middle {
+        border-left: 1px solid rgba(255,255,255,0.1);
+        border-right: 1px solid rgba(255,255,255,0.1);
+    }
+/* Grafik Tooltip Stili */
+.chart-container-relative {
+    position: relative;
+    overflow: visible; /* Tooltip taşarsa kesilmesin */
+}
+
+.chart-tooltip {
+    position: absolute;
+    background: rgba(24, 24, 27, 0.95);
+    border: 1px solid var(--border-color);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    pointer-events: none; /* Mouse olaylarını engellemesin */
+    z-index: 100;
+    white-space: nowrap;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+    transform: translate(-50%, -100%); /* Tam ortalayıp yukarı alır */
+    margin-top: -10px;
+    transition: all 0.1s ease;
+}
+
+/* DÜZELTİLMİŞ HALİ */
+.chart-dot {
+    cursor: pointer;
+    transition: transform 0.2s; /* Transform kullanıyoruz */
+    transform-origin: center; /* Merkezden büyüsün */
+    transform-box: fill-box; /* SVG kutusuna göre hizala */
+}
+
+    .chart-dot:hover {
+        transform: scale(1.5); /* Yarıçapı (r) değiştirmek yerine büyütme efekti */
+        stroke: white;
+        stroke-width: 2px;
     }
 
-/* User */
-.user-profile {
-    font-size: 1.2rem;
-    color: var(--text-secondary);
+/* Donut dilimleri için hover efekti */
+.donut-segment {
+    transition: stroke-width 0.2s;
     cursor: pointer;
 }
 
-    .user-profile:hover {
-        color: var(--text-primary);
-    }
-
-/* Content */
-.content-area {
-    flex: 1;
-    overflow-y: auto;
-    padding: var(--space-xl);
-}
-
-/* =========================================
-   COMPONENTS
-   ========================================= */
-
-/* ---------- Card ---------- */
-.st-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: var(--space-lg);
-    transition: border-color 0.2s ease, background 0.2s ease;
-}
-    .st-card:hover {
-        border-color: var(--accent);
-        background: linear-gradient( 180deg, rgba(56,189,248,0.03), transparent );
-    }
-/* ---------- Page Title ---------- */
-.page-title h1 {
-    margin: 0;
-    font-size: 2rem;
-    font-weight: 700;
-}
-
-.page-title p {
-    margin-top: var(--space-xs);
-    color: var(--text-secondary);
-}
-
-/* ---------- Buttons ---------- */
-.btn-primary {
-    background: var(--accent);
-    color: var(--accent-contrast);
-    padding: 10px 18px;
-    border-radius: var(--radius-md);
-    font-weight: 600;
-    transition: opacity 0.15s ease;
-}
-
-    .btn-primary:hover {
+    .donut-segment:hover {
+        stroke-width: 16; /* Üzerine gelince kalınlaşsın */
         opacity: 0.9;
     }
 
-.btn-secondary {
-    border: 1px solid var(--border);
-    padding: 10px 18px;
-    border-radius: var(--radius-md);
-    color: var(--text-secondary);
-    transition: background 0.15s ease, color 0.15s ease;
+/* ========================
+   LESSONS PAGE STYLES
+   ======================== */
+
+/* Grid Yapısı */
+.lessons-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
 }
 
-    .btn-secondary:hover {
-        background: rgba(255,255,255,0.04);
-        color: var(--text-primary);
+/* Ders Kartı */
+.lesson-card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+}
+
+    .lesson-card:hover {
+        transform: translateY(-2px);
+        border-color: var(--border-highlight);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
     }
 
-/* Button icon */
-.btn-icon {
-    margin-right: var(--space-xs);
-    display: inline-flex;
+.lesson-color-bar {
+    height: 6px;
+    width: 100%;
+}
+
+.lesson-card-body {
+    padding: 1.25rem;
+}
+
+.lesson-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
     align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
 }
 
-/* ---------- Stat Card ---------- */
-.stat-card {
+.lesson-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-main);
+    margin: 0;
+}
+
+.badge-soft {
+    background-color: var(--bg-card-hover);
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+/* Boş Durum */
+.empty-state {
     display: flex;
     flex-direction: column;
-    gap: var(--space-xs);
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 1rem;
+    text-align: center;
+    color: var(--text-muted);
 }
 
-.stat-value {
-    font-size: 1.6rem;
-    font-weight: 700;
+.empty-icon {
+    font-size: 3rem;
+    opacity: 0.3;
+    margin-bottom: 1rem;
 }
 
-.stat-label {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
+/* MODAL & FORM STİLLERİ */
+.custom-modal {
+    background-color: #18181b; /* Zinc-900 */
+    border: 1px solid var(--border-color);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
 }
 
-/* ---------- List Card ---------- */
-.list-card {
+.custom-input {
+    background-color: #27272a;
+    border: 1px solid var(--border-color);
+    color: white;
+}
+
+    .custom-input:focus {
+        background-color: #27272a;
+        border-color: var(--accent-blue);
+        color: white;
+        box-shadow: none;
+    }
+
+/* Kategori Seçim Butonları */
+.category-select-btn {
+    flex: 1;
+    background-color: #27272a;
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    padding: 10px;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+    .category-select-btn:hover {
+        background-color: rgba(255,255,255,0.05);
+    }
+
+    .category-select-btn.active {
+        background-color: rgba(59, 130, 246, 0.15);
+        border-color: #3b82f6;
+        color: #3b82f6;
+    }
+
+/* Renk Paleti */
+.color-palette {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.color-circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s;
+}
+
+    .color-circle:hover {
+        transform: scale(1.1);
+    }
+
+    .color-circle.selected {
+        transform: scale(1.1);
+        box-shadow: 0 0 0 2px #18181b, 0 0 0 4px white;
+    }
+
+.btn-primary {
+    background-color: #3b82f6;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+    .btn-primary:hover {
+        background-color: #2563eb;
+    }
+
+/* --- 1. GRADIENT RENK ÇUBUĞU --- */
+.lesson-color-bar {
+    height: 6px;
+    width: 100%;
+    /* Varsayılan bir renk, inline style ile ezilecek */
+    background-color: var(--accent-blue);
+    /* Parlama efekti ve yumuşak geçiş */
+    box-shadow: 0 1px 10px rgba(0,0,0,0.1);
+}
+
+/* --- 2. ŞIK ÜÇ NOKTA BUTONU --- */
+.btn-icon-sm {
+    background: transparent;
+    border: none;
+    color: var(--text-muted); /* Soluk gri */
+    width: 32px;
+    height: 32px;
+    border-radius: 50%; /* Tam yuvarlak */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+}
+
+    /* Dropdown oku gizle (Bootstrap varsayılanını kapat) */
+    .btn-icon-sm::after {
+        display: none !important;
+    }
+
+    /* Hover Efekti: Hafif beyazlık ve ikon parlaması */
+    .btn-icon-sm:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+        color: white;
+        transform: scale(1.1);
+    }
+
+    .btn-icon-sm:active {
+        transform: scale(0.95);
+    }
+
+/* --- 3. BLUR EFEKTLİ DELETE MODAL --- */
+.blur-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6); /* Yarı saydam siyah */
+    backdrop-filter: blur(8px); /* ARKA PLANI BULANIKLAŞTIRIR */
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 1050;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.delete-modal-content {
+    background-color: #18181b; /* Zinc-900 */
+    border: 1px solid rgba(239, 68, 68, 0.3); /* Hafif kırmızı çerçeve */
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    border-radius: 16px;
+    padding: 24px;
+    text-align: center;
+    max-width: 360px;
+    width: 90%;
+}
+
+.delete-icon-circle {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background-color: rgba(239, 68, 68, 0.1); /* Kırmızı tint */
+    color: #ef4444;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    margin: 0 auto 1rem auto;
+}
+
+.btn-delete-confirm {
+    background-color: #ef4444;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+    .btn-delete-confirm:hover {
+        background-color: #dc2626;
+        box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+    }
+
+.btn-delete-cancel {
+    background-color: transparent;
+    color: #a1a1aa;
+    border: 1px solid #3f3f46;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+    .btn-delete-cancel:hover {
+        background-color: #27272a;
+        color: white;
+    }
+
+/* --- WORKSPACE / FOCUS ROOM TASARIMI --- */
+
+/* 1. ANA KAPLAYICI */
+.workspace-container {
+    height: calc(100vh - 60px); /* Üst menü payı */
     display: flex;
     flex-direction: column;
-    gap: var(--space-md);
+    padding: 20px;
+    background-color: #09090b; /* Çok koyu siyah */
+    color: white;
+    overflow: hidden; /* Sayfa kaymasın */
 }
 
-.list-card-header {
+/* 2. HEADER */
+.ws-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 20px;
+}
+
+.btn-back {
+    color: #a1a1aa;
+    text-decoration: none;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: color 0.2s;
+}
+
+    .btn-back:hover {
+        color: white;
+    }
+
+/* 3. IZGARA SİSTEMİ (GRID FIX) */
+.ws-grid {
+    display: grid;
+    /* Sol: 300px, Orta: Esnek, Sağ: 300px */
+    grid-template-columns: 320px 1fr 320px;
+    gap: 20px;
+    flex: 1; /* Kalan yüksekliği doldur */
+    min-height: 0; /* İçerik taşmasını engellemek için önemli */
+}
+
+/* 4. KARTLAR (BACKGROUND FIX) */
+.ws-card {
+    background-color: #18181b; /* KART RENGİ (Zinc-900) */
+    border: 1px solid #27272a; /* Kenarlık */
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    height: 100%; /* Kart bulunduğu alanı doldursun */
+}
+
+.panel-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding-bottom: var(--space-sm);
-    border-bottom: 1px solid var(--border);
+    margin-bottom: 15px;
+    color: #a1a1aa;
+    border-bottom: 1px solid #27272a;
+    padding-bottom: 10px;
 }
 
-    .list-card-header h3 {
+    .panel-header h5 {
         margin: 0;
         font-size: 1rem;
         font-weight: 600;
     }
 
-/* =========================================
-   PAGES
-   ========================================= */
-
-/* ---------- Dashboard ---------- */
-.dashboard-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: var(--space-lg);
-    margin-bottom: var(--space-xl);
-}
-/* =========================================
-   DASHBOARD SECTIONS (SPACING FIX)
-   ========================================= */
-
-.dashboard-section {
-    margin-bottom: calc(var(--space-xl) + 8px);
-}
-
-/* ---------- Lists ---------- */
-.list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-sm);
-}
-
-.list-item {
-    padding: var(--space-md);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    color: var(--text-primary);
-    transition: background 0.15s ease, border-color 0.15s ease;
-}
-
-    .list-item:hover {
-        background: rgba(255,255,255,0.04);
-        border-color: var(--accent);
-    }
-
-/* ---------- Responsive ---------- */
-@media (max-width: 768px) {
-    .content-area {
-        padding: var(--space-lg);
-    }
-}
-/* =========================================
-   PRODUCTIVITY SCORE CARD
-   ========================================= */
-
-.productivity-card {
-    display: flex;
-    gap: var(--space-xl);
-    align-items: center;
-    padding: calc(var(--space-xl) + 4px);
-}
-
-.productivity-left {
-    flex-shrink: 0;
-}
-
-.productivity-right {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-sm);
-}
-
-/* Ring */
-.score-ring {
-    position: relative;
-    width: 120px;
-    height: 120px;
-}
-
-    .score-ring svg {
-        width: 120px;
-        height: 120px;
-        transform: rotate(-90deg);
-    }
-
-.ring-bg {
-    fill: none;
-    stroke: rgba(255,255,255,0.08);
-    stroke-width: 10;
-}
-
-.ring-progress {
-    fill: none;
-    stroke: var(--accent);
-    stroke-width: 10;
-    stroke-linecap: round;
-    transition: stroke-dashoffset 0.6s ease;
-}
-
-/* Score value */
-.score-value {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.score-number {
-    font-size: 2rem;
-    font-weight: 800;
-}
-
-/* Text */
-.score-title {
-    font-size: 1.2rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-}
-
-.score-status {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-}
-
-.status-text {
-    font-size: 1.4rem;
-    font-weight: 700;
-    color: #fb923c; /* Good = amber */
-}
-
-.status-trend {
-    font-size: 0.9rem;
-    color: #22c55e;
-}
-
-.score-quote {
-    margin: var(--space-sm) 0 0;
-    font-style: italic;
-    color: var(--text-muted);
-    max-width: 420px;
-}
-/* =========================================
-   WORKSPACE CARD
-   ========================================= */
-
-.workspace-card {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-md);
-    cursor: pointer;
-}
-
-/* Header */
-.workspace-header {
-    display: flex;
-    align-items: center;
-    gap: var(--space-md);
-}
-
-.workspace-icon {
-    width: 42px;
-    height: 42px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.2rem;
-}
-
-.workspace-title {
+/* 5. GÖREV LİSTESİ */
+.task-list-scroll {
+    overflow-y: auto;
     flex: 1;
-    display: flex;
-    flex-direction: column;
+    padding-right: 5px;
 }
-
-.workspace-percent {
-    font-weight: 700;
-}
-
-/* Progress */
-.workspace-progress {
-    height: 8px;
-    background: rgba(255,255,255,0.08);
-    border-radius: 999px;
-    overflow: hidden;
-}
-
-.workspace-progress-fill {
-    height: 100%;
-    border-radius: 999px;
-    transition: width 0.4s ease;
-}
-
-/* Stats */
-.workspace-stats {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    text-align: center;
-}
-
-    .workspace-stats strong {
-        font-size: 1.2rem;
-        display: block;
+    /* Scrollbar Güzelleştirme */
+    .task-list-scroll::-webkit-scrollbar {
+        width: 6px;
     }
 
-/* Time */
-.workspace-time {
-    display: flex;
-    justify-content: space-between;
-    padding-top: var(--space-sm);
-    border-top: 1px solid var(--border);
-}
-/* =========================================
-   TIME TRACKING
-   ========================================= */
+    .task-list-scroll::-webkit-scrollbar-thumb {
+        background-color: #3f3f46;
+        border-radius: 10px;
+    }
 
-.time-tracking-card {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-lg);
-}
-
-/* Header */
-.time-header {
+.ws-task-item {
+    background-color: #27272a;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 10px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    border-left: 3px solid transparent; /* Sol çizgi */
+    transition: all 0.2s;
 }
 
-.time-title {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-    font-size: 1.1rem;
-}
-
-.time-tabs {
-    display: flex;
-    background: rgba(255,255,255,0.05);
-    border-radius: 999px;
-    padding: 4px;
-}
-
-.time-tab {
-    padding: 6px 14px;
-    border-radius: 999px;
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-}
-
-    .time-tab.active {
-        background: var(--bg-card);
-        color: var(--text-primary);
+    .ws-task-item:hover {
+        background-color: #3f3f46;
     }
 
-/* Charts */
-.chart-placeholder {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-sm);
+    .ws-task-item.active-task {
+        background-color: #2e2e33;
+        border-left-color: var(--accent-color, #3b82f6);
+    }
+
+.btn-play-task {
+    background: none;
+    border: none;
+    color: #a1a1aa;
+    cursor: pointer;
+    font-size: 1.2rem;
 }
 
-.line-chart {
+    .btn-play-task:hover {
+        color: white;
+        transform: scale(1.1);
+    }
+
+/* 6. TIMER (ORTA PANEL) */
+.timer-panel {
+    background: radial-gradient(circle at center, #27272a 0%, #18181b 70%);
+    justify-content: center; /* Dikey ortala */
+}
+
+.timer-circle-wrapper {
+    position: relative;
+    width: 250px;
+    height: 250px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 20px 0;
+}
+
+.timer-svg {
     width: 100%;
-    height: 200px;
-}
-
-.chart-labels {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.75rem;
-    color: var(--text-muted);
-}
-
-/* Donut */
-.donut-layout {
-    display: flex;
-    align-items: center;
-    gap: var(--space-xl);
-}
-
-.donut-chart {
-    width: 160px;
-    height: 160px;
+    height: 100%;
     transform: rotate(-90deg);
 }
 
-.donut-legend div {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-    margin-bottom: var(--space-sm);
+.timer-bg-ring {
+    fill: none;
+    stroke: #27272a;
+    stroke-width: 8;
 }
 
-.donut-legend span {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-}
-/* =========================================
-   FAKE CHARTS (TEMP)
-   ========================================= */
-
-.fake-chart {
-    width: 100%;
-    height: 200px;
-    border-radius: var(--radius-md);
-    background: linear-gradient( 180deg, rgba(56,189,248,0.25), rgba(56,189,248,0.05) );
-    position: relative;
+.timer-progress-ring {
+    fill: none;
+    stroke-width: 8;
+    stroke-linecap: round;
+    stroke-dasharray: 565;
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset 1s linear;
 }
 
-    .fake-chart.weekly {
-        background: linear-gradient( 180deg, rgba(34,197,94,0.25), rgba(34,197,94,0.05) );
+.timer-text {
+    position: absolute;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: white;
+    font-family: monospace;
+}
+
+.btn-timer-main {
+    border: none;
+    color: white;
+    padding: 12px 40px;
+    border-radius: 50px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 0 15px rgba(0,0,0,0.3);
+    transition: transform 0.1s;
+}
+
+    .btn-timer-main:active {
+        transform: scale(0.95);
     }
-/* Remove unwanted focus outlines (safe version) */
-:focus-visible {
-    outline: none;
+
+.btn-timer-secondary {
+    background: transparent;
+    border: 1px solid #52525b;
+    color: #a1a1aa;
+    padding: 10px 25px;
+    border-radius: 50px;
+    cursor: pointer;
 }
+
+    .btn-timer-secondary:hover {
+        border-color: #ef4444;
+        color: #ef4444;
+    }
+
+/* 7. NOTLAR (NOTES) */
+.ws-note-input {
+    background: #27272a; /* Input arka planı koyu olsun */
+    border: 1px solid #3f3f46;
+    color: white;
+    padding: 15px;
+    border-radius: 8px;
+    resize: none;
+    flex: 1; /* Alanı kapla */
+    font-size: 0.9rem;
+    line-height: 1.6;
+    width: 100%;
+}
+
+    .ws-note-input:focus {
+        outline: none;
+        border-color: #71717a;
+    }
+
+/* 8. MOBİL UYUM */
+@media (max-width: 992px) {
+    .workspace-container {
+        height: auto;
+        overflow-y: auto;
+    }
+
+    .ws-grid {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto;
+    }
+
+    .ws-card {
+        min-height: 300px;
+    }
+}
+/* Neon Glow Efekti */
+.neon-effect {
+    filter: drop-shadow(0 0 6px currentColor); /* Rengin kendisine göre parlar */
+    transition: stroke-dashoffset 1s linear, filter 0.3s;
+}
+
+/* Not butonları için stil */
+.btn-note-action {
+    font-size: 0.8rem;
+    padding: 4px 12px;
+    border-radius: 4px;
+    border: 1px solid #3f3f46;
+    background: transparent;
+    color: #a1a1aa;
+    transition: all 0.2s;
+}
+
+    .btn-note-action:hover {
+        color: white;
+        border-color: white;
+    }

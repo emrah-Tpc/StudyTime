@@ -1,7 +1,11 @@
 ﻿using Microsoft.Extensions.Logging;
+using Microsoft.Maui.Controls.Hosting;
+using Microsoft.Maui.Hosting;
+using Microsoft.Maui.Controls;
+using Microsoft.Maui.Devices; // DeviceInfo ve DevicePlatform için gerekli
+using Microsoft.Maui.Storage;
 using StudyTime.Application.Interfaces;
-using StudyTime.Application.Services;
-using StudyTime.DesktopClient.Services;
+using StudyTime.DesktopClient.Services; // Senin servislerin
 
 namespace StudyTime.DesktopClient
 {
@@ -25,7 +29,9 @@ namespace StudyTime.DesktopClient
             builder.Logging.AddDebug();
 #endif
 
-            // HTTP
+            // --- HTTP Client Ayarları ---
+            // Android emülatör için 10.0.2.2, Windows için localhost
+            // Not: DeviceInfo kullanabilmek için yukarıya 'using Microsoft.Maui.Devices;' ekledik.
             string baseUrl = DeviceInfo.Platform == DevicePlatform.Android
                 ? "https://10.0.2.2:7288"
                 : "https://localhost:7288";
@@ -34,6 +40,7 @@ namespace StudyTime.DesktopClient
             {
                 var handler = new HttpClientHandler
                 {
+                    // Geliştirme ortamında sertifika hatasını yoksay (SSL Bypass)
                     ServerCertificateCustomValidationCallback = (_, _, _, _) => true
                 };
 
@@ -43,13 +50,11 @@ namespace StudyTime.DesktopClient
                 };
             });
 
-            // API SERVICES (Repository implement edenler)
-        
+            // --- UI Servisleri ---
+            builder.Services.AddScoped<DashboardApiService>();
+            builder.Services.AddScoped<LessonApiService>();
 
-            // APPLICATION SERVICES
-            builder.Services.AddScoped<DashboardService>();
-
-            // UI SERVICES
+            // Eğer GlobalTimerService ve ThemeService sınıfların hazırsa bunları aç:
             builder.Services.AddSingleton<GlobalTimerService>();
             builder.Services.AddSingleton<ThemeService>();
 

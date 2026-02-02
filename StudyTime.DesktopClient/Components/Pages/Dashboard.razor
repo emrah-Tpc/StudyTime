@@ -1,34 +1,372 @@
 ﻿@page "/"
-@inject DashboardApiService DashboardApiService
 @using StudyTime.Application.DTOs.Dashboard
 @using StudyTime.DesktopClient.Services
+@using System.Globalization
+@using System.Text
+@inject DashboardApiService DashboardService
 
-<PageHeader Title="Hoş geldin 👋"
-            Subtitle="Bugünkü üretkenlik özetin ve aktif görevlerin." />
+<div class="dashboard-container fade-in">
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center align-items-center" style="height: 80vh;">
+            <div class="spinner-border text-primary"></div>
+        </div>
+    }
+    else if (summary != null)
+    {
+        <div class="header-section">
+            <div>
+                <h1 class="text-2xl fw-bold text-white m-0">Genel Bakış</h1>
+                <p class="text-white opacity-75 small m-0">@DateTime.Now.ToString("dd MMMM dddd", new CultureInfo("tr-TR"))</p>
+            </div>
 
-@if (_summary is null)
-{
-    <p class="muted">Yükleniyor...</p>
-}
-else
-{
-    <ProductivityCard Score="@_summary.ProductivityScore"
-                      StatusText="Good"
-                      TrendText="+12% from last week" />
+            <div class="header-actions align-items-center">
+                <button class="btn-outline"><i class="bi bi-plus-lg"></i> <span class="d-none d-md-inline">Yeni Alan</span></button>
+                <button class="btn-outline"><i class="bi bi-list-check"></i> <span class="d-none d-md-inline">Yeni Görev</span></button>
+            </div>
+        </div>
 
-    <div class="dashboard-grid">
-        <StatCard Value="@_summary.ActiveLessons" Label="Aktif Ders" Icon="📚" />
-        <StatCard Value="@_summary.PendingTasks" Label="Bekleyen Görev" Icon="⏳" />
-        <StatCard Value="@_summary.CompletedTasks" Label="Tamamlanan" Icon="✅" />
-        <StatCard Value="@_summary.TodayStudiedMinutes" Label="Bugün Süre (dk)" Icon="⏱" />
-    </div>
-}
+        <div class="stats-grid">
+            <div class="st-card stat-card-inner">
+                <div class="stat-label">Toplam Görev</div>
+                <div class="stat-value text-white">@summary.TotalTasks</div>
+                <div class="stat-trend @(summary.TasksCreatedThisWeek > 0 ? "up" : "text-white opacity-50")">
+                    @if (summary.TasksCreatedThisWeek > 0)
+                    {
+                        <i class="bi bi-arrow-up-short"></i>
+                    }
+                    <span>+@summary.TasksCreatedThisWeek bu hafta</span>
+                </div>
+                <div class="stat-icon-wrapper"><i class="bi bi-layers"></i></div>
+            </div>
+            <div class="st-card stat-card-inner">
+                <div class="stat-label">Tamamlanan</div>
+                <div class="stat-value text-white">@summary.CompletedTasks</div>
+                <div class="stat-trend up"><i class="bi bi-pie-chart"></i> %@summary.CompletionRate başarı</div>
+                <div class="stat-icon-wrapper"><i class="bi bi-check-circle"></i></div>
+            </div>
+            <div class="st-card stat-card-inner">
+                <div class="stat-label">Bekleyen</div>
+                <div class="stat-value text-white">@summary.PendingTasks</div>
+                <div class="stat-trend down"><i class="bi bi-hourglass"></i> Aktif</div>
+                <div class="stat-icon-wrapper"><i class="bi bi-clock"></i></div>
+            </div>
+            <div class="st-card stat-card-inner">
+                <div class="stat-label">Bugün</div>
+                <div class="stat-value text-white">@GetHours(summary.TodayStudiedMinutes)</div>
+                <div class="stat-trend up"><span>Veriler güncel</span></div>
+                <div class="stat-icon-wrapper"><i class="bi bi-hourglass-split"></i></div>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <div class="st-card">
+                <div class="card-header">
+                    <span class="card-title">Verimlilik Skoru</span>
+                    <i class="bi bi-graph-up text-success"></i>
+                </div>
+                <div class="prod-card-content">
+                    <div style="position:relative; width:140px; height:140px;">
+                        <svg width="140" height="140" style="transform: rotate(-90deg);">
+                            <circle cx="70" cy="70" r="58" fill="none" stroke="#27272a" stroke-width="12" />
+                            <circle cx="70" cy="70" r="58" fill="none" stroke="#3B82F6" stroke-width="12"
+                                    stroke-dasharray="364"
+                                    stroke-dashoffset="@((364 - (364 * summary.ProductivityScore / 100)).ToString(CultureInfo.InvariantCulture))"
+                                    stroke-linecap="round" />
+                        </svg>
+                        <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+                            <span class="fs-1 fw-bold text-white">@summary.ProductivityScore</span>
+                            <span class="text-white opacity-75" style="font-size:0.7rem;">/ 100</span>
+                        </div>
+                    </div>
+                    <div class="prod-text">
+                        <div class="prod-status">
+                            @(summary.ProductivityScore >= 80 ? "Mükemmel" : summary.ProductivityScore >= 50 ? "İyi Gidiyor" : "Gayret Gerek")
+                        </div>
+                        <div class="prod-quote text-white opacity-75">"Başarının sırrı, her gün atılan küçük adımlarda gizlidir."</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="st-card">
+                <div class="card-header">
+                    <span class="card-title"> <i class="bi bi-clock-history me-2 text-primary"></i> Time Tracking</span>
+
+                    <div class="tab-group">
+                        <button class="tab-btn @(selectedChart == "Daily" ? "active" : "")" @onclick='() => SetChart("Daily")'>Daily</button>
+                        <button class="tab-btn @(selectedChart == "Weekly" ? "active" : "")" @onclick='() => SetChart("Weekly")'>Weekly</button>
+                        <button class="tab-btn @(selectedChart == "Category" ? "active" : "")" @onclick='() => SetChart("Category")'>Category</button>
+                    </div>
+                </div>
+
+                <div class="chart-wrapper chart-container-relative d-flex align-items-center justify-content-center" style="padding-left: 10px;">
+
+                    @if (selectedChart == "Weekly" || selectedChart == "Daily")
+                    {
+                        @if (hoveredLineData != null)
+                        {
+                            <div class="chart-tooltip" style="left: @(hoveredLineData.X.ToString(CultureInfo.InvariantCulture))px; top: @(hoveredLineData.Y.ToString(CultureInfo.InvariantCulture))px;">
+                                <div class="fw-bold">@hoveredLineData.Label</div>
+                                <div>@GetHours(hoveredLineData.Value)</div>
+                            </div>
+                        }
+
+                        @if (summary.WeeklyChartData.Any())
+                        {
+                            <div style="width:100%; height: 220px; display:flex;">
+
+                                <div style="width: 30px; display:flex; flex-direction:column; justify-content:space-between; padding-bottom: 25px; color: #6b7280; font-size: 0.7rem; text-align:right; padding-right:5px;">
+                                    <span>@GetYAxisValue(4)</span>
+                                    <span>@GetYAxisValue(3)</span>
+                                    <span>@GetYAxisValue(2)</span>
+                                    <span>@GetYAxisValue(1)</span>
+                                    <span>0</span>
+                                </div>
+
+                                <div style="flex:1; position:relative;">
+                                    <svg viewBox="0 0 400 200" class="line-chart" style="overflow:visible; width:100%; height:100%;" preserveAspectRatio="none">
+
+                                        @for (int i = 0; i <= 4; i++)
+                                        {
+                                            double y = i * 50;
+                                            // Yatay çizgiler (Dashed)
+                                            <line x1="0" y1="@y" x2="400" y2="@y" stroke="#374151" stroke-width="1" stroke-dasharray="4 4" opacity="0.3" />
+                                        }
+                                        @foreach (var point in GetChartPoints())
+                                        {
+                                            // Dikey çizgiler (Opsiyonel, referans görselde dikeyler de silik var)
+                                            <line x1="@point.X.ToString(CultureInfo.InvariantCulture)" y1="0" x2="@point.X.ToString(CultureInfo.InvariantCulture)" y2="200" stroke="#374151" stroke-width="1" stroke-dasharray="4 4" opacity="0.1" />
+                                        }
+
+                                        <path d="@GetSmoothPath()"
+                                              fill="none"
+                                              stroke="#22d3ee"
+                                              stroke-width="3"
+                                              stroke-linecap="round"
+                                              class="chart-line-anim" />
+
+                                        <defs>
+                                            <linearGradient id="gradientFill" x1="0" x2="0" y1="0" y2="1">
+                                                <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.2" />
+                                                <stop offset="100%" stop-color="#22d3ee" stop-opacity="0" />
+                                            </linearGradient>
+                                        </defs>
+                                        @foreach (var point in GetChartPoints())
+                                        {
+                                            <circle cx="@point.X.ToString(CultureInfo.InvariantCulture)"
+                                                    cy="@point.Y.ToString(CultureInfo.InvariantCulture)"
+                                                    r="6"
+                                                    fill="transparent"
+                                                    stroke="transparent"
+                                                    class="chart-dot-trigger"
+                                                    @onmouseover="() => ShowLineTooltip(point)"
+                                                    @onmouseout="HideLineTooltip" />
+
+                                            if (hoveredLineData == point)
+                                            {
+                                                <circle cx="@point.X.ToString(CultureInfo.InvariantCulture)"
+                                                        cy="@point.Y.ToString(CultureInfo.InvariantCulture)"
+                                                        r="5" fill="#09090b" stroke="#22d3ee" stroke-width="2" />
+                                            }
+                                        }
+                                    </svg>
+
+                                    <div class="d-flex justify-content-between mt-2" style="margin-left: -10px; margin-right: -10px;">
+                                        @foreach (var item in summary.WeeklyChartData)
+                                        {
+                                            <div style="width: 14%; text-align: center;">
+                                                <span class="text-white opacity-50 small" style="font-size:0.7rem;">@item.Label</span>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center text-white opacity-50 w-100">Veri yok.</div>
+                        }
+                    }
+                    else if (selectedChart == "Category")
+                    {
+                        @if (hoveredDonutData != null)
+                        {
+                            <div class="position-absolute start-50 top-50 translate-middle text-center" style="pointer-events:none;">
+                                <div class="h4 fw-bold text-white m-0">@hoveredDonutData.Percent%</div>
+                                <div class="small text-white opacity-75">@hoveredDonutData.Label</div>
+                            </div>
+                        }
+
+                        @if (summary.CategoryChartData.Any())
+                        {
+                            <div style="width: 180px; height: 180px; position:relative;">
+                                <svg viewBox="0 0 120 120" class="donut-chart" style="transform: rotate(-90deg);">
+                                    @{
+                                        double currentOffset = 0;
+                                        double total = summary.CategoryChartData.Sum(x => x.Value);
+                                        if (total == 0) total = 1;
+                                    }
+                                    @foreach (var (item, index) in summary.CategoryChartData.Select((v, i) => (v, i)))
+                                    {
+                                        double circumference = 2 * Math.PI * 50;
+                                        double value = item.Value;
+                                        double strokeDashArray = (value / total) * circumference;
+                                        string color = GetColor(index);
+                                        <circle cx="60" cy="60" r="50" stroke="@color" stroke-width="12" fill="none" class="donut-segment"
+                                                stroke-dasharray="@($"{strokeDashArray.ToString(CultureInfo.InvariantCulture)} {circumference.ToString(CultureInfo.InvariantCulture)}")"
+                                                stroke-dashoffset="@((-currentOffset).ToString(CultureInfo.InvariantCulture))"
+                                                @onmouseover="() => ShowDonutTooltip(item, (int)((value / total) * 100))"
+                                                @onmouseout="HideDonutTooltip" />
+                                        currentOffset += strokeDashArray;
+                                    }
+                                </svg>
+                            </div>
+                            <div class="d-flex flex-column gap-2 ms-4">
+                                @foreach (var (item, index) in summary.CategoryChartData.Select((v, i) => (v, i)))
+                                {
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span style="width:8px; height:8px; border-radius:50%; background-color:@GetColor(index)"></span>
+                                        <span class="text-white small">@item.Label</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="bottom-grid">
+            <div class="st-card">
+                <div class="card-header">
+                    <span class="card-title">Çalışma Alanları</span>
+                    <a href="lessons" class="small text-primary text-decoration-none">Tümünü Gör</a>
+                </div>
+                @if (summary.Workspaces.Any())
+                {
+                    <div class="d-flex flex-column gap-2">
+                        @foreach (var ws in summary.Workspaces)
+                        {
+                            <div class="work-item">
+                                <div class="work-header">
+                                    <div class="work-info">
+                                        <div class="work-dot" style="background-color: @ws.Color;"></div>
+                                        <span class="work-name text-white">@ws.Name</span>
+                                    </div>
+                                    <span class="small text-white opacity-75">@ws.ProgressPercent%</span>
+                                </div>
+                                <div class="progress-bar-bg">
+                                    <div class="progress-bar-fill" style="width: @ws.ProgressPercent%; background-color: @ws.Color;"></div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+            <div class="st-card">
+                <div class="card-header">
+                    <span class="card-title">Son Aktiviteler</span>
+                    <a href="tasks" class="small text-primary text-decoration-none">Tümünü Gör</a>
+                </div>
+                <div class="text-white opacity-50 small text-center py-3">Henüz aktivite yok.</div>
+            </div>
+        </div>
+    }
+</div>
 
 @code {
-    private DashboardSummaryDto? _summary;
+    private DashboardSummaryDto? summary;
+    private bool isLoading = true;
+    private string selectedChart = "Weekly";
+    private ChartPoint? hoveredLineData;
+    private DonutTooltipData? hoveredDonutData;
 
     protected override async Task OnInitializedAsync()
     {
-        _summary = await DashboardApiService.GetSummaryAsync();
+        try { summary = await DashboardService.GetSummaryAsync(); }
+        catch { }
+        finally { isLoading = false; }
+    }
+
+    // TAB DEĞİŞTİRME
+    private void SetChart(string chartType) => selectedChart = chartType;
+
+    // Y EKSENİ ETİKETLERİ (Dinamik)
+    private string GetYAxisValue(int step)
+    {
+        if (summary?.WeeklyChartData == null || !summary.WeeklyChartData.Any()) return "0";
+        int max = summary.WeeklyChartData.Max(d => d.Value);
+        if (max == 0) max = 10;
+        // Max değeri 4 parçaya bölüyoruz (12, 9, 6, 3 gibi)
+        int val = (int)(max * ((double)step / 4));
+        return GetHoursSimple(val);
+    }
+
+    private string GetHoursSimple(int minutes) => minutes < 60 ? minutes.ToString() : (minutes / 60).ToString();
+    private string GetHours(int minutes) => minutes < 60 ? $"{minutes}dk" : $"{Math.Round(minutes / 60.0, 1)}s";
+
+    // RENK PALETİ
+    private string GetColor(int index) => new[] { "#3b82f6", "#10b981", "#ec4899", "#f59e0b", "#8b5cf6" }[index % 5];
+
+    // CHART MODELLERİ
+    private class ChartPoint { public double X { get; set; } public double Y { get; set; } public string Label { get; set; } = ""; public int Value { get; set; } }
+    private class DonutTooltipData { public string Label { get; set; } = ""; public int Percent { get; set; } }
+
+    private void ShowLineTooltip(ChartPoint point) => hoveredLineData = point;
+    private void HideLineTooltip() => hoveredLineData = null;
+    private void ShowDonutTooltip(ChartDataDto item, int percent) => hoveredDonutData = new DonutTooltipData { Label = item.Label, Percent = percent };
+    private void HideDonutTooltip() => hoveredDonutData = null;
+
+    // --- YUMUŞAK EĞRİ OLUŞTURMA ALGORİTMASI (BEZIER CURVE) ---
+    private string GetSmoothPath()
+    {
+        var points = GetChartPoints();
+        if (points.Count == 0) return "";
+        if (points.Count == 1) return $"M {points[0].X.ToString(CultureInfo.InvariantCulture)} {points[0].Y.ToString(CultureInfo.InvariantCulture)}";
+
+        StringBuilder path = new StringBuilder();
+        // Başlangıç noktası "Move To"
+        path.Append($"M {points[0].X.ToString(CultureInfo.InvariantCulture)} {points[0].Y.ToString(CultureInfo.InvariantCulture)}");
+
+        // Her nokta çifti arasına Bezier eğrisi ekliyoruz
+        for (int i = 0; i < points.Count - 1; i++)
+        {
+            var p0 = (i > 0) ? points[i - 1] : points[i];
+            var p1 = points[i];
+            var p2 = points[i + 1];
+            var p3 = (i < points.Count - 2) ? points[i + 2] : p2;
+
+            // Kontrol noktaları hesaplama (Catmull-Rom to Cubic Bezier)
+            double cp1x = p1.X + (p2.X - p0.X) / 6;
+            double cp1y = p1.Y + (p2.Y - p0.Y) / 6;
+            double cp2x = p2.X - (p3.X - p1.X) / 6;
+            double cp2y = p2.Y - (p3.Y - p1.Y) / 6;
+
+            path.Append($" C {cp1x.ToString(CultureInfo.InvariantCulture)} {cp1y.ToString(CultureInfo.InvariantCulture)}, {cp2x.ToString(CultureInfo.InvariantCulture)} {cp2y.ToString(CultureInfo.InvariantCulture)}, {p2.X.ToString(CultureInfo.InvariantCulture)} {p2.Y.ToString(CultureInfo.InvariantCulture)}");
+        }
+
+        return path.ToString();
+    }
+
+    private List<ChartPoint> GetChartPoints()
+    {
+        if (summary?.WeeklyChartData == null || !summary.WeeklyChartData.Any()) return new();
+        var data = summary.WeeklyChartData;
+        var points = new List<ChartPoint>();
+
+        double width = 400; double height = 200; double padding = 0;
+        double maxValue = data.Max(d => d.Value);
+        // Tavanı biraz yüksek tutalım ki grafik tepeye yapışmasın
+        if (maxValue == 0) maxValue = 100; else maxValue = maxValue * 1.2;
+
+        double xStep = width / (data.Count - 1);
+
+        for (int i = 0; i < data.Count; i++)
+        {
+            double x = i * xStep;
+            double y = height - ((data[i].Value / maxValue) * height);
+            points.Add(new ChartPoint { X = x, Y = y, Label = data[i].Label, Value = data[i].Value });
+        }
+        return points;
     }
 }

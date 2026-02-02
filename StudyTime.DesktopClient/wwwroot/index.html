@@ -8,10 +8,16 @@
     <title>StudyTime</title>
     <base href="/" />
 
-    <!-- DESIGN SYSTEM -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
     <link rel="stylesheet" href="css/app.css" />
 
-    <!-- MAUI Blazor styles -->
     <link rel="stylesheet" href="StudyTime.DesktopClient.styles.css" />
 
     <link rel="icon" href="data:,">
@@ -19,16 +25,17 @@
 
 <body>
 
-    <!-- Safe area (Android / iOS) -->
     <div class="status-bar-safe-area"></div>
 
-    <!-- APP ROOT -->
     <div id="app">
-
-        <!-- =========================
-             LOADING SCREEN
-             ========================= -->
         <style>
+            /* Loading ekranı değişkenleri app.css yüklenene kadar manuel tanımlıyoruz */
+            :root {
+                --bg-app-loading: #09090b;
+                --accent-loading: #3B82F6;
+                --text-loading: #FAFAFA;
+            }
+
             .app-loading {
                 position: fixed;
                 inset: 0;
@@ -36,9 +43,9 @@
                 flex-direction: column;
                 justify-content: center;
                 align-items: center;
-                background: var(--bg-app);
-                color: var(--text-primary);
-                font-family: var(--font-main);
+                background: var(--bg-app-loading);
+                color: var(--text-loading);
+                font-family: 'Inter', sans-serif;
                 z-index: 9999;
                 user-select: none;
             }
@@ -47,17 +54,17 @@
                 width: 48px;
                 height: 48px;
                 border-radius: 50%;
-                border: 3px solid var(--border);
-                border-top-color: var(--accent);
+                border: 3px solid rgba(255,255,255,0.1);
+                border-top-color: var(--accent-loading);
                 animation: spin 1s linear infinite;
                 margin-bottom: 20px;
             }
 
             .loading-text {
                 font-size: 1rem;
-                font-weight: 600;
-                color: var(--text-secondary);
-                letter-spacing: 0.3px;
+                font-weight: 500;
+                letter-spacing: 0.5px;
+                opacity: 0.8;
                 animation: pulse 1.5s ease-in-out infinite;
             }
 
@@ -80,20 +87,13 @@
 
         <div class="app-loading">
             <div class="spinner"></div>
-            <div class="loading-text">StudyTime başlatılıyor…</div>
+            <div class="loading-text">StudyTime başlatılıyor...</div>
         </div>
-
     </div>
 
-    <!-- ERROR UI -->
-    <div id="blazor-error-ui">
-        An unhandled error has occurred.
-        <a href="" class="reload">Reload</a>
-        <a class="dismiss">🗙</a>
-    </div>
 
-    <!-- BLAZOR -->
     <script src="_framework/blazor.webview.js" autostart="false"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
 </body>
 </html>

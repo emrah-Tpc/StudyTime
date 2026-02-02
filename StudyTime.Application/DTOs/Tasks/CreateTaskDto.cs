@@ -1,4 +1,5 @@
-﻿namespace StudyTime.Application.DTOs.Tasks
+﻿using StudyTime.Domain.Enums;
+namespace StudyTime.Application.DTOs.Tasks
 {
     public sealed class CreateTaskDto
     {
@@ -7,7 +8,7 @@
         public DateTime? StartDate { get; set; }
         public DateTime? EndDate { get; set; }
         public string? Note { get; set; }
-
+        public Domain.Enums.TaskStatus Status { get; set; } = Domain.Enums.TaskStatus.Pending;
         // UI'dan dakika olarak gelecek, backend'de TimeSpan'a çevireceğiz
         public int? PlannedDurationMinutes { get; set; }
     }

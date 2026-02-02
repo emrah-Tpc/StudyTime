@@ -1,14 +1,16 @@
-﻿@using Microsoft.AspNetCore.Components
-@using Microsoft.AspNetCore.Components.Routing
-@using StudyTime.DesktopClient.Components.Layout
+﻿@using StudyTime.DesktopClient.Components.Layout
 
-<Router AppAssembly="@typeof(Routes).Assembly">
+<Router AppAssembly="@typeof(MauiProgram).Assembly">
     <Found Context="routeData">
-        <RouteView RouteData="@routeData"
-                   DefaultLayout="@typeof(MainLayout)" />
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
         <FocusOnNavigate RouteData="@routeData" Selector="h1" />
     </Found>
     <NotFound>
-        <h1>Page not found</h1>
+        <LayoutView Layout="@typeof(MainLayout)">
+            <div class="p-4 text-center">
+                <h1 class="text-danger">Sayfa Bulunamadı</h1>
+                <p>Aradığınız sayfa bu adreste yok.</p>
+            </div>
+        </LayoutView>
     </NotFound>
 </Router>

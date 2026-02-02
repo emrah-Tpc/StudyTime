@@ -3,19 +3,12 @@ using StudyTime.Application.DTOs.Dashboard;
 
 namespace StudyTime.DesktopClient.Services
 {
-    public class DashboardApiService
+    // 👇 Primary Constructor (Sınıf isminin yanına parantez açtık)
+    public class DashboardApiService(HttpClient http)
     {
-        private readonly HttpClient _http;
-
-        public DashboardApiService(HttpClient http)
-        {
-            _http = http;
-        }
-
         public async Task<DashboardSummaryDto?> GetSummaryAsync()
         {
-            return await _http.GetFromJsonAsync<DashboardSummaryDto>(
-                "/api/dashboard/summary");
+            return await http.GetFromJsonAsync<DashboardSummaryDto>("/api/dashboard/summary");
         }
     }
 }

@@ -5,51 +5,48 @@ using StudyTime.Infrastructure.Persistence;
 
 namespace StudyTime.Infrastructure.Repositories
 {
-    public class StudySessionRepository : IStudySessionRepository
+    public class StudySessionRepository(StudyTimeDbContext context) : IStudySessionRepository
     {
-        private readonly StudyTimeDbContext _context;
-
-        public StudySessionRepository(StudyTimeDbContext context)
-        {
-            _context = context;
-        }
-
-        // ✅ Interface: AddAsync
         public async Task AddAsync(StudySession session)
         {
-            await _context.StudySessions.AddAsync(session);
-            await _context.SaveChangesAsync();
+            await context.StudySessions.AddAsync(session);
+            await context.SaveChangesAsync();
         }
 
-        // ✅ Interface: UpdateAsync
         public async Task UpdateAsync(StudySession studySession)
         {
-            _context.StudySessions.Update(studySession);
-            await _context.SaveChangesAsync();
+            context.StudySessions.Update(studySession);
+            await context.SaveChangesAsync();
         }
 
-        // ✅ Interface: GetActiveByLessonIdAsync
         public async Task<StudySession?> GetActiveByLessonIdAsync(Guid lessonId)
         {
-            return await _context.StudySessions
+            return await context.StudySessions
                 .Where(s => s.LessonId == lessonId && s.EndedAt == null)
                 .OrderByDescending(s => s.StartedAt)
                 .FirstOrDefaultAsync();
         }
+
         public async Task<List<StudySession>> GetByDateAsync(DateTime date)
         {
-            return await _context.StudySessions
-                .Where(s =>
-                    s.StartedAt != DateTime.MinValue &&
-                    s.StartedAt.Date == date)
+            return await context.StudySessions
+                .Where(s => s.StartedAt.Date == date.Date)
                 .AsNoTracking()
                 .ToListAsync();
         }
+
         public async Task<StudySession?> GetByIdAsync(Guid id)
         {
-            return await _context.StudySessions
+            return await context.StudySessions
                 .FirstOrDefaultAsync(s => s.Id == id);
         }
 
+        // Eklenen Metot:
+        public async Task<List<StudySession>> GetAllAsync()
+        {
+            return await context.StudySessions
+                .AsNoTracking()
+                .ToListAsync();
+        }
     }
 }

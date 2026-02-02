@@ -1,4 +1,5 @@
 ﻿using StudyTime.Application.DTOs.Lessons;
+using StudyTime.Application.DTOs.Tasks;
 using StudyTime.Application.Interfaces;
 using StudyTime.Domain.Entities;
 
@@ -7,10 +8,13 @@ namespace StudyTime.Application.Services
     public class LessonService
     {
         private readonly ILessonRepository _lessonRepository;
+        private readonly ITaskRepository _taskRepository; // 👇 EKLENDİ: Görevleri çekmek için gerekli
 
-        public LessonService(ILessonRepository lessonRepository)
+        // Constructor'a ITaskRepository eklendi
+        public LessonService(ILessonRepository lessonRepository, ITaskRepository taskRepository)
         {
             _lessonRepository = lessonRepository;
+            _taskRepository = taskRepository;
         }
 
         // CREATE
@@ -24,7 +28,6 @@ namespace StudyTime.Application.Services
         // READ (List)
         public async Task<List<LessonListItemDto>> GetAllAsync()
         {
-            // Repository zaten filtrelenmiş (silinmemiş) listeyi getirecek
             var lessons = await _lessonRepository.GetAllAsync();
 
             return lessons.Select(l => new LessonListItemDto
@@ -43,11 +46,37 @@ namespace StudyTime.Application.Services
             return await _lessonRepository.GetByIdAsync(id);
         }
 
+        // 👇 YENİ METOT: Workspace Sayfası İçin Detay Getir
+        public async Task<WorkspaceDetailDto?> GetWorkspaceDetailAsync(Guid lessonId)
+        {
+            // 1. Dersi Getir
+            var lesson = await _lessonRepository.GetByIdAsync(lessonId);
+            if (lesson == null) return null;
+
+            // 2. O derse ait görevleri getir
+            // (ITaskRepository içinde GetByLessonIdAsync olduğunu varsayıyoruz)
+            var tasks = await _taskRepository.GetByLessonIdAsync(lessonId);
+
+            // 3. DTO Oluştur ve Döndür
+            return new WorkspaceDetailDto
+            {
+                Id = lesson.Id,
+                Name = lesson.Name,
+                Color = lesson.Color,
+                // Task entity'lerini TaskListItemDto'ya çeviriyoruz
+                Tasks = tasks.Select(t => new TaskListItemDto
+                {
+                    Id = t.Id,
+                    Title = t.Title,
+                    IsCompleted = t.Status == Domain.Enums.TaskStatus.Completed
+                    // Eğer DTO'da başka alanlar varsa (Priority, DueDate vb.) buraya ekle
+                }).ToList()
+            };
+        }
+
         // UPDATE (Notes)
         public async Task UpdateNotesAsync(Guid lessonId, string notes)
         {
-          
-
             var lesson = await _lessonRepository.GetByIdAsync(lessonId);
             if (lesson != null)
             {
@@ -55,7 +84,7 @@ namespace StudyTime.Application.Services
                 await _lessonRepository.UpdateAsync(lesson);
             }
         }
-      
+
         // ARCHIVE
         public async Task ArchiveAsync(Guid id)
         {
@@ -78,16 +107,13 @@ namespace StudyTime.Application.Services
             }
         }
 
-        // 👇 DEĞİŞTİ: DELETE (Artık Soft Delete Yapıyor)
+        // DELETE (Soft Delete)
         public async Task DeleteAsync(Guid id)
         {
             var lesson = await _lessonRepository.GetByIdAsync(id);
             if (lesson != null)
             {
-                // Veritabanından silmek yerine, "Silindi" olarak işaretle
                 lesson.MarkAsDeleted();
-
-                // Durumu güncelle (UpdateAsync kullanıyoruz, DeleteAsync değil!)
                 await _lessonRepository.UpdateAsync(lesson);
             }
         }

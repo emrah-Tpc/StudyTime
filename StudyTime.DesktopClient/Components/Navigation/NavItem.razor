@@ -1,18 +1,32 @@
-﻿@using Microsoft.AspNetCore.Components.Routing
+﻿<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand d-flex align-items-center gap-2" href="">
+            <i class="bi bi-stopwatch-fill text-primary"></i> StudyTime
+        </a>
+    </div>
+</div>
 
-<NavLink href="@Href"
-         class="nav-link"
-         Match="@Match">
-    @ChildContent
-</NavLink>
-
-@code {
-    [Parameter, EditorRequired]
-    public string Href { get; set; } = default!;
-
-    [Parameter]
-    public NavLinkMatch Match { get; set; } = NavLinkMatch.Prefix;
-
-    [Parameter, EditorRequired]
-    public RenderFragment ChildContent { get; set; } = default!;
-}
+<div class="nav-scrollable">
+    <nav class="flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="bi bi-grid-fill me-2"></span> Dashboard
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="lessons">
+                <span class="bi bi-book-half me-2"></span> Dersler
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="tasks">
+                <span class="bi bi-list-check me-2"></span> Görevler
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="statistics">
+                <span class="bi bi-bar-chart-line-fill me-2"></span> İstatistik
+            </NavLink>
+        </div>
+    </nav>
+</div>

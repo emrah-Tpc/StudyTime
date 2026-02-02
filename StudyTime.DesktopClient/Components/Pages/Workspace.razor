@@ -1,0 +1,273 @@
+﻿@page "/workspace/{Id:guid}"
+@using StudyTime.Application.DTOs.Lessons
+@using StudyTime.Application.DTOs.Tasks
+@using StudyTime.DesktopClient.Services
+@using StudyTime.Domain.Enums
+
+@inject LessonApiService LessonService
+
+<div class="workspace-container fade-in">
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center align-items-center h-100">
+            <div class="spinner-border text-primary"></div>
+        </div>
+    }
+    else if (workspace != null)
+    {
+        <div class="ws-header mb-4">
+            <a href="lessons" class="btn-back"><i class="bi bi-arrow-left"></i> Geri</a>
+            <h2 class="m-0 fw-bold" style="color: @workspace.Color">@workspace.Name</h2>
+            <span class="badge-soft text-muted">Çalışma Odası</span>
+        </div>
+
+        <div class="ws-grid">
+
+            <div class="ws-card task-panel">
+                <div class="panel-header">
+                    <h5>Görevler</h5>
+                    <button class="btn-icon-xs" @onclick="() => showAddTask = !showAddTask">
+                        <i class="bi @(showAddTask ? "bi-x-lg" : "bi-plus-lg")"></i>
+                    </button>
+                </div>
+
+                @if (showAddTask)
+                {
+                    <div class="mb-3 fade-in">
+                        <input type="text" class="form-control custom-input mb-2"
+                               placeholder="Görev adı..."
+                               @bind="newTaskTitle"
+                               @onkeyup="@(e => { if (e.Key == "Enter") AddNewTask(); })" />
+                        <button class="btn btn-sm btn-primary w-100" @onclick="AddNewTask">Ekle</button>
+                    </div>
+                }
+
+                <div class="task-list-scroll">
+                    @if (workspace.Tasks.Any())
+                    {
+                        @foreach (var task in workspace.Tasks)
+                        {
+                            <div class="ws-task-item @(activeTaskId == task.Id ? "active-task" : "")"
+                                 style="--accent-color: @workspace.Color">
+
+                                <div class="d-flex align-items-center gap-2">
+                                    <input type="checkbox" class="form-check-input custom-check" checked="@task.IsCompleted" disabled />
+                                    <span class="@(task.IsCompleted ? "text-decoration-line-through text-muted" : "text-white")">
+                                        @task.Title
+                                    </span>
+                                </div>
+
+                                <button class="btn-play-task" @onclick="() => SelectTask(task.Id)">
+                                    @if (activeTaskId == task.Id && isTimerRunning)
+                                    {
+                                        <i class="bi bi-pause-fill"></i>
+                                    }
+                                    else
+                                    {
+
+                                        <i class="bi bi-play-fill"></i>
+                                    }
+                                </button>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted py-4 small">Henüz görev yok.</div>
+                    }
+                </div>
+            </div>
+
+            <div class="ws-card timer-panel d-flex flex-column align-items-center justify-content-center">
+                <div class="current-task-display mb-4">
+                    @if (activeTaskId != null)
+                    {
+                        var t = workspace.Tasks.FirstOrDefault(x => x.Id == activeTaskId);
+                        <span class="text-muted small">Şu an çalışılıyor:</span>
+                        <div class="fw-bold text-white">@t?.Title</div>
+                    }
+                    else
+                    {
+                        <span class="text-muted small">Serbest Çalışma Modu</span>
+                    }
+                </div>
+
+                <div class="timer-circle-wrapper">
+                    <svg class="timer-svg" viewBox="0 0 200 200">
+                        <circle cx="100" cy="100" r="90" class="timer-bg-ring" />
+                        <circle cx="100" cy="100" r="90" class="timer-progress-ring neon-effect"
+                                style="stroke: @workspace.Color;
+                                           stroke-dasharray: 565;
+                                           stroke-dashoffset: @timerDashOffset;
+                                           color: @workspace.Color" />
+                    </svg>
+                    <div class="timer-text">
+                        @elapsedTime.ToString(@"hh\:mm\:ss")
+                    </div>
+                </div>
+
+                <div class="timer-controls mt-4 d-flex gap-3">
+                    @if (elapsedTime.TotalSeconds == 0)
+                    {
+                        <button class="btn-timer-main start" style="background-color: @workspace.Color" @onclick="StartTimer">
+                            <i class="bi bi-play-fill"></i> BAŞLA
+                        </button>
+                    }
+                    else if (!isTimerRunning)
+                    {
+                        <button class="btn-timer-main start" style="background-color: @workspace.Color" @onclick="StartTimer">
+                            <i class="bi bi-play-fill"></i> DEVAM ET
+                        </button>
+                        <button class="btn-timer-secondary stop" @onclick="StopTimer">BİTİR</button>
+                    }
+                    else
+                    {
+                        <button class="btn-timer-main pause" @onclick="PauseTimer">DURAKLAT</button>
+                        <button class="btn-timer-secondary stop" @onclick="StopTimer">BİTİR</button>
+                    }
+                </div>
+            </div>
+
+            <div class="ws-card notes-panel">
+                <div class="panel-header">
+                    <h5>Hızlı Notlar</h5>
+                    <div class="d-flex gap-2">
+                        <button class="btn-note-action" @onclick="SaveNotes" title="Kaydet"><i class="bi bi-save"></i></button>
+                        <button class="btn-note-action text-danger" @onclick="ClearNotes" title="Temizle"><i class="bi bi-trash"></i></button>
+                    </div>
+                </div>
+                <textarea class="ws-note-input" @bind="noteContent" placeholder="Notlarını al..."></textarea>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="d-flex flex-column justify-content-center align-items-center h-100 text-center">
+            <div class="text-muted mb-3" style="font-size: 3rem;"><i class="bi bi-exclamation-circle"></i></div>
+            <h3 class="text-white">Ders Bulunamadı</h3>
+            <a href="lessons" class="btn btn-outline-light mt-3">Geri Dön</a>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private WorkspaceDetailDto? workspace;
+    private bool isLoading = true;
+
+    // Timer Değişkenleri
+    private bool isTimerRunning = false;
+    private TimeSpan elapsedTime = TimeSpan.Zero;
+    private System.Timers.Timer? _timer;
+    private Guid? activeTaskId = null;
+
+    // Animasyon
+    private double timerDashOffset = 0;
+    private const double CIRCUMFERENCE = 565;
+
+    // Task Ekleme
+    private bool showAddTask = false;
+    private string newTaskTitle = "";
+
+    // Notlar
+    private string noteContent = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        workspace = await LessonService.GetWorkspaceDetailAsync(Id);
+        isLoading = false;
+    }
+
+    // --- TIMER ---
+    private void SelectTask(Guid taskId)
+    {
+        if (activeTaskId == taskId && isTimerRunning)
+            PauseTimer();
+        else
+        {
+            activeTaskId = taskId;
+            if (!isTimerRunning) StartTimer();
+        }
+    }
+
+    private void StartTimer()
+    {
+        if (_timer == null)
+        {
+            _timer = new System.Timers.Timer(1000);
+            _timer.Elapsed += (s, e) =>
+            {
+                elapsedTime = elapsedTime.Add(TimeSpan.FromSeconds(1));
+                CalculateProgress();
+                InvokeAsync(StateHasChanged);
+            };
+        }
+        _timer.Start();
+        isTimerRunning = true;
+    }
+
+    private void PauseTimer()
+    {
+        _timer?.Stop();
+        isTimerRunning = false;
+    }
+
+    private void StopTimer()
+    {
+        _timer?.Stop();
+        isTimerRunning = false;
+        elapsedTime = TimeSpan.Zero;
+        activeTaskId = null;
+        timerDashOffset = 0;
+    }
+
+    private void CalculateProgress()
+    {
+        double currentSecondInHour = elapsedTime.TotalSeconds % 3600;
+        double fraction = currentSecondInHour / 3600.0;
+        timerDashOffset = CIRCUMFERENCE * (1 - fraction);
+    }
+
+    // --- TASK EKLEME ---
+    private async Task AddNewTask()
+    {
+        if (string.IsNullOrWhiteSpace(newTaskTitle)) return;
+
+        var newTask = new CreateTaskDto
+        {
+            Title = newTaskTitle,
+            LessonId = Id,
+            // 👇 KRİTİK DÜZELTME: Tam yol (Full namespace) kullanımı
+            Status = StudyTime.Domain.Enums.TaskStatus.Pending
+        };
+
+        var success = await LessonService.CreateTaskAsync(newTask);
+        if (success)
+        {
+            newTaskTitle = "";
+            showAddTask = false;
+            await LoadData();
+        }
+    }
+
+    // --- NOTLAR ---
+    private async Task SaveNotes()
+    {
+        if (workspace == null) return;
+        // 👇 DÜZELTME: 'await' eklendi (Hata: Çağrı tamamlanmadan...)
+        await LessonService.UpdateNotesAsync(Id, noteContent);
+    }
+
+    private void ClearNotes()
+    {
+        noteContent = "";
+    }
+
+    public void Dispose() { _timer?.Dispose(); }
+}

@@ -1,58 +1,73 @@
-﻿using System.Net.Http.Json;
-using StudyTime.Application.DTOs.Lessons;
+﻿using StudyTime.Application.DTOs.Lessons;
+using StudyTime.Application.DTOs.Tasks;
+using System.Net.Http.Json;
 
 namespace StudyTime.DesktopClient.Services
 {
-    public class LessonApiService
+    public class LessonApiService(HttpClient http)
     {
-        private readonly HttpClient _httpClient;
-
-        public LessonApiService(HttpClient httpClient)
-        {
-            _httpClient = httpClient;
-        }
-
-        // Listeleme
+        // Tüm dersleri getir (LessonListItemDto döner)
         public async Task<List<LessonListItemDto>> GetAllAsync()
         {
-            return await _httpClient.GetFromJsonAsync<List<LessonListItemDto>>("api/lesson") ?? new();
-        }
-
-        // Oluşturma
-        public async Task CreateAsync(CreateLessonDto dto)
-        {
-            var response = await _httpClient.PostAsJsonAsync("api/lesson", dto);
-            if (!response.IsSuccessStatusCode)
+            try
             {
-                var error = await response.Content.ReadAsStringAsync();
-                throw new Exception($"Kayıt başarısız: {error}");
+                var result = await http.GetFromJsonAsync<List<LessonListItemDto>>("/api/lessons");
+                return result ?? new List<LessonListItemDto>();
+            }
+            catch
+            {
+                return new List<LessonListItemDto>();
             }
         }
 
-        // 👇 EKSİK OLAN METOTLAR BURADA:
-
-        // Arşivle
-        public async Task ArchiveAsync(Guid id)
+        // 👇 EKLENEN METOT: Workspace Sayfası için Detay Getir
+        public async Task<WorkspaceDetailDto?> GetWorkspaceDetailAsync(Guid id)
         {
-            var response = await _httpClient.PutAsync($"api/lesson/{id}/archive", null);
-            if (!response.IsSuccessStatusCode)
-                throw new Exception("Arşivleme işlemi başarısız oldu.");
+            try
+            {
+                return await http.GetFromJsonAsync<WorkspaceDetailDto>($"/api/lessons/{id}/workspace");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"API Hatası: {ex.Message}");
+                return null;
+            }
         }
 
-        // Geri Yükle
-        public async Task RestoreAsync(Guid id)
+        // Yeni ders oluştur
+        public async Task<string?> CreateAsync(CreateLessonDto lesson)
         {
-            var response = await _httpClient.PutAsync($"api/lesson/{id}/restore", null);
-            if (!response.IsSuccessStatusCode)
-                throw new Exception("Geri yükleme işlemi başarısız oldu.");
+            var response = await http.PostAsJsonAsync("/api/lessons", lesson);
+
+            if (response.IsSuccessStatusCode)
+            {
+                return null; // Başarılı, hata yok
+            }
+
+            var errorContent = await response.Content.ReadAsStringAsync();
+            return !string.IsNullOrWhiteSpace(errorContent) ? errorContent : response.ReasonPhrase;
         }
 
-        // Sil
-        public async Task DeleteAsync(Guid id)
+        // Ders Sil
+        public async Task<bool> DeleteAsync(Guid id)
         {
-            var response = await _httpClient.DeleteAsync($"api/lesson/{id}");
-            if (!response.IsSuccessStatusCode)
-                throw new Exception("Silme işlemi başarısız oldu.");
+            var response = await http.DeleteAsync($"/api/lessons/{id}");
+            return response.IsSuccessStatusCode;
+        }
+        // 1. Notları Güncelle
+        public async Task<bool> UpdateNotesAsync(Guid lessonId, string notes)
+        {
+            // Backend'de LessonController'da UpdateNotes endpoint'i olduğunu varsayıyoruz
+            // Eğer yoksa basitçe bir PUT isteği atacağız
+            var response = await http.PutAsJsonAsync($"/api/lessons/{lessonId}/notes", notes);
+            return response.IsSuccessStatusCode;
+        }
+
+        // 2. Hızlı Task Ekle
+        public async Task<bool> CreateTaskAsync(CreateTaskDto taskDto)
+        {
+            var response = await http.PostAsJsonAsync("/api/tasks", taskDto);
+            return response.IsSuccessStatusCode;
         }
     }
 }

@@ -21,12 +21,21 @@ namespace StudyTime.Infrastructure.Repositories
 
         public async Task<List<TaskItem>> GetAllAsync()
         {
-            // 🚀 OPTİMİZASYON
             return await context.Tasks
-                                .AsNoTracking()
-                                .Where(t => !t.IsDeleted)
-                                .OrderByDescending(t => t.Id)
-                                .ToListAsync();
+                .AsNoTracking()
+                .Where(t => !t.IsDeleted)
+                .OrderByDescending(t => t.Id)
+                .ToListAsync();
+        }
+
+        // 👇 DÜZELTİLEN METOT (Workspace Sayfası İçin)
+        public async Task<List<TaskItem>> GetByLessonIdAsync(Guid lessonId)
+        {
+            return await context.Tasks
+                .AsNoTracking() // Liste çekerken performans için önemli
+                .Where(t => t.LessonId == lessonId && !t.IsDeleted)
+                .OrderByDescending(t => t.StartDate) // En yeni görevler üstte
+                .ToListAsync();
         }
 
         public async Task UpdateAsync(TaskItem task)
@@ -48,7 +57,6 @@ namespace StudyTime.Infrastructure.Repositories
             int page,
             int pageSize)
         {
-            // 🚀 OPTİMİZASYON: AsNoTracking eklendi
             var query = context.Tasks.AsNoTracking().AsQueryable();
 
             query = query.Where(t => !t.IsDeleted);

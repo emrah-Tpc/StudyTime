@@ -1,11 +1,13 @@
 ﻿@inherits LayoutComponentBase
 
-<div class="app-layout">
+<div class="app-layout-container">
+    
+    <StudyTime.DesktopClient.Components.Navigation.TopBar /> 
 
-    <TopBar />
-
-    <main class="content-area">
-        @Body
+    <main class="main-content-scrollable">
+        <div class="content-wrapper">
+            @Body
+        </div>
     </main>
 
 </div>
