@@ -66,5 +66,13 @@ namespace StudyTime.Controllers
 
             return Ok(result);
         }
+
+        // 👇 YENİ: Not güncelleme endpoint'i
+        [HttpPut("{id}/notes")]
+        public async Task<IActionResult> UpdateNotes(Guid id, [FromBody] string notes)
+        {
+            await _lessonService.UpdateNotesAsync(id, notes);
+            return Ok(new { message = "Notes updated" });
+        }
     }
 }

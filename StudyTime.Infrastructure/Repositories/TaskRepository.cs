@@ -23,6 +23,7 @@ namespace StudyTime.Infrastructure.Repositories
         {
             return await context.Tasks
                 .AsNoTracking()
+                .Include(t => t.Lesson)
                 .Where(t => !t.IsDeleted)
                 .OrderByDescending(t => t.Id)
                 .ToListAsync();

@@ -85,35 +85,48 @@ namespace StudyTime.Application.Services
 
             // 4. GÜNLÜK GRAFİK (Gece, Sabah, Öğle, Akşam)
             var dailyChartData = new List<ChartDataDto>();
+            // Sadece bugüne ait, bitmiş veya devam eden oturumlar
             var todaysSessions = allSessions.Where(s => s.StartedAt.Date == today).ToList();
 
+            // 00-06 Gece, 06-12 Sabah, 12-18 Öğle, 18-24 Akşam
             dailyChartData.Add(new ChartDataDto { Label = "Gece", Value = todaysSessions.Where(s => s.StartedAt.Hour >= 0 && s.StartedAt.Hour < 6).Sum(s => (int)s.CurrentDuration.TotalMinutes) });
             dailyChartData.Add(new ChartDataDto { Label = "Sabah", Value = todaysSessions.Where(s => s.StartedAt.Hour >= 6 && s.StartedAt.Hour < 12).Sum(s => (int)s.CurrentDuration.TotalMinutes) });
             dailyChartData.Add(new ChartDataDto { Label = "Öğle", Value = todaysSessions.Where(s => s.StartedAt.Hour >= 12 && s.StartedAt.Hour < 18).Sum(s => (int)s.CurrentDuration.TotalMinutes) });
             dailyChartData.Add(new ChartDataDto { Label = "Akşam", Value = todaysSessions.Where(s => s.StartedAt.Hour >= 18 && s.StartedAt.Hour < 24).Sum(s => (int)s.CurrentDuration.TotalMinutes) });
 
-            // 5. KATEGORİ GRAFİĞİ (Gerçek renklerle, .Take kısıtlaması olmadan)
-            // 5. KATEGORİ GRAFİĞİ (Dersin kendi rengini dinamik olarak atıyoruz)
-            // 5. KATEGORİ GRAFİĞİ (Hata Giderilmiş Versiyon)
+            // 5. KATEGORİ GRAFİĞİ (Lesson.Type üzerinden gruplama)
             var categoryChartData = allSessions
-    .Where(s => s.LessonId != Guid.Empty)
-    .GroupBy(s => s.LessonId)
-    .Select(g =>
-    {
-        // 'lessons' listesini yukarıda çektiğimizden emin olmalıyız
-        var lesson = lessons.FirstOrDefault(l => l.Id == g.Key);
+                .Where(s => s.LessonId != Guid.Empty && s.Lesson != null)
+                .GroupBy(s => s.Lesson!.Type)
+                .Select(g =>
+                {
+                    // Enum adını Türkçe'ye çeviriyoruz
+                    var typeName = g.Key switch
+                    {
+                        LessonType.Academic => "Okul",
+                        LessonType.Personal => "Kişisel",
+                        LessonType.Work => "İş",
+                        _ => g.Key.ToString()
+                    };
+                    
+                    // Renk seçimi: Kategorideki ilk dersin rengini alabiliriz veya sabit bir palet kullanabiliriz.
+                    // Tutarlılık için o gruptaki en çok çalışılan dersin rengini alalım.
+                    var dominantLesson = g.GroupBy(x => x.LessonId)
+                                          .OrderByDescending(sub => sub.Sum(x => x.CurrentDuration.TotalMinutes))
+                                          .FirstOrDefault()?.FirstOrDefault()?.Lesson;
 
-        return new ChartDataDto
-        {
-            Label = lesson?.Name ?? "Diğer",
-            Value = (int)g.Sum(s => s.CurrentDuration.TotalMinutes),
-            // Buradaki Color artık ders oluştururken seçtiğin renktir
-            Color = lesson?.Color ?? "#6b7280"
-        };
-    })
-    .Where(x => x.Value > 0)
-    .OrderByDescending(x => x.Value)
-    .ToList();
+                    var color = dominantLesson?.Color ?? "#6b7280";
+
+                    return new ChartDataDto
+                    {
+                        Label = typeName,
+                        Value = (int)g.Sum(s => s.CurrentDuration.TotalMinutes),
+                        Color = color
+                    };
+                })
+                .Where(x => x.Value > 0)
+                .OrderByDescending(x => x.Value)
+                .ToList();
 
             // 6. SON AKTİVİTELER
             var recentActivities = tasks
@@ -128,7 +141,8 @@ namespace StudyTime.Application.Services
                     string colorClass = isCompleted ? "text-success" : (isPending ? "text-primary" : "text-warning");
                     string icon = isCompleted ? "bi-check-lg" : (isPending ? "bi-play-fill" : "bi-clock");
 
-                    var lessonName = lessons.FirstOrDefault(l => l.Id == t.LessonId)?.Name ?? "Genel";
+                    // Lesson property navigasyonu kullanımı
+                    var lessonName = t.Lesson?.Name ?? "Genel";
                     var dateRef = t.StartDate!.Value;
                     var timeSpan = DateTime.Now - dateRef;
 
@@ -138,6 +152,8 @@ namespace StudyTime.Application.Services
 
                     return new RecentActivityDto
                     {
+                        Id = t.Id,
+                        IsCompleted = isCompleted,
                         Title = t.Title,
                         Subtitle = $"{lessonName} • {timeAgo}",
                         StatusText = statusText,

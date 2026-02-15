@@ -6,6 +6,7 @@
 
 @inject LessonApiService LessonService
 @inject StudySessionApiService SessionApiService
+@inject TaskApiService TaskApiService
 
 <div class="workspace-container fade-in">
     @if (isLoading)
@@ -34,14 +35,37 @@
 
                 @if (showAddTask)
                 {
-                    <div class="mb-3 fade-in">
-                        <input type="text" class="form-control custom-input mb-2"
-                               placeholder="Görev adı..."
-                               @bind="newTaskTitle"
-                               @onkeyup="@(async e => { if (e.Key == "Enter") await AddNewTask(); })" />
+                    <div class="task-creation-form mb-3 fade-in p-3" style="background: rgba(255,255,255,0.05); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
+                        <div class="mb-2">
+                            <label class="text-white small mb-1 opacity-75">Görev Adı</label>
+                            <input type="text" class="form-control custom-input" placeholder="Örn: Matematik çalış..." @bind="newTask.Title" />
+                        </div>
+                        
+                        <div class="row g-2 mb-2">
+                             <div class="col-6">
+                                <label class="text-white small mb-1 opacity-75">Başlangıç</label>
+                                <input type="datetime-local" class="form-control custom-input" @bind="newTask.StartDate" />
+                             </div>
+                             <div class="col-6">
+                                <label class="text-white small mb-1 opacity-75">Bitiş</label>
+                                <input type="datetime-local" class="form-control custom-input" @bind="newTask.EndDate" />
+                             </div>
+                        </div>
 
-                        <button class="btn-add-task w-100" @onclick="AddNewTask">
-                            <i class="bi bi-plus-lg me-2"></i> GÖREVİ EKLE
+                        <div class="mb-2">
+                             <label class="text-white small mb-1 opacity-75">Tahmini Süre (Dk)</label>
+                             <input type="number" class="form-control custom-input" placeholder="45" @bind="newTask.PlannedDurationMinutes" />
+                        </div>
+
+                        <div class="mb-3">
+                             <label class="text-white small mb-1 opacity-75">Not</label>
+                             <textarea class="form-control custom-input" rows="2" placeholder="Detaylar..." @bind="newTask.Note"></textarea>
+                        </div>
+
+                        <button class="btn-add-task w-100 py-2 fw-bold" 
+                                style="background: linear-gradient(135deg, @workspace.Color, #3b82f6); border:none; border-radius:8px; color:white;"
+                                @onclick="AddNewTask">
+                            <i class="bi bi-plus-circle-fill me-2"></i> GÖREVİ OLUŞTUR
                         </button>
                     </div>
                 }
@@ -49,29 +73,50 @@
                 <div class="task-list-scroll">
                     @if (workspace.Tasks.Any())
                     {
-                        @foreach (var task in workspace.Tasks)
+                        var visibleTasks = workspace.Tasks.Where(t => !t.IsCompleted).ToList();
+                        
+                        @if (visibleTasks.Any()) 
                         {
-                            <div class="ws-task-item @(activeTaskId == task.Id ? "active-task" : "")"
-                                 style="--accent-color: @workspace.Color">
-
-                                <div class="d-flex align-items-center gap-2">
-                                    <input type="checkbox" class="form-check-input custom-check" checked="@task.IsCompleted" disabled />
-                                    <span class="@(task.IsCompleted ? "text-decoration-line-through text-muted" : "text-white")">
-                                        @task.Title
-                                    </span>
+                            @foreach (var task in visibleTasks)
+                            {
+                                <div class="ws-task-item @(activeTaskId == task.Id ? "active-task" : "")"
+                                     style="--accent-color: @workspace.Color">
+    
+                                    <div class="d-flex align-items-center gap-2" style="flex: 1; overflow: hidden;">
+                                        <input type="checkbox" class="form-check-input custom-check" 
+                                               checked="@task.IsCompleted" 
+                                               @onchange="@(async (e) => await ToggleTaskStatus(task))"
+                                               style="cursor: pointer; flex-shrink: 0;" />
+                                        
+                                        <div class="d-flex align-items-baseline gap-2 text-truncate">
+                                            <span class="@(task.IsCompleted ? "text-decoration-line-through text-muted" : "text-white") fw-medium">
+                                                @task.Title
+                                            </span>
+                                            @if (!string.IsNullOrEmpty(task.Note))
+                                            {
+                                                <span class="text-white opacity-50 small text-truncate" style="max-width: 150px;" title="@task.Note">
+                                                    - @task.Note
+                                                </span>
+                                            }
+                                        </div>
+                                    </div>
+    
+                                    <button class="btn-play-task" @onclick="() => SelectTask(task.Id)">
+                                        @if (activeTaskId == task.Id && isTimerRunning)
+                                        {
+                                            <i class="bi bi-pause-fill"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-play-fill"></i>
+                                        }
+                                    </button>
                                 </div>
-
-                                <button class="btn-play-task" @onclick="() => SelectTask(task.Id)">
-                                    @if (activeTaskId == task.Id && isTimerRunning)
-                                    {
-                                        <i class="bi bi-pause-fill"></i>
-                                    }
-                                    else
-                                    {
-                                        <i class="bi bi-play-fill"></i>
-                                    }
-                                </button>
-                            </div>
+                            }
+                        }
+                        else 
+                        {
+                             <div class="text-center text-muted py-4 small">Tüm görevler tamamlandı! 🎉</div>
                         }
                     }
                     else
@@ -135,7 +180,11 @@
             <div class="ws-card notes-panel">
                 <div class="panel-header">
                     <h5>Hızlı Notlar</h5>
-                    <div class="d-flex gap-2">
+                    <div class="d-flex gap-2 align-items-center">
+                        @if (showSaveMessage)
+                        {
+                            <span class="text-success small fw-bold fade-in me-2"><i class="bi bi-check-lg"></i> Kaydedildi</span>
+                        }
                         <button class="btn-note-action" @onclick="SaveNotes" title="Kaydet"><i class="bi bi-save"></i></button>
                         <button class="btn-note-action text-danger" @onclick="ClearNotes" title="Temizle"><i class="bi bi-trash"></i></button>
                     </div>
@@ -175,7 +224,7 @@
 
     // Task
     private bool showAddTask = false;
-    private string newTaskTitle = "";
+    private CreateTaskDto newTask = new();
 
     // Notlar
     private string noteContent = "";
@@ -280,28 +329,36 @@
 
     private async Task AddNewTask()
     {
-        if (string.IsNullOrWhiteSpace(newTaskTitle)) return;
+        if (string.IsNullOrWhiteSpace(newTask.Title)) return;
 
-        var newTask = new CreateTaskDto
-        {
-            Title = newTaskTitle,
-            LessonId = Id,
-            Status = StudyTime.Domain.Enums.TaskStatus.Pending
-        };
+        newTask.LessonId = Id;
+        newTask.Status = StudyTime.Domain.Enums.TaskStatus.Pending;
 
         var success = await LessonService.CreateTaskAsync(newTask);
         if (success)
         {
-            newTaskTitle = "";
+            newTask = new CreateTaskDto(); // Formu sıfırla
             showAddTask = false;
             await LoadData();
         }
     }
 
+    // Feedback
+    private bool showSaveMessage = false;
+
     private async Task SaveNotes()
     {
         if (workspace == null) return;
-        await LessonService.UpdateNotesAsync(Id, noteContent);
+        
+        var success = await LessonService.UpdateNotesAsync(Id, noteContent);
+        if (success)
+        {
+            showSaveMessage = true;
+            StateHasChanged();
+            await Task.Delay(2000); // 2 saniye göster
+            showSaveMessage = false;
+            StateHasChanged();
+        }
     }
 
     private void ClearNotes()
@@ -309,5 +366,61 @@
         noteContent = "";
     }
 
+    private async Task ToggleTaskStatus(TaskListItemDto task)
+    {
+        task.IsCompleted = !task.IsCompleted;
+        StateHasChanged(); // Optimistik güncelleme
+
+        try 
+        {
+             var newStatus = task.IsCompleted ? StudyTime.Domain.Enums.TaskStatus.Completed : StudyTime.Domain.Enums.TaskStatus.Pending;
+             await TaskApiService.UpdateTaskStatusAsync(task.Id, newStatus);
+
+             // OTOMATİK SİLME (Eğer tamamlandıysa)
+             if (task.IsCompleted && workspace != null)
+             {
+                 await Task.Delay(1000); // 1 saniye beklet
+                 workspace.Tasks.Remove(task); // Listeden kaldır
+                 StateHasChanged();
+             }
+        }
+        catch
+        {
+             task.IsCompleted = !task.IsCompleted; // Geri al
+             StateHasChanged();
+        }
+    }
+
     public void Dispose() { _timer?.Dispose(); }
 }
+
+<style>
+    /* Date Input Fix */
+    input[type="datetime-local"] {
+        padding-right: 10px !important; /* İkon için yer aç */
+        font-size: 0.9rem;
+    }
+    
+    /* Webkit (Chrome/Edge) specific fix for calendar icon spacing */
+    input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+        margin-left: 5px;
+        opacity: 0.6;
+        cursor: pointer;
+    }
+
+    /* Custom Scrollbar for Task List */
+    .task-list-scroll::-webkit-scrollbar {
+        width: 6px;
+    }
+    .task-list-scroll::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05); 
+        border-radius: 4px;
+    }
+    .task-list-scroll::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2); 
+        border-radius: 4px;
+    }
+    .task-list-scroll::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.3); 
+    }
+</style>

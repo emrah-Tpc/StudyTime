@@ -41,6 +41,12 @@ namespace StudyTime.Infrastructure.Persistence
                 .HasForeignKey(s => s.TaskId)
                 .OnDelete(DeleteBehavior.Cascade); // Task silinirse ona bağlı çalışma oturumları da silinsin.
 
+            modelBuilder.Entity<StudySession>()
+                .HasOne(s => s.Lesson)
+                .WithMany()
+                .HasForeignKey(s => s.LessonId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             // --- VIEW AYARLARI ---
             // EF Core'a bunun bir VIEW olduğunu ve Key'i olmadığını söylüyoruz
             modelBuilder.Entity<DashboardSummaryView>(entity =>

@@ -7,6 +7,7 @@ namespace StudyTime.Application.DTOs.Tasks
     {
         public Guid Id { get; set; }
         public string Title { get; set; } = default!;
+        public string? Note { get; set; }
 
         // String yerine Enum kullanıyoruz, LessonListItemDto ile tutarlı olsun
         public TaskStatus Status { get; set; }

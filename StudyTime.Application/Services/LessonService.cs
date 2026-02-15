@@ -70,6 +70,7 @@ namespace StudyTime.Application.Services
                 {
                     Id = t.Id,
                     Title = t.Title,
+                    Note = t.Note, // Not: Note alanını ekledik
                     IsCompleted = t.Status == Domain.Enums.TaskStatus.Completed
                 }).ToList()
             };

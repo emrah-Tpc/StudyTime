@@ -46,6 +46,7 @@ namespace StudyTime.Infrastructure.Repositories
         {
             return await context.StudySessions
                 .AsNoTracking()
+                .Include(s => s.Lesson)
                 .ToListAsync();
         }
     }

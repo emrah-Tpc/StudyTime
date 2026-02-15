@@ -1,9 +1,11 @@
 ﻿@page "/"
 @using StudyTime.Application.DTOs.Dashboard
 @using StudyTime.DesktopClient.Services
+@using StudyTime.DesktopClient.Components.Charts
 @using System.Globalization
 @using System.Text
 @inject DashboardApiService DashboardService
+@inject TaskApiService TaskService
 
 <div class="dashboard-container fade-in">
     @if (isLoading)
@@ -103,63 +105,10 @@
 
                     @if (selectedChart == "Weekly" || selectedChart == "Daily")
                     {
-                        @if (hoveredLineData != null)
+                        var chartData = GetActiveChartData();
+                        if (chartData.Any())
                         {
-                            <div class="chart-tooltip" style="left: @((hoveredLineData.X + 35).ToString(CultureInfo.InvariantCulture))px; top: @(hoveredLineData.Y.ToString(CultureInfo.InvariantCulture))px;">
-                                <div class="fw-bold">@hoveredLineData.Label</div>
-                                <div>@GetHours(hoveredLineData.Value)</div>
-                            </div>
-                        }
-
-                        @if (GetActiveChartData().Any())
-                        {
-                            <div style="width:100%; height: 230px; display:flex; flex-direction: column;">
-
-                                <div style="display:flex; flex:1;">
-                                    <div style="width: 35px; display:flex; flex-direction:column; justify-content:space-between; color: #6b7280; font-size: 0.7rem; text-align:right; padding-right:8px; padding-bottom: 5px;">
-                                        <span>@GetYAxisValue(4)</span>
-                                        <span>@GetYAxisValue(3)</span>
-                                        <span>@GetYAxisValue(2)</span>
-                                        <span>@GetYAxisValue(1)</span>
-                                        <span>0</span>
-                                    </div>
-
-                                    <div style="flex:1; position:relative;">
-                                        <svg viewBox="0 0 400 180" class="line-chart" style="overflow:visible; width:100%; height:100%;" preserveAspectRatio="none">
-
-                                            @for (int i = 0; i <= 4; i++)
-                                            {
-                                                double y = i * 45; // 180 / 4 = 45
-                                                                   <line x1="0" y1="@y" x2="400" y2="@y" stroke="#374151" stroke-width="1" stroke-dasharray="4 4" opacity="0.3" />
-                                            }
-                                            @foreach (var point in GetChartPoints())
-                                            {
-                                                <line x1="@point.X.ToString(CultureInfo.InvariantCulture)" y1="0" x2="@point.X.ToString(CultureInfo.InvariantCulture)" y2="180" stroke="#374151" stroke-width="1" stroke-dasharray="4 4" opacity="0.1" />
-                                            }
-
-                                            <path d="@GetSmoothPath()" fill="none" stroke="#22d3ee" stroke-width="3" stroke-linecap="round" class="chart-line-anim" />
-
-                                            @foreach (var point in GetChartPoints())
-                                            {
-                                                <circle cx="@point.X.ToString(CultureInfo.InvariantCulture)" cy="@point.Y.ToString(CultureInfo.InvariantCulture)" r="6" fill="transparent" stroke="transparent" class="chart-dot-trigger" @onmouseover="() => ShowLineTooltip(point)" @onmouseout="HideLineTooltip" />
-                                                @if (hoveredLineData == point)
-                                                {
-                                                    <circle cx="@point.X.ToString(CultureInfo.InvariantCulture)" cy="@point.Y.ToString(CultureInfo.InvariantCulture)" r="5" fill="#09090b" stroke="#22d3ee" stroke-width="2" />
-                                                }
-                                            }
-                                        </svg>
-                                    </div>
-                                </div>
-
-                                <div class="d-flex justify-content-between mt-2" style="margin-left: 35px;">
-                                    @foreach (var item in GetActiveChartData())
-                                    {
-                                        <div style="flex: 1; text-align: center;">
-                                            <span class="text-white opacity-50 small" style="font-size:0.7rem;">@item.Label</span>
-                                        </div>
-                                    }
-                                </div>
-                            </div>
+                            <DynamicLineChart Data="@chartData" />
                         }
                         else
                         {
@@ -168,47 +117,13 @@
                     }
                     else if (selectedChart == "Category")
                     {
-                        @if (hoveredDonutData != null)
-                        {
-                            <div class="position-absolute start-50 top-50 translate-middle text-center" style="pointer-events:none;">
-                                <div class="h4 fw-bold text-white m-0">@hoveredDonutData.Percent%</div>
-                                <div class="small text-white opacity-75">@hoveredDonutData.Label</div>
-                            </div>
-                        }
-
                         @if (summary.CategoryChartData.Any())
                         {
-                            <div style="width: 180px; height: 180px; position:relative;">
-                                <svg viewBox="0 0 120 120" class="donut-chart" style="transform: rotate(-90deg);">
-                                    @{
-                                        double currentOffset = 0;
-                                        double total = summary.CategoryChartData.Sum(x => x.Value);
-                                        if (total == 0) total = 1;
-                                    }
-                                    @foreach (var item in summary.CategoryChartData)
-                                    {
-                                        double circumference = 2 * Math.PI * 50;
-                                        double value = item.Value;
-                                        double strokeDashArray = (value / total) * circumference;
-
-                                        <circle cx="60" cy="60" r="50" stroke="@item.Color" stroke-width="12" fill="none" class="donut-segment"
-                                                stroke-dasharray="@($"{strokeDashArray.ToString(CultureInfo.InvariantCulture)} {circumference.ToString(CultureInfo.InvariantCulture)}")"
-                                                stroke-dashoffset="@((-currentOffset).ToString(CultureInfo.InvariantCulture))"
-                                                @onmouseover="() => ShowDonutTooltip(item, (int)((value / total) * 100))"
-                                                @onmouseout="HideDonutTooltip" />
-                                        currentOffset += strokeDashArray;
-                                    }
-                                </svg>
-                            </div>
-                            <div class="d-flex flex-column gap-2 ms-4">
-                                @foreach (var item in summary.CategoryChartData)
-                                {
-                                    <div class="d-flex align-items-center gap-2">
-                                        <span style="width:8px; height:8px; border-radius:50%; background-color:@item.Color"></span>
-                                        <span class="text-white small">@item.Label</span>
-                                    </div>
-                                }
-                            </div>
+                            <DynamicDonutChart Data="@summary.CategoryChartData" />
+                        }
+                        else
+                        {
+                             <div class="text-center text-white opacity-50 w-100">Veri yok.</div>
                         }
                     }
                 </div>
@@ -253,12 +168,22 @@
                         @foreach (var activity in summary.RecentActivities)
                         {
                             <div class="activity-item">
-                                <div class="activity-icon @activity.StatusColorClass">
-                                    <i class="bi @activity.IconClass"></i>
+                                <!-- Checkbox / Durum İkonu -->
+                                <div class="activity-icon @(activity.IsCompleted ? "bg-success text-white" : "text-white")" 
+                                     style="cursor: pointer; border: 1px solid rgba(255,255,255,0.2);"
+                                     @onclick="() => ToggleTaskStatus(activity)">
+                                    @if (activity.IsCompleted)
+                                    {
+                                        <i class="bi bi-check-lg"></i>
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-circle"></i>
+                                    }
                                 </div>
                                 <div class="activity-content">
                                     <div class="activity-header">
-                                        <div class="activity-title">@activity.Title</div>
+                                        <div class="activity-title @(activity.IsCompleted ? "text-decoration-line-through opacity-50" : "")">@activity.Title</div>
                                         <div class="activity-badge">@activity.StatusText</div>
                                     </div>
                                     <div class="activity-meta">
@@ -282,8 +207,6 @@
     private DashboardSummaryDto? summary;
     private bool isLoading = true;
     private string selectedChart = "Weekly";
-    private ChartPoint? hoveredLineData;
-    private DonutTooltipData? hoveredDonutData;
 
     protected override async Task OnInitializedAsync()
     {
@@ -300,73 +223,38 @@
         return selectedChart == "Daily" ? summary.DailyChartData : summary.WeeklyChartData;
     }
 
-    private string GetYAxisValue(int step)
-    {
-        var data = GetActiveChartData();
-        if (!data.Any()) return "0";
-
-        int max = data.Max(d => d.Value);
-        if (max == 0) max = 10;
-        int val = (int)(max * ((double)step / 4));
-        return GetHoursSimple(val);
-    }
-
-    private string GetHoursSimple(int minutes) => minutes < 60 ? minutes.ToString() : (minutes / 60).ToString();
     private string GetHours(int minutes) => minutes < 60 ? $"{minutes}dk" : $"{Math.Round(minutes / 60.0, 1)}s";
 
-    private class ChartPoint { public double X { get; set; } public double Y { get; set; } public string Label { get; set; } = ""; public int Value { get; set; } }
-    private class DonutTooltipData { public string Label { get; set; } = ""; public int Percent { get; set; } }
-
-    private void ShowLineTooltip(ChartPoint point) => hoveredLineData = point;
-    private void HideLineTooltip() => hoveredLineData = null;
-    private void ShowDonutTooltip(ChartDataDto item, int percent) => hoveredDonutData = new DonutTooltipData { Label = item.Label, Percent = percent };
-    private void HideDonutTooltip() => hoveredDonutData = null;
-
-    private string GetSmoothPath()
+    private async Task ToggleTaskStatus(RecentActivityDto activity)
     {
-        var points = GetChartPoints();
-        if (points.Count == 0) return "";
-        if (points.Count == 1) return $"M {points[0].X.ToString(CultureInfo.InvariantCulture)} {points[0].Y.ToString(CultureInfo.InvariantCulture)}";
+        if (activity.Id == Guid.Empty) return;
 
-        StringBuilder path = new StringBuilder();
-        path.Append($"M {points[0].X.ToString(CultureInfo.InvariantCulture)} {points[0].Y.ToString(CultureInfo.InvariantCulture)}");
-
-        for (int i = 0; i < points.Count - 1; i++)
+        // Optimistik UI güncellemesi
+        activity.IsCompleted = !activity.IsCompleted;
+        activity.StatusText = activity.IsCompleted ? "Tamamlandı" : "Sürüyor";
+        activity.StatusColorClass = activity.IsCompleted ? "text-success" : "text-primary";
+        
+        StateHasChanged(); // UI'ı hemen güncelle
+        
+        try
         {
-            var p0 = (i > 0) ? points[i - 1] : points[i];
-            var p1 = points[i];
-            var p2 = points[i + 1];
-            var p3 = (i < points.Count - 2) ? points[i + 2] : p2;
-
-            double cp1x = p1.X + (p2.X - p0.X) / 6;
-            double cp1y = p1.Y + (p2.Y - p0.Y) / 6;
-            double cp2x = p2.X - (p3.X - p1.X) / 6;
-            double cp2y = p2.Y - (p3.Y - p1.Y) / 6;
-
-            path.Append($" C {cp1x.ToString(CultureInfo.InvariantCulture)} {cp1y.ToString(CultureInfo.InvariantCulture)}, {cp2x.ToString(CultureInfo.InvariantCulture)} {cp2y.ToString(CultureInfo.InvariantCulture)}, {p2.X.ToString(CultureInfo.InvariantCulture)} {p2.Y.ToString(CultureInfo.InvariantCulture)}");
+             // API çağrısı
+             var newStatus = activity.IsCompleted ? StudyTime.Domain.Enums.TaskStatus.Completed : StudyTime.Domain.Enums.TaskStatus.Pending;
+             // Not: UpdateTaskStatusAsync metodunun TaskApiService'de var olduğunu varsayıyoruz, yoksa eklenmeli.
+             await TaskService.UpdateTaskStatusAsync(activity.Id, newStatus);
+             
+             // Verileri tazelemek için (opsiyonel, skorlar değişebilir)
+             summary = await DashboardService.GetSummaryAsync();
         }
-        return path.ToString();
-    }
-
-    private List<ChartPoint> GetChartPoints()
-    {
-        var data = GetActiveChartData();
-        if (!data.Any()) return new();
-
-        var points = new List<ChartPoint>();
-        double width = 400; double height = 180;
-        double maxValue = data.Max(d => d.Value);
-
-        if (maxValue == 0) maxValue = 100; else maxValue = maxValue * 1.2;
-
-        double xStep = width / (data.Count == 1 ? 1 : data.Count - 1);
-
-        for (int i = 0; i < data.Count; i++)
+        catch (Exception ex)
         {
-            double x = i * xStep;
-            double y = height - ((data[i].Value / maxValue) * height);
-            points.Add(new ChartPoint { X = x, Y = y, Label = data[i].Label, Value = data[i].Value });
+            // Hata olursa geri al
+            activity.IsCompleted = !activity.IsCompleted;
+            Console.WriteLine($"Task update error: {ex.Message}");
         }
-        return points;
+        finally
+        {
+            StateHasChanged();
+        }
     }
 }

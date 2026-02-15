@@ -50,6 +50,8 @@ namespace StudyTime.Application.DTOs.Dashboard
 
     public class RecentActivityDto
     {
+        public Guid Id { get; set; }
+        public bool IsCompleted { get; set; }
         public string Title { get; set; } = string.Empty;
         public string Subtitle { get; set; } = string.Empty;
         public string StatusText { get; set; } = string.Empty;

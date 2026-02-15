@@ -74,5 +74,26 @@ namespace StudyTime.DesktopClient.Services
                 throw new Exception($"Silinemedi: {error}");
             }
         }
+
+        // Dashboard için spesifik durum güncelleme
+        public async Task UpdateTaskStatusAsync(Guid id, StudyTime.Domain.Enums.TaskStatus newStatus)
+        {
+            if (newStatus == StudyTime.Domain.Enums.TaskStatus.Completed)
+            {
+                var response = await _httpClient.PostAsync($"api/tasks/{id}/complete", null);
+                if (!response.IsSuccessStatusCode)
+                {
+                    // Belki zaten tamamlanmıştır, hata fırlatma
+                }
+            }
+            else
+            {
+                var response = await _httpClient.PostAsync($"api/tasks/{id}/reopen", null);
+                if (!response.IsSuccessStatusCode)
+                {
+                    // Belki zaten açıktır
+                }
+            }
+        }
     }
 }

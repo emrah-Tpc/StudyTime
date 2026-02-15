@@ -6,6 +6,7 @@ namespace StudyTime.Domain.Entities
     {
         public Guid Id { get; private set; }
         public Guid LessonId { get; private set; }
+        public Lesson? Lesson { get; private set; } // Navigation Property
         public Guid? TaskId { get; private set; } // private set olduğu için hata veriyordu
 
         public DateTime StartedAt { get; private set; }
