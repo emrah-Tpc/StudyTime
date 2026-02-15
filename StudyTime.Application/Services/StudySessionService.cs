@@ -36,7 +36,29 @@ namespace StudyTime.Application.Services
             session.Stop();
             await _studySessionRepository.UpdateAsync(session);
         }
+        // StudyTime.Application.Services.StudySessionService.cs içine ekle:
 
+        // ⏸ PAUSE (Duraklat)
+        public async Task PauseAsync(Guid sessionId)
+        {
+            var session = await _studySessionRepository.GetByIdAsync(sessionId);
+            if (session is null)
+                throw new InvalidOperationException("Study session not found.");
+
+            session.Pause();
+            await _studySessionRepository.UpdateAsync(session);
+        }
+
+        // ▶️ RESUME (Devam Et)
+        public async Task ResumeAsync(Guid sessionId)
+        {
+            var session = await _studySessionRepository.GetByIdAsync(sessionId);
+            if (session is null)
+                throw new InvalidOperationException("Study session not found.");
+
+            session.Resume();
+            await _studySessionRepository.UpdateAsync(session);
+        }
         // 📊 TODAY TOTAL
         public async Task<TodayStudyTotalDto> GetTodayTotalAsync()
         {

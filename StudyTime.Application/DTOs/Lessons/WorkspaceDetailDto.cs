@@ -7,8 +7,8 @@ namespace StudyTime.Application.DTOs.Lessons
         public Guid Id { get; set; }
         public string Name { get; set; } = string.Empty;
         public string Color { get; set; } = string.Empty;
-
+        public string? Note { get; set; }
         // Mevcut DTO'nu kullanıyoruz
-        public List<TaskListItemDto> Tasks { get; set; } = new();
+        public List<TaskListItemDto> Tasks { get; set; } = [];
     }
 }

@@ -5,6 +5,7 @@
 @using StudyTime.Domain.Enums
 
 @inject LessonApiService LessonService
+@inject StudySessionApiService SessionApiService
 
 <div class="workspace-container fade-in">
     @if (isLoading)
@@ -37,8 +38,11 @@
                         <input type="text" class="form-control custom-input mb-2"
                                placeholder="Görev adı..."
                                @bind="newTaskTitle"
-                               @onkeyup="@(e => { if (e.Key == "Enter") AddNewTask(); })" />
-                        <button class="btn btn-sm btn-primary w-100" @onclick="AddNewTask">Ekle</button>
+                               @onkeyup="@(async e => { if (e.Key == "Enter") await AddNewTask(); })" />
+
+                        <button class="btn-add-task w-100" @onclick="AddNewTask">
+                            <i class="bi bi-plus-lg me-2"></i> GÖREVİ EKLE
+                        </button>
                     </div>
                 }
 
@@ -64,7 +68,6 @@
                                     }
                                     else
                                     {
-
                                         <i class="bi bi-play-fill"></i>
                                     }
                                 </button>
@@ -95,6 +98,7 @@
                 <div class="timer-circle-wrapper">
                     <svg class="timer-svg" viewBox="0 0 200 200">
                         <circle cx="100" cy="100" r="90" class="timer-bg-ring" />
+
                         <circle cx="100" cy="100" r="90" class="timer-progress-ring neon-effect"
                                 style="stroke: @workspace.Color;
                                            stroke-dasharray: 565;
@@ -156,17 +160,20 @@
     private WorkspaceDetailDto? workspace;
     private bool isLoading = true;
 
-    // Timer Değişkenleri
+    // Timer & Session
     private bool isTimerRunning = false;
     private TimeSpan elapsedTime = TimeSpan.Zero;
     private System.Timers.Timer? _timer;
     private Guid? activeTaskId = null;
 
+    // Veritabanındaki oturumu takip etmek için
+    private Guid? currentSessionId = null;
+
     // Animasyon
     private double timerDashOffset = 0;
     private const double CIRCUMFERENCE = 565;
 
-    // Task Ekleme
+    // Task
     private bool showAddTask = false;
     private string newTaskTitle = "";
 
@@ -181,22 +188,28 @@
     private async Task LoadData()
     {
         workspace = await LessonService.GetWorkspaceDetailAsync(Id);
+
+        // Notları yükle
+        if (workspace != null)
+        {
+            noteContent = workspace.Note ?? "";
+        }
+
         isLoading = false;
     }
 
-    // --- TIMER ---
-    private void SelectTask(Guid taskId)
+    private async Task SelectTask(Guid taskId)
     {
         if (activeTaskId == taskId && isTimerRunning)
-            PauseTimer();
+            await PauseTimer();
         else
         {
             activeTaskId = taskId;
-            if (!isTimerRunning) StartTimer();
+            if (!isTimerRunning) await StartTimer();
         }
     }
 
-    private void StartTimer()
+    private async Task StartTimer()
     {
         if (_timer == null)
         {
@@ -210,18 +223,49 @@
         }
         _timer.Start();
         isTimerRunning = true;
+
+        // API İŞLEMLERİ
+        if (currentSessionId == null || currentSessionId == Guid.Empty)
+        {
+            // Hiç oturum yoksa SIFIRDAN BAŞLAT
+            var sessionId = await SessionApiService.StartSessionAsync(Id, activeTaskId);
+            if (sessionId != Guid.Empty)
+            {
+                currentSessionId = sessionId;
+            }
+        }
+        else
+        {
+            // Oturum varsa (yani duraklatılmışsa) DEVAM ET (RESUME)
+            await SessionApiService.ResumeSessionAsync(currentSessionId.Value);
+        }
     }
 
-    private void PauseTimer()
+    private async Task PauseTimer()
     {
         _timer?.Stop();
         isTimerRunning = false;
+
+        // API İŞLEMLERİ: Duraklatma İsteği Gönder
+        if (currentSessionId != null && currentSessionId != Guid.Empty)
+        {
+            await SessionApiService.PauseSessionAsync(currentSessionId.Value);
+        }
     }
 
-    private void StopTimer()
+    private async Task StopTimer()
     {
         _timer?.Stop();
         isTimerRunning = false;
+
+        // API'ye Session Bitirme İsteği Gönder
+        if (currentSessionId != null && currentSessionId != Guid.Empty)
+        {
+            await SessionApiService.StopSessionAsync(currentSessionId.Value);
+            currentSessionId = null; // Sıfırla ki yeni bir tane başlatılabilsin
+        }
+
+        // Arayüzü Sıfırla
         elapsedTime = TimeSpan.Zero;
         activeTaskId = null;
         timerDashOffset = 0;
@@ -234,7 +278,6 @@
         timerDashOffset = CIRCUMFERENCE * (1 - fraction);
     }
 
-    // --- TASK EKLEME ---
     private async Task AddNewTask()
     {
         if (string.IsNullOrWhiteSpace(newTaskTitle)) return;
@@ -243,7 +286,6 @@
         {
             Title = newTaskTitle,
             LessonId = Id,
-            // 👇 KRİTİK DÜZELTME: Tam yol (Full namespace) kullanımı
             Status = StudyTime.Domain.Enums.TaskStatus.Pending
         };
 
@@ -256,11 +298,9 @@
         }
     }
 
-    // --- NOTLAR ---
     private async Task SaveNotes()
     {
         if (workspace == null) return;
-        // 👇 DÜZELTME: 'await' eklendi (Hata: Çağrı tamamlanmadan...)
         await LessonService.UpdateNotesAsync(Id, noteContent);
     }
 

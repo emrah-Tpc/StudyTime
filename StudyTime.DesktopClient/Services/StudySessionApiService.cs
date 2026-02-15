@@ -14,15 +14,14 @@ namespace StudyTime.DesktopClient.Services
 
         public async Task<Guid> StartSessionAsync(Guid lessonId, Guid? taskId)
         {
-            // DTO nesnesini oluşturuyoruz (Hatasız)
             var dto = new StartStudySessionDto
             {
                 LessonId = lessonId,
                 TaskId = taskId
             };
 
-            // API'ye POST isteği atıyoruz
-            var response = await _http.PostAsJsonAsync("api/studysession/start", dto);
+            // URL'nin başına / eklendi
+            var response = await _http.PostAsJsonAsync("/api/studysession/start", dto);
 
             if (response.IsSuccessStatusCode)
             {
@@ -32,13 +31,28 @@ namespace StudyTime.DesktopClient.Services
             return Guid.Empty;
         }
 
+        public async Task PauseSessionAsync(Guid sessionId)
+        {
+            // URL başına / eklendi ve hata fırlatması için kontrol konuldu
+            var response = await _http.PostAsync($"/api/studysession/{sessionId}/pause", null);
+            response.EnsureSuccessStatusCode();
+        }
+
+        public async Task ResumeSessionAsync(Guid sessionId)
+        {
+            // URL başına / eklendi
+            var response = await _http.PostAsync($"/api/studysession/{sessionId}/resume", null);
+            response.EnsureSuccessStatusCode();
+        }
+
         public async Task StopSessionAsync(Guid sessionId)
         {
-            await _http.PostAsync($"api/studysession/{sessionId}/stop", null);
+            // URL başına / eklendi
+            var response = await _http.PostAsync($"/api/studysession/{sessionId}/stop", null);
+            response.EnsureSuccessStatusCode();
         }
     }
 
-    // API'den dönen cevabı okumak için yardımcı sınıf
     public class StartSessionResponse
     {
         public Guid SessionId { get; set; }

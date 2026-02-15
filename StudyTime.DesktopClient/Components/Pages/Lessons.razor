@@ -95,7 +95,7 @@
                             </span>
                             @if (lesson.Status == LessonStatus.Active)
                             {
-                                <span class="badge-soft text-success bg-success-subtle">Aktif</span>
+                                <span class="badge-active">Aktif</span>
                             }
                         </div>
                     </div>
@@ -162,7 +162,7 @@
 
 @if (showDeleteConfirm)
 {
-    <div class="modal-backdrop fade show blur-backdrop d-flex justify-content-center align-items-center">
+    <div class="blur-backdrop">
         <div class="delete-modal-content fade-in-up">
             <div class="delete-icon-circle">
                 <i class="bi bi-exclamation-triangle-fill"></i>
@@ -180,6 +180,7 @@
         </div>
     </div>
 }
+
 
 @code {
     private List<LessonListItemDto> lessons = new();

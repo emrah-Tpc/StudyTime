@@ -57,6 +57,7 @@ namespace StudyTime.DesktopClient
             // Eğer GlobalTimerService ve ThemeService sınıfların hazırsa bunları aç:
             builder.Services.AddSingleton<GlobalTimerService>();
             builder.Services.AddSingleton<ThemeService>();
+            builder.Services.AddScoped<StudySessionApiService>();
 
             return builder.Build();
         }

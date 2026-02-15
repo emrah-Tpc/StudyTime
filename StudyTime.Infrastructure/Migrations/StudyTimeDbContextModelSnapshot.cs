@@ -22,6 +22,32 @@ namespace StudyTime.Infrastructure.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("StudyTime.Domain.Entities.DashboardSummaryView", b =>
+                {
+                    b.Property<int>("CompletedTasks")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("LessonId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("LessonName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("TodayStudyMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TotalStudyMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TotalTasks")
+                        .HasColumnType("int");
+
+                    b.ToTable((string)null);
+
+                    b.ToView("v_DashboardSummary", (string)null);
+                });
+
             modelBuilder.Entity("StudyTime.Domain.Entities.Lesson", b =>
                 {
                     b.Property<Guid>("Id")

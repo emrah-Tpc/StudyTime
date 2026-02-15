@@ -5,12 +5,13 @@ using StudyTime.Domain.Entities;
 
 namespace StudyTime.Application.Services
 {
+    // HATA ÇÖZÜMÜ: Sınıf adının yanındaki parantezler (...) kaldırıldı.
     public class LessonService
     {
         private readonly ILessonRepository _lessonRepository;
-        private readonly ITaskRepository _taskRepository; // 👇 EKLENDİ: Görevleri çekmek için gerekli
+        private readonly ITaskRepository _taskRepository;
 
-        // Constructor'a ITaskRepository eklendi
+        // Klasik Constructor (Çakışma olmaması için tek yöntem bu olmalı)
         public LessonService(ILessonRepository lessonRepository, ITaskRepository taskRepository)
         {
             _lessonRepository = lessonRepository;
@@ -46,30 +47,30 @@ namespace StudyTime.Application.Services
             return await _lessonRepository.GetByIdAsync(id);
         }
 
-        // 👇 YENİ METOT: Workspace Sayfası İçin Detay Getir
+        // WORKSPACE DETAYI (Notlar ve Görevler Dahil)
+        // StudyTime.Application/Services/LessonService.cs
+
         public async Task<WorkspaceDetailDto?> GetWorkspaceDetailAsync(Guid lessonId)
         {
-            // 1. Dersi Getir
             var lesson = await _lessonRepository.GetByIdAsync(lessonId);
             if (lesson == null) return null;
 
-            // 2. O derse ait görevleri getir
-            // (ITaskRepository içinde GetByLessonIdAsync olduğunu varsayıyoruz)
             var tasks = await _taskRepository.GetByLessonIdAsync(lessonId);
 
-            // 3. DTO Oluştur ve Döndür
             return new WorkspaceDetailDto
             {
                 Id = lesson.Id,
                 Name = lesson.Name,
                 Color = lesson.Color,
-                // Task entity'lerini TaskListItemDto'ya çeviriyoruz
+
+                // 👇 BU SATIR EKSİK OLDUĞU İÇİN NOTLAR GELMİYOR! MUTLAKA EKLE 👇
+                Note = lesson.Notes,
+
                 Tasks = tasks.Select(t => new TaskListItemDto
                 {
                     Id = t.Id,
                     Title = t.Title,
                     IsCompleted = t.Status == Domain.Enums.TaskStatus.Completed
-                    // Eğer DTO'da başka alanlar varsa (Priority, DueDate vb.) buraya ekle
                 }).ToList()
             };
         }

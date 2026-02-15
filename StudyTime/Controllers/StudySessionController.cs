@@ -21,7 +21,21 @@ namespace StudyTime.Controllers
             var id = await _service.StartAsync(dto);
             return Ok(new { SessionId = id });
         }
+        // StudyTime.Controllers.StudySessionController.cs içine ekle:
 
+        [HttpPost("{id:guid}/pause")]
+        public async Task<IActionResult> Pause(Guid id)
+        {
+            await _service.PauseAsync(id);
+            return NoContent();
+        }
+
+        [HttpPost("{id:guid}/resume")]
+        public async Task<IActionResult> Resume(Guid id)
+        {
+            await _service.ResumeAsync(id);
+            return NoContent();
+        }
         [HttpPost("{id:guid}/stop")]
         public async Task<IActionResult> Stop(Guid id)
         {

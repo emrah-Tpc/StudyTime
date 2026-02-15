@@ -10,6 +10,9 @@ namespace StudyTime.Infrastructure.Persistence
         public DbSet<TaskItem> Tasks { get; set; }
         public DbSet<StudySession> StudySessions { get; set; }
 
+        // View için DbSet'i de diğerlerinin yanına aldık
+        public DbSet<DashboardSummaryView> DashboardSummaries { get; set; }
+
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             // "Bekleyen model değişikliği" uyarısını susturuyoruz
@@ -19,6 +22,7 @@ namespace StudyTime.Infrastructure.Persistence
             base.OnConfiguring(optionsBuilder);
         }
 
+        // İki farklı metodu TEK bir OnModelCreating içinde birleştirdik 👇
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -36,6 +40,14 @@ namespace StudyTime.Infrastructure.Persistence
                 .WithMany()
                 .HasForeignKey(s => s.TaskId)
                 .OnDelete(DeleteBehavior.Cascade); // Task silinirse ona bağlı çalışma oturumları da silinsin.
+
+            // --- VIEW AYARLARI ---
+            // EF Core'a bunun bir VIEW olduğunu ve Key'i olmadığını söylüyoruz
+            modelBuilder.Entity<DashboardSummaryView>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToView("v_DashboardSummary"); // Veritabanındaki View'ın tam adı
+            });
         }
     }
 }
