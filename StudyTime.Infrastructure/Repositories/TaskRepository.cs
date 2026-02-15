@@ -88,5 +88,16 @@ namespace StudyTime.Infrastructure.Repositories
 
             return (items, totalCount);
         }
+        public async Task<List<TaskItem>> GetByDateRangeAsync(DateTime startDate, DateTime endDate)
+        {
+            return await context.Tasks
+                .AsNoTracking()
+                .Include(t => t.Lesson)
+                .Where(t => !t.IsDeleted && t.StartDate.HasValue && 
+                            t.StartDate.Value.Date >= startDate.Date && 
+                            t.StartDate.Value.Date <= endDate.Date)
+                .OrderByDescending(t => t.StartDate)
+                .ToListAsync();
+        }
     }
 }

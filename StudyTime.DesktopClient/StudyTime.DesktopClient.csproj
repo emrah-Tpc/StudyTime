@@ -29,13 +29,9 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<MauiIcon Include="Resources\AppIcon\appicon.svg"
-				  ForegroundFile="Resources\AppIcon\appiconfg.svg"
-				  Color="#38bdf8" />
+		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#38bdf8" />
 
-		<MauiSplashScreen Include="Resources\Splash\splash.svg"
-						  Color="#020817"
-						  BaseSize="128,128" />
+		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#020817" BaseSize="128,128" />
 
 		<MauiImage Include="Resources\Images\*" />
 		<MauiFont Include="Resources\Fonts\*" />
@@ -43,6 +39,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<PackageReference Include="Blazor-ApexCharts" Version="6.1.0" />
 		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
 		<PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="$(MauiVersion)" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.0" />

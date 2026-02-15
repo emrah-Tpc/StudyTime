@@ -59,6 +59,7 @@ namespace StudyTime.DesktopClient
             builder.Services.AddSingleton<GlobalTimerService>();
             builder.Services.AddSingleton<ThemeService>();
             builder.Services.AddScoped<StudySessionApiService>();
+            builder.Services.AddScoped<StatisticsApiService>();
 
             return builder.Build();
         }

@@ -16,5 +16,8 @@ namespace StudyTime.Application.DTOs.Tasks
 
         // 👇 String yerine Enum yaptık
         public TaskStatus Status { get; set; }
+
+        // 👇 Renk kodlaması için eklendi
+        public StudyTime.Application.DTOs.Lessons.LessonDto? Lesson { get; set; }
     }
 }

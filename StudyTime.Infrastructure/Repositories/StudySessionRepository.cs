@@ -49,5 +49,13 @@ namespace StudyTime.Infrastructure.Repositories
                 .Include(s => s.Lesson)
                 .ToListAsync();
         }
+        public async Task<List<StudySession>> GetByDateRangeAsync(DateTime startDate, DateTime endDate)
+        {
+            return await context.StudySessions
+                .AsNoTracking()
+                .Include(s => s.Lesson)
+                .Where(s => s.StartedAt.Date >= startDate.Date && s.StartedAt.Date <= endDate.Date)
+                .ToListAsync();
+        }
     }
 }

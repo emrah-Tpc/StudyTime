@@ -12,5 +12,6 @@ namespace StudyTime.Application.Interfaces
 
         // Bu metodu ekledik, Service katmanı bunu kullanıyor:
         Task<List<StudySession>> GetAllAsync();
+        Task<List<StudySession>> GetByDateRangeAsync(DateTime startDate, DateTime endDate);
     }
 }

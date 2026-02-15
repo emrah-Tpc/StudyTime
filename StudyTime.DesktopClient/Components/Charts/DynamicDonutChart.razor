@@ -1,74 +1,82 @@
 @using StudyTime.Application.DTOs.Dashboard
-@using System.Globalization
+@using ApexCharts
 @namespace StudyTime.DesktopClient.Components.Charts
 
-<div style="display:flex; align-items:center;">
-    <div style="width: 180px; height: 180px; position:relative;">
-        
-        @if (hoveredData != null)
-        {
-            <div class="position-absolute start-50 top-50 translate-middle text-center" style="pointer-events:none; z-index:10;">
-                <div class="h4 fw-bold text-white m-0">@hoveredData.Percent%</div>
-                <div class="small text-white opacity-75">@hoveredData.Label</div>
-                <div class="small text-white opacity-50" style="font-size: 0.65rem;">@hoveredData.TimeFormatted</div>
-            </div>
-        }
+<div style="width: 100%; overflow: hidden; max-height: 200px;">
+    <ApexChart TItem="ChartDataDto"
+               Title=""
+               Height="180"
+               Width="@("100%")"
+               @ref="chart"
+               Options="options">
 
-        <svg viewBox="0 0 120 120" class="donut-chart" style="transform: rotate(-90deg);">
-            @if (Data != null && Data.Any())
-            {
-                double currentOffset = 0;
-                double total = Data.Sum(x => x.Value);
-                if (total == 0) total = 1;
-
-                foreach (var item in Data)
-                {
-                    double circumference = 2 * Math.PI * 50;
-                    double value = item.Value;
-                    double strokeDashArray = (value / total) * circumference;
-                    int percent = (int)((value / total) * 100);
-
-                    <circle cx="60" cy="60" r="50" stroke="@item.Color" stroke-width="12" fill="none" class="donut-segment"
-                            stroke-dasharray="@($"{strokeDashArray.ToString(CultureInfo.InvariantCulture)} {circumference.ToString(CultureInfo.InvariantCulture)}")"
-                            stroke-dashoffset="@((-currentOffset).ToString(CultureInfo.InvariantCulture))"
-                            @onmouseover="() => SetTooltip(item, percent)"
-                            @onmouseout="() => hoveredData = null" />
-                    
-                    currentOffset += strokeDashArray;
-                }
-            }
-            else
-            {
-                 <circle cx="60" cy="60" r="50" stroke="#374151" stroke-width="12" fill="none" opacity="0.2" />
-            }
-        </svg>
-    </div>
-
-    <!-- Legend -->
-    <div class="d-flex flex-column gap-2 ms-4">
-        @if (Data != null)
-        {
-            @foreach (var item in Data)
-            {
-                <div class="d-flex align-items-center gap-2">
-                    <span style="width:8px; height:8px; border-radius:50%; background-color:@item.Color"></span>
-                    <span class="text-white small">@item.Label</span>
-                </div>
-            }
-        }
-    </div>
+        <ApexPointSeries TItem="ChartDataDto"
+                         Items="Data"
+                         Name="Süre"
+                         SeriesType="SeriesType.Donut"
+                         XValue="@(e => e.Label)"
+                         YValue="@(e => e.Value)" />
+    </ApexChart>
 </div>
 
 @code {
     [Parameter]
     public List<ChartDataDto> Data { get; set; } = new();
 
-    private DonutTooltipData? hoveredData;
-    private class DonutTooltipData { public string Label { get; set; } = ""; public int Percent { get; set; } public string TimeFormatted { get; set; } = ""; }
+    private ApexChartOptions<ChartDataDto> options { get; set; } = new();
+    private ApexChart<ChartDataDto>? chart;
 
-    private void SetTooltip(ChartDataDto item, int percent)
+    protected override void OnInitialized()
     {
-        string timeStr = item.Value < 60 ? $"{item.Value}dk" : $"{Math.Round(item.Value / 60.0, 1)}s";
-        hoveredData = new DonutTooltipData { Label = item.Label, Percent = percent, TimeFormatted = timeStr };
+        options.Chart = new Chart
+        {
+            Toolbar = new Toolbar { Show = false },
+            Selection = new Selection { Enabled = false },
+            Background = "transparent",
+            ForeColor = "#94a3b8"
+        };
+
+        options.Theme = new Theme { Mode = Mode.Dark, Palette = PaletteType.Palette1 };
+        
+        // Remove border
+        options.Stroke = new Stroke { Show = false };
+
+        // Plot options for Donut
+        options.PlotOptions = new PlotOptions
+        {
+            Pie = new PlotOptionsPie
+            {
+                CustomScale = 0.8,
+                Donut = new PlotOptionsDonut
+                {
+                    Size = "75%", // Increased size since legend is at bottom
+                    Labels = new DonutLabels
+                    {
+                        Show = true,
+                        Name = new DonutLabelName { Show = true, Color = "#94a3b8" },
+                        Value = new DonutLabelValue { Show = true, Color = "#ffffff" },
+                        Total = new DonutLabelTotal { Show = true, ShowAlways = true, Label = "Toplam", Color = "#94a3b8" }
+                    }
+                }
+            }
+        };
+
+        options.Legend = new Legend
+        {
+            Position = LegendPosition.Bottom,
+            Labels = new LegendLabels { Colors = "#94a3b8" },
+            ItemMargin = new LegendItemMargin { Horizontal = 10, Vertical = 0 }
+        };
+
+        options.DataLabels = new DataLabels { Enabled = false };
+        options.Tooltip = new Tooltip { Enabled = true, Theme = ApexCharts.Mode.Dark };
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (chart != null)
+        {
+            await chart.UpdateSeriesAsync(true);
+        }
     }
 }

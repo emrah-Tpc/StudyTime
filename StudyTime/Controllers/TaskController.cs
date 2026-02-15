@@ -111,5 +111,12 @@ namespace StudyTime.Controllers
             }
             catch (Exception ex) { return BadRequest(ex.Message); }
         }
+        // GET BY DATE RANGE
+        [HttpGet("range")]
+        public async Task<IActionResult> GetByDateRange([FromQuery] DateTime start, [FromQuery] DateTime end)
+        {
+            var tasks = await taskService.GetTasksByDateRangeAsync(start, end);
+            return Ok(tasks);
+        }
     }
 }

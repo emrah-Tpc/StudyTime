@@ -145,5 +145,22 @@ namespace StudyTime.Application.Services
                 LessonId = task.LessonId
             };
         }
+        // GET BY DATE RANGE
+        public async Task<List<TaskDto>> GetTasksByDateRangeAsync(DateTime start, DateTime end)
+        {
+            var tasks = await _taskRepository.GetByDateRangeAsync(start, end);
+            return tasks.Select(t => new TaskDto
+            {
+                Id = t.Id,
+                LessonId = t.LessonId,
+                Title = t.Title,
+                Note = t.Note,
+                StartDate = t.StartDate,
+                EndDate = t.EndDate,
+                PlannedDuration = t.PlannedDuration,
+                Status = t.Status,
+                Lesson = t.Lesson != null ? new DTOs.Lessons.LessonDto { Id = t.Lesson.Id, Name = t.Lesson.Name, Color = t.Lesson.Color } : null
+            }).ToList();
+        }
     }
 }

@@ -11,6 +11,16 @@ var builder = WebApplication.CreateBuilder(args);
 // ---------------- Controllers ----------------
 builder.Services.AddControllers();
 
+// ---------------- CORS ----------------
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll",
+        builder => builder
+        .AllowAnyOrigin()
+        .AllowAnyMethod()
+        .AllowAnyHeader());
+});
+
 // ---------------- FluentValidation (NEW WAY) ----------------
 
 builder.Services.AddValidatorsFromAssemblyContaining<UpdateTaskDtoValidator>();
@@ -25,6 +35,7 @@ builder.Services.AddScoped<TaskService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<LessonService>();
 builder.Services.AddScoped<StudySessionService>();
+builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 
 // ---------------- Repositories ----------------
 builder.Services.AddScoped<ITaskRepository, TaskRepository>();
@@ -45,7 +56,13 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors("AllowAll");
+
 app.UseAuthorization();
 app.MapControllers();
 
+
+
 app.Run();
+
