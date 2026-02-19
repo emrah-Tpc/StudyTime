@@ -49,12 +49,12 @@
                 CustomScale = 0.8,
                 Donut = new PlotOptionsDonut
                 {
-                    Size = "75%", // Increased size since legend is at bottom
+                    Size = "65%",
                     Labels = new DonutLabels
                     {
                         Show = true,
                         Name = new DonutLabelName { Show = true, Color = "#94a3b8" },
-                        Value = new DonutLabelValue { Show = true, Color = "#ffffff" },
+                        Value = new DonutLabelValue { Show = true, Color = "#FFFFFF" },
                         Total = new DonutLabelTotal { Show = true, ShowAlways = true, Label = "Toplam", Color = "#94a3b8" }
                     }
                 }
@@ -63,11 +63,31 @@
 
         options.Legend = new Legend
         {
-            Position = LegendPosition.Bottom,
-            Labels = new LegendLabels { Colors = "#94a3b8" },
+            Position = LegendPosition.Right,
+            HorizontalAlign = Align.Center,
+            Labels = new LegendLabels { Colors = "#FFFFFF" },
             ItemMargin = new LegendItemMargin { Horizontal = 10, Vertical = 0 }
         };
 
+        options.Responsive = new List<Responsive<ChartDataDto>>
+        {
+            new Responsive<ChartDataDto>
+            {
+                Breakpoint = 480,
+                Options = new ApexChartOptions<ChartDataDto>
+                {
+                    Legend = new Legend
+                    {
+                        Position = LegendPosition.Bottom,
+                        HorizontalAlign = Align.Center
+                    },
+                    Chart = new Chart
+                    {
+                        Height = 280
+                    }
+                }
+            }
+        };
         options.DataLabels = new DataLabels { Enabled = false };
         options.Tooltip = new Tooltip { Enabled = true, Theme = ApexCharts.Mode.Dark };
     }

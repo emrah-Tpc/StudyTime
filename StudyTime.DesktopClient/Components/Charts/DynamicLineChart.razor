@@ -93,7 +93,28 @@
 
         options.DataLabels = new DataLabels { Enabled = false };
         options.Theme = new Theme { Mode = ApexCharts.Mode.Dark };
-        options.Tooltip = new Tooltip { Enabled = true, Theme = ApexCharts.Mode.Dark };
+        options.Tooltip = new Tooltip { Enabled = true, Theme = ApexCharts.Mode.Dark, Intersect = false, Shared = true };
+
+        // Responsive Options
+        options.Responsive = new List<Responsive<ChartDataDto>>
+        {
+            new Responsive<ChartDataDto>
+            {
+                Breakpoint = 480,
+                Options = new ApexChartOptions<ChartDataDto>
+                {
+                    Chart = new Chart
+                    {
+                        Height = 200, // Mobilde biraz daha küçük olabilir veya aynı kalabilir
+                        Toolbar = new Toolbar { Show = false }
+                    },
+                    Xaxis = new XAxis
+                    {
+                        Labels = new XAxisLabels { Show = false } // Mobilde X ekseni etiketlerini gizle
+                    }
+                }
+            }
+        };
     }
 
     protected override async Task OnParametersSetAsync()

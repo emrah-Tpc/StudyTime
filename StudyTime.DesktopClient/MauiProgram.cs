@@ -31,18 +31,18 @@ namespace StudyTime.DesktopClient
 
             // --- HTTP Client Ayarları ---
             // Android emülatör için 10.0.2.2, Windows için localhost
-            // Not: DeviceInfo kullanabilmek için yukarıya 'using Microsoft.Maui.Devices;' ekledik.
             string baseUrl = DeviceInfo.Platform == DevicePlatform.Android
                 ? "https://10.0.2.2:7288"
                 : "https://localhost:7288";
 
             builder.Services.AddScoped(sp =>
             {
-                var handler = new HttpClientHandler
-                {
-                    // Geliştirme ortamında sertifika hatasını yoksay (SSL Bypass)
-                    ServerCertificateCustomValidationCallback = (_, _, _, _) => true
-                };
+                var handler = new HttpClientHandler();
+
+                // Geliştirme ortamında sertifika hatasını yoksay (SSL Bypass)
+#if DEBUG
+                handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true;
+#endif
 
                 return new HttpClient(handler)
                 {

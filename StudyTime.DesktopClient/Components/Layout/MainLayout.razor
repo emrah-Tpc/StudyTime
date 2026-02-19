@@ -2,12 +2,18 @@
 
 <div class="app-layout-container">
     
-    <StudyTime.DesktopClient.Components.Navigation.TopBar /> 
+    <div class="desktop-nav">
+         <StudyTime.DesktopClient.Components.Navigation.TopBar /> 
+    </div>
 
     <main class="main-content-scrollable">
         <div class="content-wrapper">
             @Body
         </div>
     </main>
+
+    <div class="mobile-nav">
+        <StudyTime.DesktopClient.Components.Navigation.BottomBar />
+    </div>
 
 </div>

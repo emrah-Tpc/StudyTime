@@ -94,11 +94,11 @@
                                 <div class="st-card p-3 d-flex align-items-center justify-content-between">
                                     <div class="d-flex align-items-center gap-3">
                                         <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" checked="@(task.Status == StudyTime.Domain.Enums.TaskStatus.Completed)"
+                                            <input class="form-check-input" type="checkbox" checked="@IsTaskCompleted(task)"
                                                    @onchange="(e) => ToggleTaskStatus(task, e.Value)">
                                         </div>
                                         <div>
-                                            <div class="fw-medium text-white @(task.Status == StudyTime.Domain.Enums.TaskStatus.Completed ? "text-decoration-line-through opacity-50" : "")">
+                                            <div class="fw-medium text-white @(IsTaskCompleted(task) ? "text-decoration-line-through opacity-50" : "")">
                                                 @task.Title
                                             </div>
                                             <div class="small opacity-50" style="color: @(task.Lesson?.Color ?? "#fff");">
@@ -205,6 +205,48 @@
     .task-dot-more {
         font-size: 0.6rem;
         color: var(--text-muted);
+    }
+
+    /* Mobile Responsive Adjustments */
+    @@media (max-width: 768px) {
+        .calendar-grid {
+            border-radius: var(--radius-md);
+        }
+
+        .calendar-cell {
+            min-height: 80px; /* Reduced height */
+            padding: 4px;
+        }
+
+        .calendar-day-header {
+            font-size: 0.7rem;
+            padding: 6px;
+        }
+
+        .day-number {
+            font-size: 0.8rem;
+        }
+
+        .cell-header {
+            margin-bottom: 4px;
+        }
+        
+        /* Hide task detail dots if too many or make them smaller */
+        .task-dot {
+            width: 6px;
+            height: 6px;
+        }
+
+        .calendar-header {
+            flex-direction: column;
+            gap: 1rem;
+            align-items: flex-start !important;
+        }
+        
+        .calendar-header .d-flex {
+            width: 100%;
+            justify-content: space-between;
+        }
     }
 </style>
 
@@ -332,6 +374,8 @@
         }
     }
     
+    private bool IsTaskCompleted(TaskDto task) => task.Status == StudyTime.Domain.Enums.TaskStatus.Completed;
+
     private string GetFormattedDuration(TimeSpan ts)
     {
         if (ts.TotalMinutes < 60) return $"{ts.TotalMinutes}dk";

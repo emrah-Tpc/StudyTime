@@ -291,5 +291,60 @@
         barOptions.PlotOptions = new PlotOptions { Bar = new PlotOptionsBar { BorderRadius = 2, ColumnWidth = "70%" } };
         // Improve tooltip
         barOptions.Tooltip = new Tooltip { Theme = Mode.Dark, Y = new TooltipY { Formatter = @"function(val) { return val + ' dk' }" } };
+        
+        // Responsive Options for Statistics Charts
+        var responsiveOptions = new List<Responsive<object>> // Generic object due to different types
+        {
+             new Responsive<object>
+             {
+                 Breakpoint = 480,
+                 Options = new ApexChartOptions<object>
+                 {
+                     Chart = new Chart { Height = 250 },
+                     Legend = new Legend { Position = LegendPosition.Bottom },
+                     Xaxis = new XAxis { Labels = new XAxisLabels { Show = false } } 
+                 }
+             }
+        };
+
+        // Apply to each (cast/create specific lists)
+        trendOptions.Responsive = new List<Responsive<TimeTrendDto>> 
+        { 
+            new Responsive<TimeTrendDto> 
+            { 
+                Breakpoint = 480, 
+                Options = new ApexChartOptions<TimeTrendDto> 
+                { 
+                    Chart = new Chart { Height = 200 },
+                    Xaxis = new XAxis { Labels = new XAxisLabels { Show = false } }
+                } 
+            } 
+        };
+
+        pieOptions.Responsive = new List<Responsive<LessonStatisticDto>>
+        {
+            new Responsive<LessonStatisticDto>
+            {
+                Breakpoint = 480,
+                Options = new ApexChartOptions<LessonStatisticDto>
+                {
+                    Chart = new Chart { Height = 250 },
+                    Legend = new Legend { Position = LegendPosition.Bottom }
+                }
+            }
+        };
+
+        barOptions.Responsive = new List<Responsive<ProductivityDto>>
+        {
+            new Responsive<ProductivityDto>
+            {
+                Breakpoint = 480,
+                Options = new ApexChartOptions<ProductivityDto>
+                {
+                    Chart = new Chart { Height = 250 },
+                    Xaxis = new XAxis { Labels = new XAxisLabels { Show = false } }
+                }
+            }
+        };
     }
 }
