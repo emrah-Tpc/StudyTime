@@ -12,67 +12,68 @@ namespace StudyTime.Application.Services
     {
         public async Task<StatisticsSummaryDto> GetStatisticsAsync(DateTime startDate, DateTime endDate)
         {
-            var sessions = await studySessionRepository.GetByDateRangeAsync(startDate, endDate);
-            var tasks = await taskRepository.GetByDateRangeAsync(startDate, endDate);
-            var allLessons = await lessonRepository.GetAllAsync();
+            var allSessions = await studySessionRepository.GetByDateRangeAsync(startDate, endDate);
+            var tasks       = await taskRepository.GetByDateRangeAsync(startDate, endDate);
+            var allLessons  = await lessonRepository.GetAllAsync();
+
+            // ── Çalışma ve mola oturumlarını ayır ────────────────────────────
+            var workSessions  = allSessions.Where(s => !s.IsBreak).ToList();
+            var breakSessions = allSessions.Where(s =>  s.IsBreak).ToList();
 
             var summary = new StatisticsSummaryDto();
 
-            // 1. Basic Totals
-            summary.TotalStudyTime = TimeSpan.FromMinutes(sessions.Sum(s => s.CurrentDuration.TotalMinutes));
+            // 1. Temel Toplamlar (yalnızca çalışma oturumları)
+            summary.TotalStudyTime = TimeSpan.FromMinutes(workSessions.Sum(s => s.CurrentDuration.TotalMinutes));
+            summary.TotalBreakTime = TimeSpan.FromMinutes(breakSessions.Sum(s => s.CurrentDuration.TotalMinutes));
             summary.TotalTasksCompleted = tasks.Count(t => t.Status == TaskStatus.Completed);
 
             var totalDays = (endDate - startDate).TotalDays;
             if (totalDays > 0)
-            {
                 summary.AverageDailyStudyMinutes = Math.Round(summary.TotalStudyTime.TotalMinutes / totalDays);
-            }
 
-            // 2. Productivity Score (Simplified Logic)
-            // Example: 1 point for every 5 mins studied + 5 points for every task completed
-            // Cap at 100 per day average logic or similar. For now, simple calc.
+            // 2. Verimlilik Skoru
             var score = (summary.TotalStudyTime.TotalMinutes / 5) + (summary.TotalTasksCompleted * 5);
-            summary.ProductivityScore = Math.Min((int)score, 100); // Placeholder logic
+            summary.ProductivityScore = Math.Min((int)score, 100);
 
-            // 3. Lesson Statistics
-            summary.LessonStatistics = sessions
+            // 3. Ders İstatistikleri (mola hariç)
+            summary.LessonStatistics = workSessions
                 .Where(s => s.Lesson != null)
                 .GroupBy(s => s.LessonId)
                 .Select(g =>
                 {
-                    var lesson = allLessons.FirstOrDefault(l => l.Id == g.Key);
-                    var lessonTasks = tasks.Where(t => t.LessonId == g.Key).ToList();
-                    var totalTasks = lessonTasks.Count;
+                    var lesson       = allLessons.FirstOrDefault(l => l.Id == g.Key);
+                    var lessonTasks  = tasks.Where(t => t.LessonId == g.Key).ToList();
+                    var totalTasks   = lessonTasks.Count;
                     var completedTasks = lessonTasks.Count(t => t.Status == TaskStatus.Completed);
                     var rate = totalTasks == 0 ? 0 : (int)((double)completedTasks / totalTasks * 100);
 
                     return new LessonStatisticDto
                     {
-                        LessonName = lesson?.Name ?? "Unknown",
-                        Color = lesson?.Color ?? "#3b82f6",
+                        LessonName           = lesson?.Name ?? "Unknown",
+                        Color                = lesson?.Color ?? "#3b82f6",
                         TotalDurationMinutes = g.Sum(s => s.CurrentDuration.TotalMinutes),
-                        TaskCompletionRate = rate
+                        TaskCompletionRate   = rate
                     };
                 })
                 .OrderByDescending(l => l.TotalDurationMinutes)
                 .ToList();
 
-            // 4. Task Statistics (Top 5)
+            // 4. Görev İstatistikleri (Top 5)
             summary.TaskStatistics = tasks
-                .Where(t => t.Status == TaskStatus.Completed) 
-                .OrderByDescending(t => t.PlannedDuration.GetValueOrDefault().TotalMinutes) 
-                .Take(5) // Limit to 5
+                .Where(t => t.Status == TaskStatus.Completed)
+                .OrderByDescending(t => t.PlannedDuration.GetValueOrDefault().TotalMinutes)
+                .Take(5)
                 .Select(t => new TaskStatisticDto
                 {
-                    Title = t.Title,
-                    LessonName = t.Lesson?.Name ?? "-",
-                    DurationMinutes = t.PlannedDuration.GetValueOrDefault().TotalMinutes, 
-                    IsCompleted = t.Status == TaskStatus.Completed
+                    Title           = t.Title,
+                    LessonName      = t.Lesson?.Name ?? "-",
+                    DurationMinutes = t.PlannedDuration.GetValueOrDefault().TotalMinutes,
+                    IsCompleted     = true
                 })
                 .ToList();
 
-            // 5. Study Trends (Daily) with Zero Filling
-            var dailyGroups = sessions
+            // 5. Günlük Çalışma Trendi (mola hariç, sıfır doldurma)
+            var dailyWork = workSessions
                 .GroupBy(s => s.StartedAt.Date)
                 .ToDictionary(g => g.Key, g => g.Sum(s => s.CurrentDuration.TotalMinutes));
 
@@ -82,32 +83,32 @@ namespace StudyTime.Application.Services
                 trendData.Add(new TimeTrendDto
                 {
                     Label = date.ToString("dd MMM", new System.Globalization.CultureInfo("tr-TR")),
-                    Value = dailyGroups.ContainsKey(date) ? dailyGroups[date] : 0
+                    Value = dailyWork.GetValueOrDefault(date, 0)
                 });
             }
             summary.StudyTrends = trendData;
 
-            // 6. Peak Productivity (Hour of Day)
-            summary.PeakProductivity = sessions
+            // 6. Günün Saatlerine Göre Verimlilik (mola hariç)
+            summary.PeakProductivity = workSessions
                 .GroupBy(s => s.StartedAt.Hour)
                 .Select(g => new ProductivityDto
                 {
-                    Hour = g.Key,
+                    Hour  = g.Key,
                     Score = g.Sum(s => s.CurrentDuration.TotalMinutes)
                 })
                 .OrderBy(p => p.Hour)
                 .ToList();
 
-            // 7. New Metrics Calculation
-            summary.TotalSessions = sessions.Count;
-            summary.AverageSessionDuration = sessions.Any() 
-                ? Math.Round(sessions.Average(s => s.CurrentDuration.TotalMinutes), 1) 
+            // 7. Yeni Metrikler (mola hariç)
+            summary.TotalSessions = workSessions.Count;
+            summary.AverageSessionDuration = workSessions.Any()
+                ? Math.Round(workSessions.Average(s => s.CurrentDuration.TotalMinutes), 1)
                 : 0;
 
-            if (sessions.Any())
+            if (workSessions.Any())
             {
-                var culture = new System.Globalization.CultureInfo("tr-TR");
-                var bestDayGroup = sessions
+                var culture      = new System.Globalization.CultureInfo("tr-TR");
+                var bestDayGroup = workSessions
                     .GroupBy(s => s.StartedAt.DayOfWeek)
                     .OrderByDescending(g => g.Sum(s => s.CurrentDuration.TotalMinutes))
                     .FirstOrDefault();
@@ -115,11 +116,39 @@ namespace StudyTime.Application.Services
                 if (bestDayGroup != null)
                 {
                     summary.MostProductiveDay = culture.DateTimeFormat.GetDayName(bestDayGroup.Key);
-                    // Capitalize first letter
-                    summary.MostProductiveDay = char.ToUpper(summary.MostProductiveDay[0]) + summary.MostProductiveDay.Substring(1);
+                    summary.MostProductiveDay = char.ToUpper(summary.MostProductiveDay[0])
+                                              + summary.MostProductiveDay[1..];
                 }
             }
-            
+
+            // 8. Günlük Seans Heatmap (mola hariç)
+            var dailySessionGroups = workSessions
+                .GroupBy(s => s.StartedAt.Date)
+                .ToDictionary(
+                    g => g.Key,
+                    g =>
+                    {
+                        var count = g.Count();
+                        var dominantLesson = g
+                            .GroupBy(s => s.LessonId)
+                            .OrderByDescending(lg => lg.Sum(s => s.CurrentDuration.TotalMinutes))
+                            .FirstOrDefault();
+                        var dominantColor = allLessons
+                            .FirstOrDefault(l => l.Id == dominantLesson?.Key)?.Color ?? "#3b82f6";
+                        return (count, dominantColor);
+                    });
+
+            var heatmapData = new List<DailySessionDto>();
+            for (var date = startDate.Date; date <= endDate.Date; date = date.AddDays(1))
+            {
+                if (dailySessionGroups.TryGetValue(date, out var dayInfo))
+                    heatmapData.Add(new DailySessionDto
+                        { Date = date, SessionCount = dayInfo.count, DominantColor = dayInfo.dominantColor });
+                else
+                    heatmapData.Add(new DailySessionDto { Date = date, SessionCount = 0 });
+            }
+            summary.DailySessionCounts = heatmapData;
+
             return summary;
         }
     }

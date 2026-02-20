@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using StudyTime.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using StudyTime.Infrastructure.Persistence;
 namespace StudyTime.Infrastructure.Migrations
 {
     [DbContext(typeof(StudyTimeDbContext))]
-    partial class StudyTimeDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260220093235_AddIsBreakToStudySession")]
+    partial class AddIsBreakToStudySession
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

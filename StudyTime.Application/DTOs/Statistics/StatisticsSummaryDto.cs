@@ -3,6 +3,7 @@ namespace StudyTime.Application.DTOs.Statistics
     public class StatisticsSummaryDto
     {
         public TimeSpan TotalStudyTime { get; set; }
+        public TimeSpan TotalBreakTime  { get; set; }  // Mola oturumları ayrı tutulur
         public double AverageDailyStudyMinutes { get; set; }
         public int TotalTasksCompleted { get; set; }
         public int ProductivityScore { get; set; }
@@ -15,6 +16,9 @@ namespace StudyTime.Application.DTOs.Statistics
         public string MostProductiveDay { get; set; } = "-";
         public double AverageSessionDuration { get; set; }
         public int TotalSessions { get; set; }
+
+        // Pomodoro / Günlük Seans Heatmap
+        public List<DailySessionDto> DailySessionCounts { get; set; } = new();
     }
 
     public class LessonStatisticDto
@@ -31,6 +35,15 @@ namespace StudyTime.Application.DTOs.Statistics
         public string LessonName { get; set; } = string.Empty;
         public double DurationMinutes { get; set; }
         public bool IsCompleted { get; set; }
+    }
+
+    /// <summary>Bir günde tamamlanan seans sayısı (heatmap için).</summary>
+    public class DailySessionDto
+    {
+        public DateTime Date { get; set; }
+        public int SessionCount { get; set; }
+        /// <summary>En çok çalışılan ders rengi (UI renklendirme için).</summary>
+        public string DominantColor { get; set; } = "#3b82f6";
     }
 
     public class TimeTrendDto

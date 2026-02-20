@@ -12,15 +12,15 @@ namespace StudyTime.DesktopClient.Services
             _http = http;
         }
 
-        public async Task<Guid> StartSessionAsync(Guid lessonId, Guid? taskId)
+        public async Task<Guid> StartSessionAsync(Guid lessonId, Guid? taskId, bool isBreak = false)
         {
             var dto = new StartStudySessionDto
             {
                 LessonId = lessonId,
-                TaskId = taskId
+                TaskId = taskId,
+                IsBreak = isBreak
             };
 
-            // URL'nin başına / eklendi
             var response = await _http.PostAsJsonAsync("/api/studysession/start", dto);
 
             if (response.IsSuccessStatusCode)

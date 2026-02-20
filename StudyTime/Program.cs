@@ -41,6 +41,7 @@ builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 builder.Services.AddScoped<ITaskRepository, TaskRepository>();
 builder.Services.AddScoped<IStudySessionRepository, StudySessionRepository>();
 builder.Services.AddScoped<ILessonRepository, LessonRepository>();
+builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 
 // ---------------- Swagger ----------------
 builder.Services.AddEndpointsApiExplorer();

@@ -1,0 +1,130 @@
+@using StudyTime.DesktopClient.Services
+@implements IDisposable
+
+@inject GlobalTimerService GlobalTimer
+
+@if (GlobalTimer.IsFocusModeActive)
+{
+    <div class="focus-overlay fade-in" @onkeydown="HandleKeyDown" tabindex="0">
+        <!-- Ambient Background -->
+        <div class="focus-ambient" style="--accent: @GlobalTimer.ActiveColor"></div>
+
+        <!-- Header: Close -->
+        <div class="focus-header">
+            <button class="focus-exit-btn" @onclick="ExitFocusMode">
+                <i class="bi bi-x-lg"></i> Odak Modundan Çık
+            </button>
+        </div>
+
+        <!-- Main: Giant Clock -->
+        <div class="focus-center">
+            <div class="focus-lesson-label" style="color: @GlobalTimer.ActiveColor">
+                @if (!string.IsNullOrEmpty(GlobalTimer.ActiveTaskTitle))
+                {
+                    <i class="bi bi-bookmark-fill me-2"></i>@GlobalTimer.ActiveTaskTitle
+                }
+                else if (GlobalTimer.IsBreak)
+                {
+                    <span><i class="bi bi-cup-hot-fill me-2"></i>Mola Vakti</span>
+                }
+                else if (GlobalTimer.IsCountdown)
+                {
+                    <span><i class="bi bi-bullseye me-2"></i>Odaklanma Modu</span>
+                }
+                else
+                {
+                    <span><i class="bi bi-infinity me-2"></i>Serbest Çalışma</span>
+                }
+            </div>
+
+            <div class="focus-clock" style="color: @GlobalTimer.ActiveColor; text-shadow: 0 0 40px @(GlobalTimer.ActiveColor)88, 0 0 80px @(GlobalTimer.ActiveColor)44">
+                @FocusDisplayTime.ToString(@"hh\:mm\:ss")
+            </div>
+
+            <div class="focus-pulsing-ring" style="border-color: @GlobalTimer.ActiveColor"></div>
+
+            <div class="focus-quote">
+                <i class="bi bi-chat-quote-fill me-2 opacity-50"></i>@CurrentQuote
+            </div>
+        </div>
+
+        <!-- Footer: Stop -->
+        <div class="focus-footer">
+            <button class="focus-stop-btn" @onclick="StopTimer">
+                <i class="bi bi-stop-fill me-2"></i>Çalışmayı Bitir
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    private static readonly string[] Quotes = new[]
+    {
+        "Başarı, her gün tekrar edilen küçük çabaların toplamıdır.",
+        "Odaklan. Şu an yaptığın şey hayatını şekillendiriyor.",
+        "Zorlu yollar, güzel yerlere çıkar.",
+        "Bugünün çalışması, yarının başarısıdır.",
+        "Kendine olan inanç, her şeyin başlangıcıdır.",
+        "Sabır ve azimle, her engeli aşarsın.",
+        "Her dakika önemli. Şu anın değerini bil.",
+        "Başarmak için önce inanmak gerekir.",
+        "Küçük adımlar, büyük hedeflere götürür.",
+        "Vazgeçme. Zirveye giden yol buradan geçiyor.",
+    };
+
+    private string CurrentQuote = Quotes[0];
+    private int _quoteIndex = 0;
+    private System.Threading.Timer? _quoteTimer;
+
+    /// <summary>Aynı Workspace'teki DisplayTime mantığı: geri sayımda kalan süre, kronom-etrede geçen süre.</summary>
+    private TimeSpan FocusDisplayTime =>
+        GlobalTimer.IsCountdown ? GlobalTimer.RemainingTime : GlobalTimer.ElapsedTime;
+
+    protected override void OnInitialized()
+    {
+        GlobalTimer.OnTick += OnTimerTick;
+        GlobalTimer.OnFocusModeChanged += OnFocusModeChanged;
+
+        _quoteTimer = new System.Threading.Timer(_ =>
+        {
+            _quoteIndex = (_quoteIndex + 1) % Quotes.Length;
+            CurrentQuote = Quotes[_quoteIndex];
+            InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+    }
+
+    private void OnTimerTick()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnFocusModeChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ExitFocusMode()
+    {
+        GlobalTimer.SetFocusMode(false);
+    }
+
+    private async Task StopTimer()
+    {
+        await GlobalTimer.StopAsync();
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            ExitFocusMode();
+        }
+    }
+
+    public void Dispose()
+    {
+        GlobalTimer.OnTick -= OnTimerTick;
+        GlobalTimer.OnFocusModeChanged -= OnFocusModeChanged;
+        _quoteTimer?.Dispose();
+    }
+}

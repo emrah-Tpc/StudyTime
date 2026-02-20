@@ -6,5 +6,6 @@ namespace StudyTime.Application.DTOs.StudySessions
     {
         public Guid LessonId { get; set; }
         public Guid? TaskId { get; set; }
+        public bool IsBreak { get; set; }
     }
 }

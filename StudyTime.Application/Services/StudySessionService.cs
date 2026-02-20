@@ -16,12 +16,8 @@ namespace StudyTime.Application.Services
         // ▶ START
         public async Task<Guid> StartAsync(StartStudySessionDto dto)
         {
-            // 👇 DÜZELTME: TaskId'yi direkt Constructor içine gönderiyoruz.
-            // Böylece "private set" hatası almazsın.
-            var session = new StudySession(dto.LessonId, dto.TaskId);
-
+            var session = new StudySession(dto.LessonId, dto.TaskId, dto.IsBreak);
             session.Start();
-
             await _studySessionRepository.AddAsync(session);
             return session.Id;
         }

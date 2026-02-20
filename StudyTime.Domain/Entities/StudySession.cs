@@ -7,19 +7,21 @@ namespace StudyTime.Domain.Entities
         public Guid Id { get; private set; }
         public Guid LessonId { get; private set; }
         public Lesson? Lesson { get; private set; } // Navigation Property
-        public Guid? TaskId { get; private set; } // private set olduğu için hata veriyordu
+        public Guid? TaskId { get; private set; }
+        /// <summary>Bu oturum bir mola seçeneği mi?</summary>
+        public bool IsBreak { get; private set; }
 
         public DateTime StartedAt { get; private set; }
         public DateTime? EndedAt { get; private set; }
         public DateTime? LastResumedAt { get; private set; }
         public TimeSpan TotalActiveDuration { get; private set; }
 
-        // 👇 CONSTRUCTOR GÜNCELLENDİ: TaskId parametresi eklendi
-        public StudySession(Guid lessonId, Guid? taskId = null)
+        public StudySession(Guid lessonId, Guid? taskId = null, bool isBreak = false)
         {
             Id = Guid.NewGuid();
             LessonId = lessonId;
-            TaskId = taskId; // İlk oluşum anında değeri atıyoruz
+            TaskId = taskId;
+            IsBreak = isBreak;
 
             StartedAt = DateTime.MinValue;
             TotalActiveDuration = TimeSpan.Zero;
