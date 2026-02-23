@@ -37,17 +37,21 @@ namespace StudyTime.DesktopClient.Services
 
         public async Task<List<TaskDto>> GetTasksByDateRangeAsync(DateTime start, DateTime end)
         {
-            try
+            // Format dates as ISO 8601 to ensure correct parsing
+            var startStr = start.ToString("yyyy-MM-ddTHH:mm:ss");
+            var endStr = end.ToString("yyyy-MM-ddTHH:mm:ss");
+            return await _httpClient.GetFromJsonAsync<List<TaskDto>>($"api/tasks/range?start={startStr}&end={endStr}")
+                   ?? new List<TaskDto>();
+        }
+
+        // Görevi Güncelle
+        public async Task UpdateAsync(Guid id, UpdateTaskDto dto)
+        {
+            var response = await _httpClient.PutAsJsonAsync($"api/tasks/{id}", dto);
+            if (!response.IsSuccessStatusCode)
             {
-                // Format dates as ISO 8601 to ensure correct parsing
-                var startStr = start.ToString("yyyy-MM-ddTHH:mm:ss");
-                var endStr = end.ToString("yyyy-MM-ddTHH:mm:ss");
-                return await _httpClient.GetFromJsonAsync<List<TaskDto>>($"api/tasks/range?start={startStr}&end={endStr}") ?? new List<TaskDto>();
-            }
-            catch(Exception ex)
-            {
-                Console.WriteLine($"Calendar fetch error: {ex.Message}");
-                return new List<TaskDto>();
+                var error = await response.Content.ReadAsStringAsync();
+                throw new Exception($"Güncellenemedi: {error}");
             }
         }
 

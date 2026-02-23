@@ -2,7 +2,8 @@
 @using StudyTime.Application.DTOs.Lessons
 @using StudyTime.Domain.Enums
 @using StudyTime.DesktopClient.Services
-@inject LessonApiService LessonService
+@using StudyTime.DesktopClient.Offline
+@inject SyncedLessonApiService LessonService
 @inject NavigationManager NavManager  // 👈 1. EKLEME: Sayfa yönlendirmesi için gerekli
 
 <div class="lessons-container fade-in">
@@ -195,13 +196,31 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadLessons();
+        
+        // URL'den yönlendirme ile geldiyse (Dashboard -> Yeni Alan)
+        if (NavManager.Uri.Contains("showAdd=true", StringComparison.OrdinalIgnoreCase))
+        {
+            OpenCreateModal();
+        }
     }
 
     private async Task LoadLessons()
     {
         isLoading = true;
-        lessons = await LessonService.GetAllAsync();
-        isLoading = false;
+        try
+        {
+            lessons = await LessonService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Lessons] LoadLessons hata: {ex.Message}");
+            lessons = new();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
     }
 
     // 4. EKLEME: Sayfa Yönlendirme Metodu

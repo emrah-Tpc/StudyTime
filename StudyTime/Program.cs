@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using StudyTime.Application.Interfaces;
 using StudyTime.Application.Services;
 using StudyTime.Application.Validators.Tasks;
+using StudyTime.Domain.Services;
 using StudyTime.Infrastructure.Persistence;
 using StudyTime.Infrastructure.Repositories;
 
@@ -37,11 +38,15 @@ builder.Services.AddScoped<LessonService>();
 builder.Services.AddScoped<StudySessionService>();
 builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 
+// ---------------- Domain Services ----------------
+builder.Services.AddSingleton<ProductivityCalculator>();
+
 // ---------------- Repositories ----------------
 builder.Services.AddScoped<ITaskRepository, TaskRepository>();
 builder.Services.AddScoped<IStudySessionRepository, StudySessionRepository>();
 builder.Services.AddScoped<ILessonRepository, LessonRepository>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 
 // ---------------- Swagger ----------------
 builder.Services.AddEndpointsApiExplorer();

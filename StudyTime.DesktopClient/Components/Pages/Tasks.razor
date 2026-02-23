@@ -2,9 +2,10 @@
 @using StudyTime.Application.DTOs.Tasks
 @using StudyTime.Application.DTOs.Lessons
 @using StudyTime.DesktopClient.Services
+@using StudyTime.DesktopClient.Offline
 @using System.Globalization
-@inject TaskApiService TaskService
-@inject LessonApiService LessonService
+@inject SyncedTaskApiService TaskService
+@inject SyncedLessonApiService LessonService
 
 <div class="calendar-container fade-in">
     <!-- Header -->
@@ -126,7 +127,11 @@
                         </div>
                     }
                 </div>
-                <!-- Optional: Add Task Button here -->
+                <div class="modal-footer border-0">
+                <div class="modal-footer border-0">
+                    <!-- Buton kaldırıldı -->
+                </div>
+                </div>
             </div>
         </div>
     </div>
@@ -251,6 +256,8 @@
 </style>
 
 @code {
+    [Inject] NavigationManager Nav { get; set; } = default!;
+    
     private DateTime CurrentDate = DateTime.Today;
     private CultureInfo CurrentCulture = new CultureInfo("tr-TR");
     

@@ -1,9 +1,10 @@
 @page "/statistics"
 @using StudyTime.Application.DTOs.Statistics
 @using StudyTime.DesktopClient.Services
+@using StudyTime.DesktopClient.Offline
 @using StudyTime.DesktopClient.Components.Charts
 @using ApexCharts
-@inject StatisticsApiService StatisticsService
+@inject SyncedStatisticsApiService StatisticsService
 
 <div class="statistics-container fade-in">
     <div class="header-section mb-4">
@@ -318,6 +319,7 @@
         finally
         {
             isLoading = false;
+            StateHasChanged();
         }
     }
 

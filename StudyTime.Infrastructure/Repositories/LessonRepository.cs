@@ -22,12 +22,9 @@ namespace StudyTime.Infrastructure.Repositories
 
         public async Task<List<Lesson>> GetAllAsync()
         {
-            // 🚀 OPTİMİZASYON: AsNoTracking()
-            // Sadece okuma yaparken EF Core'un takip mekanizmasını kapatır.
-            // Workspace sayfasının açılışını hızlandırır.
+            // Global Query Filter (StudyTimeDbContext) WHERE IsDeleted = 0 otomatik ekler
             return await _context.Lessons
                                  .AsNoTracking()
-                                 .Where(l => !l.IsDeleted)
                                  .ToListAsync();
         }
 

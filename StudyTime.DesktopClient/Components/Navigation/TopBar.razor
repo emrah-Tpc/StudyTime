@@ -3,7 +3,7 @@
 @implements IDisposable
 
 @inject GlobalTimerService GlobalTimer
-@inject NavigationManager Navigation
+@inject NavigationManager Nav
 
 <div class="topbar-header">
     <div class="brand-section">
@@ -26,7 +26,7 @@
 
         <NavLink class="nav-item" href="tasks">
             <i class="bi bi-list-check"></i>
-            <span>Görevler</span>
+            <span>Görev Takvimi</span>
         </NavLink>
 
         <NavLink class="nav-item" href="statistics">
@@ -46,37 +46,92 @@
                 </span>
             </a>
         }
-        <button class="icon-btn"><i class="bi bi-bell"></i></button>
-        <div class="user-avatar-small">
-            <i class="bi bi-person-fill"></i>
+        
+        <div class="position-relative d-inline-block">
+            <button class="icon-btn" @onclick="() => NotificationService.ToggleCenter()">
+                <i class="bi bi-bell"></i>
+                @if (NotificationService.UnreadCount > 0)
+                {
+                    <span class="badge-dot pulse-blue"></span>
+                }
+            </button>
         </div>
+
+        <button class="icon-btn" @onclick="ShowProfileInfo"><i class="bi bi-person-fill"></i></button>
     </div>
 
 </div>
 
 @code {
+    [Inject] AppNotificationCenterService NotificationService { get; set; } = default!;
+    
     private bool IsOnWorkspacePage =>
-        Navigation.Uri.Contains("/workspace/", StringComparison.OrdinalIgnoreCase);
+        Nav.Uri.Contains("/workspace/", StringComparison.OrdinalIgnoreCase);
+
+    private bool isNotificationOpen = false;
 
     protected override void OnInitialized()
     {
         GlobalTimer.OnTick += OnTimerTick;
-        Navigation.LocationChanged += OnLocationChanged;
+        Nav.LocationChanged += OnLocationChanged;
+        NotificationService.OnNotificationsChanged += OnNotificationsChanged;
+        NotificationService.OnCenterStateChanged += OnNotificationsChanged;
+
+        // MOCK BİLDİRİMLER (Demostrasyon için)
+        if (!NotificationService.Notifications.Any())
+        {
+            NotificationService.AddNotification("Bulut Yedekleme", "Çalışma verilerin başarıyla yedeklendi.", NotificationCategory.System);
+            NotificationService.AddNotification("Haftalık Hedef", "Haftalık 20 saatlik hedefine ulaşmak üzeresin! 🚀", NotificationCategory.Motivation);
+            NotificationService.AddNotification("İpucu", "2 saattir aralıksız çalışıyorsan bir mola vermeyi unutma.", NotificationCategory.Awareness);
+        }
     }
 
-    private void OnTimerTick()
+    private void ToggleNotifications() => isNotificationOpen = !isNotificationOpen;
+
+    private async Task ShowProfileInfo()
     {
-        InvokeAsync(StateHasChanged);
+        // "Kullanıcı kısmı daha yapılmadığı için es geçebilirsin" talebine istinaden şimdilik alert
+        if (Shell.Current != null) await Shell.Current.DisplayAlert("Profil", "Kullanıcı sistemi yakında eklenecek!", "Tamam");
     }
+
+    private void OnTimerTick() => InvokeAsync(StateHasChanged);
+    private void OnNotificationsChanged() => InvokeAsync(StateHasChanged);
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
+        NotificationService.CloseCenter(); // Sayfa değişince kapat
         InvokeAsync(StateHasChanged);
     }
 
     public void Dispose()
     {
         GlobalTimer.OnTick -= OnTimerTick;
-        Navigation.LocationChanged -= OnLocationChanged;
+        Nav.LocationChanged -= OnLocationChanged;
+        NotificationService.OnNotificationsChanged -= OnNotificationsChanged;
+        NotificationService.OnCenterStateChanged -= OnNotificationsChanged;
     }
 }
+
+<style>
+    .badge-dot {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 8px;
+        height: 8px;
+        background: #3b82f6;
+        border-radius: 50%;
+        border: 2px solid #18181b;
+    }
+    
+    .pulse-blue {
+        box-shadow: 0 0 0 rgba(59, 130, 246, 0.4);
+        animation: pulse-blue 2s infinite;
+    }
+
+    @@keyframes pulse-blue {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+        70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(59, 130, 246, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+    }
+</style>

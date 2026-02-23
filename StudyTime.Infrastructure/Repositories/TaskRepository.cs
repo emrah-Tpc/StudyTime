@@ -21,10 +21,10 @@ namespace StudyTime.Infrastructure.Repositories
 
         public async Task<List<TaskItem>> GetAllAsync()
         {
+            // Global Query Filter WHERE IsDeleted = 0 otomatik ekler
             return await context.Tasks
                 .AsNoTracking()
                 .Include(t => t.Lesson)
-                .Where(t => !t.IsDeleted)
                 .OrderByDescending(t => t.Id)
                 .ToListAsync();
         }
@@ -32,10 +32,11 @@ namespace StudyTime.Infrastructure.Repositories
         // 👇 DÜZELTİLEN METOT (Workspace Sayfası İçin)
         public async Task<List<TaskItem>> GetByLessonIdAsync(Guid lessonId)
         {
+            // Global Query Filter WHERE IsDeleted = 0 otomatik ekler
             return await context.Tasks
-                .AsNoTracking() // Liste çekerken performans için önemli
-                .Where(t => t.LessonId == lessonId && !t.IsDeleted)
-                .OrderByDescending(t => t.StartDate) // En yeni görevler üstte
+                .AsNoTracking()
+                .Where(t => t.LessonId == lessonId)
+                .OrderByDescending(t => t.StartDate)
                 .ToListAsync();
         }
 
@@ -59,8 +60,7 @@ namespace StudyTime.Infrastructure.Repositories
             int pageSize)
         {
             var query = context.Tasks.AsNoTracking().AsQueryable();
-
-            query = query.Where(t => !t.IsDeleted);
+            // Global Query Filter WHERE IsDeleted = 0 otomatik, ek Where gereksiz
 
             if (!string.IsNullOrEmpty(statusStr) && Enum.TryParse<TaskStatus>(statusStr, out var statusEnum))
             {
@@ -90,13 +90,22 @@ namespace StudyTime.Infrastructure.Repositories
         }
         public async Task<List<TaskItem>> GetByDateRangeAsync(DateTime startDate, DateTime endDate)
         {
+            // Global Query Filter WHERE IsDeleted = 0 otomatik ekler
+            // StartDate veya EndDate aralık içindeyse görev döner (ikisi de null olanlar hariç)
             return await context.Tasks
                 .AsNoTracking()
                 .Include(t => t.Lesson)
-                .Where(t => !t.IsDeleted && t.StartDate.HasValue && 
-                            t.StartDate.Value.Date >= startDate.Date && 
-                            t.StartDate.Value.Date <= endDate.Date)
-                .OrderByDescending(t => t.StartDate)
+                .Where(t =>
+                    // StartDate aralık içinde
+                    (t.StartDate.HasValue &&
+                     t.StartDate.Value.Date >= startDate.Date &&
+                     t.StartDate.Value.Date <= endDate.Date)
+                    ||
+                    // EndDate aralık içinde (StartDate null olsa bile)
+                    (t.EndDate.HasValue &&
+                     t.EndDate.Value.Date >= startDate.Date &&
+                     t.EndDate.Value.Date <= endDate.Date))
+                .OrderByDescending(t => t.StartDate ?? t.EndDate)
                 .ToListAsync();
         }
     }

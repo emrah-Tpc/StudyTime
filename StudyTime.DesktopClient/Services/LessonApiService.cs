@@ -9,15 +9,8 @@ namespace StudyTime.DesktopClient.Services
         // Tüm dersleri getir (LessonListItemDto döner)
         public async Task<List<LessonListItemDto>> GetAllAsync()
         {
-            try
-            {
-                var result = await http.GetFromJsonAsync<List<LessonListItemDto>>("/api/lessons");
-                return result ?? new List<LessonListItemDto>();
-            }
-            catch
-            {
-                return new List<LessonListItemDto>();
-            }
+            var result = await http.GetFromJsonAsync<List<LessonListItemDto>>("/api/lessons");
+            return result ?? new List<LessonListItemDto>();
         }
 
         // 👇 EKLENEN METOT: Workspace Sayfası için Detay Getir

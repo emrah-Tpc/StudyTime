@@ -58,7 +58,7 @@ namespace StudyTime.Application.Services
         // 📊 TODAY TOTAL
         public async Task<TodayStudyTotalDto> GetTodayTotalAsync()
         {
-            var today = DateTime.UtcNow.Date;
+            var today = DateTime.Now.Date;
             var sessions = await _studySessionRepository.GetByDateAsync(today);
 
             var totalMinutes = sessions.Sum(s => (int)s.TotalActiveDuration.TotalMinutes);

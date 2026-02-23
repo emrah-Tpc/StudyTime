@@ -1,11 +1,13 @@
 ﻿@page "/"
 @using StudyTime.Application.DTOs.Dashboard
 @using StudyTime.DesktopClient.Services
+@using StudyTime.DesktopClient.Offline
 @using StudyTime.DesktopClient.Components.Charts
 @using System.Globalization
 @using System.Text
-@inject DashboardApiService DashboardService
-@inject TaskApiService TaskService
+@inject SyncedDashboardApiService DashboardService
+@inject SyncedTaskApiService TaskService
+@inject NavigationManager Nav
 
 <div class="dashboard-container fade-in">
     @if (isLoading)
@@ -23,8 +25,13 @@
             </div>
 
             <div class="header-actions align-items-center">
-                <button class="btn-outline"><i class="bi bi-plus-lg"></i> <span class="d-none d-md-inline">Yeni Alan</span></button>
-                <button class="btn-outline"><i class="bi bi-list-check"></i> <span class="d-none d-md-inline">Yeni Görev</span></button>
+            <div class="header-actions align-items-center">
+            <div class="header-actions align-items-center">
+                <button class="btn-outline" @onclick='() => Nav.NavigateTo("lessons?showAdd=true")'>
+                    <i class="bi bi-plus-lg"></i> <span class="d-none d-md-inline">Yeni Alan</span>
+                </button>
+            </div>
+            </div>
             </div>
         </div>
 
@@ -201,6 +208,20 @@
             </div>
         </div>
     }
+    else
+    {
+        <div class="d-flex flex-column justify-content-center align-items-center" style="height: 70vh; gap: 16px;">
+            <div style="font-size: 3.5rem; opacity: 0.3;"><i class="bi bi-wifi-off"></i></div>
+            <h3 class="text-white fw-bold m-0">Veriler Yüklenemedi</h3>
+            <p class="text-white opacity-50 text-center small m-0">
+                API'ye bağlanılamıyor. <br />
+                İnternet bağlantını ve uygulamayı kontrol et.
+            </p>
+            <button class="btn-outline mt-2" @onclick="Reload">
+                <i class="bi bi-arrow-clockwise me-2"></i>Tekrar Dene
+            </button>
+        </div>
+    }
 </div>
 
 @code {
@@ -208,7 +229,17 @@
     private bool isLoading = true;
     private string selectedChart = "Weekly";
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task Reload()
+    {
+        isLoading = true;
+        summary = null;
+        StateHasChanged();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
     {
         try { summary = await DashboardService.GetSummaryAsync(); }
         catch { }

@@ -1,17 +1,23 @@
 ﻿using System;
 using System.Threading.Tasks;
+using StudyTime.DesktopClient.Offline;
 using Timer = System.Timers.Timer;
 
 namespace StudyTime.DesktopClient.Services
 {
     public class GlobalTimerService
     {
-        private readonly StudySessionApiService _apiService;
+        private readonly SyncedStudySessionApiService _apiService;
         private Timer? _timer;
 
+        // ── Timestamp-bazlı hesaplama (Background güvenli) ───────────────────
+        // Timer sadece UI'yı tickler; gerçek süre duvar saatinden hesaplanır
+        private DateTime? _sessionStartedAt;
+        private TimeSpan _accumulatedBeforePause = TimeSpan.Zero;
+
         // ── Temel Durum ──────────────────────────────────────────────────────
-        public bool IsRunning      { get; private set; }
-        public bool IsPaused       { get; private set; }
+        public bool IsRunning         { get; private set; }
+        public bool IsPaused          { get; private set; }
         public bool IsFocusModeActive { get; private set; }
         public Guid? ActiveLessonId   { get; private set; }
         public Guid? ActiveTaskId     { get; private set; }
@@ -23,13 +29,25 @@ namespace StudyTime.DesktopClient.Services
         public string ActiveColor { get; set; } = "#ff4b4b";
 
         // ── Zamanlayıcı Modu ─────────────────────────────────────────────────
-        public bool IsCountdown        { get; private set; }
-        public bool IsBreak            { get; private set; }
+        public bool IsCountdown         { get; private set; }
+        public bool IsBreak             { get; private set; }
         public TimeSpan InitialDuration { get; private set; }
         public TimeSpan BreakDuration   { get; private set; }
-        public TimeSpan ElapsedTime     { get; private set; }
 
-        /// <summary>Kalan süre: geri sayımda azalır, kronom-etre modunda ElapsedTime ile aynıdır.</summary>
+        /// <summary>
+        /// Geçen süre — timestamp bazlı, background'da kaybedilmez.
+        /// </summary>
+        public TimeSpan ElapsedTime
+        {
+            get
+            {
+                if (_sessionStartedAt == null)
+                    return _accumulatedBeforePause;
+                return _accumulatedBeforePause + (DateTime.Now - _sessionStartedAt.Value);
+            }
+        }
+
+        /// <summary>Kalan süre: geri sayımda azalır, kronometrede ElapsedTime ile aynıdır.</summary>
         public TimeSpan RemainingTime =>
             IsCountdown
                 ? (InitialDuration > ElapsedTime ? InitialDuration - ElapsedTime : TimeSpan.Zero)
@@ -43,7 +61,7 @@ namespace StudyTime.DesktopClient.Services
         /// <summary>Mola süresi 00:00'a ulaştığında tetiklenir.</summary>
         public event Action? OnBreakFinished;
 
-        public GlobalTimerService(StudySessionApiService apiService)
+        public GlobalTimerService(SyncedStudySessionApiService apiService)
         {
             _apiService = apiService;
         }
@@ -54,9 +72,9 @@ namespace StudyTime.DesktopClient.Services
         public async Task StartAsync(
             Guid lessonId,
             Guid? taskId,
-            string color          = "#ff4b4b",
-            string? taskTitle     = null,
-            TimeSpan? countdown   = null,
+            string color            = "#ff4b4b",
+            string? taskTitle       = null,
+            TimeSpan? countdown     = null,
             TimeSpan? breakDuration = null)
         {
             if (IsRunning && !IsPaused) return;
@@ -81,7 +99,10 @@ namespace StudyTime.DesktopClient.Services
                 InitialDuration = countdown ?? TimeSpan.Zero;
                 BreakDuration   = breakDuration ?? TimeSpan.Zero;
                 IsBreak         = false;
-                ElapsedTime     = TimeSpan.Zero;
+
+                // Timestamp sıfırla
+                _accumulatedBeforePause = TimeSpan.Zero;
+                _sessionStartedAt       = null;
 
                 IsRunning = true;
                 IsPaused  = false;
@@ -90,7 +111,7 @@ namespace StudyTime.DesktopClient.Services
             }
         }
 
-        // ── Mola Başlat (UI tarafından çağrılır) ────────────────────────────
+        // ── Mola Başlat (UI tarafından veya otomatik çağrılır) ───────────────
         public async Task StartBreakAsync()
         {
             if (!ActiveLessonId.HasValue || BreakDuration == TimeSpan.Zero) return;
@@ -105,8 +126,11 @@ namespace StudyTime.DesktopClient.Services
             IsBreak         = true;
             IsCountdown     = true;
             InitialDuration = BreakDuration;
-            ElapsedTime     = TimeSpan.Zero;
             ActiveColor     = "#22c55e";  // Dinlendirici yeşil
+
+            // Timestamp sıfırla
+            _accumulatedBeforePause = TimeSpan.Zero;
+            _sessionStartedAt       = null;
 
             IsRunning = true;
             IsPaused  = false;
@@ -118,6 +142,10 @@ namespace StudyTime.DesktopClient.Services
         public void Pause()
         {
             _timer?.Stop();
+            // Birikmiş süreyi kaydet; sessionStartedAt'ı temizle
+            _accumulatedBeforePause = ElapsedTime;
+            _sessionStartedAt       = null;
+
             IsRunning = false;
             IsPaused  = true;
             OnTick?.Invoke();
@@ -136,6 +164,10 @@ namespace StudyTime.DesktopClient.Services
             _timer?.Dispose();
             _timer = null;
 
+            // Timestamp sıfırla
+            _accumulatedBeforePause = TimeSpan.Zero;
+            _sessionStartedAt       = null;
+
             IsRunning         = false;
             IsPaused          = false;
             IsFocusModeActive = false;
@@ -144,11 +176,10 @@ namespace StudyTime.DesktopClient.Services
             InitialDuration   = TimeSpan.Zero;
             BreakDuration     = TimeSpan.Zero;
 
-            var sessionId = CurrentSessionId;
+            var sessionId   = CurrentSessionId;
             ActiveLessonId  = null;
             ActiveTaskId    = null;
             ActiveTaskTitle = null;
-            ElapsedTime     = TimeSpan.Zero;
             ActiveColor     = _workColor;
 
             if (sessionId != Guid.Empty)
@@ -167,19 +198,37 @@ namespace StudyTime.DesktopClient.Services
             OnFocusModeChanged?.Invoke();
         }
 
+        /// <summary>
+        /// Uygulama foreground'a döndüğünde çağrılır.
+        /// Timestamp-bazlı hesaplama sayesinde süre zaten doğrudur;
+        /// bu metot yalnızca UI'yı yeniler.
+        /// </summary>
+        public void NotifyForeground()
+        {
+            OnTick?.Invoke();
+        }
+
         // ── İç Zamanlayıcı ───────────────────────────────────────────────────
         private void StartLocalTimer()
         {
             _timer?.Dispose();
+
+            // Timestamp: timer başladığında başlangıç noktasını kaydet
+            _sessionStartedAt = DateTime.Now - _accumulatedBeforePause;
+            // Birikmiş süreyi sıfırla — artık fark hesaplanacak
+            _accumulatedBeforePause = TimeSpan.Zero;
+
             _timer = new Timer(1000);
             _timer.Elapsed += async (s, e) =>
             {
-                ElapsedTime = ElapsedTime.Add(TimeSpan.FromSeconds(1));
-
+                // Süre kontrolü: ElapsedTime property'si timestamp'ten hesaplar
                 if (IsCountdown && ElapsedTime >= InitialDuration)
                 {
-                    ElapsedTime = InitialDuration;
                     _timer?.Stop();
+                    // Birikmiş süreyi sabitle
+                    _accumulatedBeforePause = InitialDuration;
+                    _sessionStartedAt       = null;
+
                     IsRunning = false;
                     IsPaused  = false;
                     OnTick?.Invoke();
@@ -195,15 +244,17 @@ namespace StudyTime.DesktopClient.Services
                     }
                     else
                     {
-                        // Çalışma bitti → oturumu kapat ve OnTimerFinished tetikle
-                        // Mola başlatmak Workspace.razor'un sorumluluğuna bırakıldı
+                        // Çalışma bitti → oturumu kapat
                         await _apiService.StopSessionAsync(CurrentSessionId);
                         CurrentSessionId = Guid.Empty;
+                        // NOT: ActiveLessonId ve BreakDuration burada HÂLÂ DOLU
+                        // Workspace.razor'daki OnTimerFinished handler bunları okuyabilir
                         OnTimerFinished?.Invoke();
                     }
                     return;
                 }
 
+                // Normal tick — sadece UI'yı yenile
                 OnTick?.Invoke();
             };
             _timer.Start();

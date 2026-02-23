@@ -9,15 +9,22 @@ namespace StudyTime.Infrastructure.Persistence
         public DbSet<Lesson> Lessons { get; set; }
         public DbSet<TaskItem> Tasks { get; set; }
         public DbSet<StudySession> StudySessions { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
 
         // View için DbSet'i de diğerlerinin yanına aldık
         public DbSet<DashboardSummaryView> DashboardSummaries { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            // "Bekleyen model değişikliği" uyarısını susturuyoruz
             optionsBuilder.ConfigureWarnings(warnings =>
-                warnings.Ignore(RelationalEventId.PendingModelChangesWarning));
+            {
+                // "Bekleyen model değişikliği" uyarısını sustur
+                warnings.Ignore(RelationalEventId.PendingModelChangesWarning);
+                // StudySession → Lesson required FK + global filter uyarısı:
+                // StudySession'lar arşiv amaçlı silinmiş lesson'a ait olabilir.
+                // Bu kasıtlı bir tasarım kararı; uyarı bastırılıyor.
+                warnings.Ignore(CoreEventId.PossibleIncorrectRequiredNavigationWithQueryFilterInteractionWarning);
+            });
 
             base.OnConfiguring(optionsBuilder);
         }
@@ -33,6 +40,12 @@ namespace StudyTime.Infrastructure.Persistence
                 .WithMany()                      // Lesson içinde "Tasks" listesi yoksa boş bırakılır.
                 .HasForeignKey(t => t.LessonId)  // FK'nın LessonId olduğunu netleştiriyoruz.
                 .OnDelete(DeleteBehavior.Restrict); // Lesson silinirse hata ver (veya SetNull yapabilirsiniz).
+
+            // --- GLOBAL QUERY FILTERS (Soft Delete) ---
+            // Tüm Lesson ve TaskItem sorgularına otomatik olarak WHERE IsDeleted = 0 eklenir.
+            // Bypass için: .IgnoreQueryFilters() kullan (örn. Admin raporu, restore işlemi)
+            modelBuilder.Entity<Lesson>().HasQueryFilter(l => !l.IsDeleted);
+            modelBuilder.Entity<TaskItem>().HasQueryFilter(t => !t.IsDeleted);
 
             // --- STUDYSESSION İLİŞKİ AYARLARI ---
             modelBuilder.Entity<StudySession>()

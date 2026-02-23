@@ -11,5 +11,6 @@ namespace StudyTime.Application.DTOs.Lessons
 
         // 👇 YENİ EKLENEN ALAN
         public LessonType Type { get; set; }
+        public string? Notes { get; set; }
     }
 }

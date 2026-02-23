@@ -1,6 +1,7 @@
 ﻿using StudyTime.Application.DTOs.Dashboard;
 using StudyTime.Application.Interfaces;
 using StudyTime.Domain.Enums;
+using StudyTime.Domain.Services;
 using System.Globalization;
 using AppTaskStatus = StudyTime.Domain.Enums.TaskStatus;
 
@@ -10,7 +11,8 @@ namespace StudyTime.Application.Services
         IDashboardRepository dashboardRepository,
         ILessonRepository lessonRepository,
         IStudySessionRepository studySessionRepository,
-        ITaskRepository taskRepository)
+        ITaskRepository taskRepository,
+        ProductivityCalculator productivityCalculator)
     {
         public async Task<DashboardSummaryDto> GetSummaryAsync()
         {
@@ -76,14 +78,8 @@ namespace StudyTime.Application.Services
                 .Sum(s => (int)s.CurrentDuration.TotalMinutes);
             int timeChange = todayMinutes - yesterdayMinutes;
 
-            // Verimlilik Skoru
-            int productivityScore = 0;
-            if (totalTasks > 0 || todayMinutes > 0)
-            {
-                int taskScore = completionRate;
-                int timeScore = Math.Min(todayMinutes * 100 / 240, 100);
-                productivityScore = (int)(taskScore * 0.6 + timeScore * 0.4);
-            }
+            // Verimlilik Skoru — tasks henüz yüklenmedi, aşağıya taşındı
+            int productivityScore;
 
             // Haftalık grafik (son 7 gün, mola hariç)
             var sessionByDate = allSessions
@@ -150,6 +146,13 @@ namespace StudyTime.Application.Services
 
             // ── 5. SON AKTİVİTELER + GÖREV İSTATİSTİKLERİ ───────────────────
             var tasks = await taskRepository.GetAllAsync() ?? new();
+
+            // Verimlilik Skoru — Domain Service (DashboardService+StatisticsService birleşik formül)
+            productivityScore = productivityCalculator.CalculateScore(
+                allSessions.Where(s => !s.IsBreak),
+                tasks,
+                today,
+                today.AddDays(1).AddTicks(-1));
 
             int diff = (7 + (today.DayOfWeek - DayOfWeek.Monday)) % 7;
             var startOfWeek  = today.AddDays(-diff).Date;

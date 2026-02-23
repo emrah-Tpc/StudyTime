@@ -30,8 +30,8 @@ namespace StudyTime.Domain.Entities
 
         public void Start()
         {
-            StartedAt = DateTime.UtcNow;
-            LastResumedAt = DateTime.UtcNow;
+            StartedAt = DateTime.Now;
+            LastResumedAt = DateTime.Now;
             EndedAt = null;
         }
 
@@ -41,10 +41,10 @@ namespace StudyTime.Domain.Entities
 
             if (LastResumedAt.HasValue)
             {
-                TotalActiveDuration += DateTime.UtcNow - LastResumedAt.Value;
+                TotalActiveDuration += DateTime.Now - LastResumedAt.Value;
             }
 
-            EndedAt = DateTime.UtcNow;
+            EndedAt = DateTime.Now;
             LastResumedAt = null;
         }
 
@@ -52,7 +52,7 @@ namespace StudyTime.Domain.Entities
         {
             if (LastResumedAt.HasValue)
             {
-                TotalActiveDuration += DateTime.UtcNow - LastResumedAt.Value;
+                TotalActiveDuration += DateTime.Now - LastResumedAt.Value;
                 LastResumedAt = null;
             }
         }
@@ -61,7 +61,7 @@ namespace StudyTime.Domain.Entities
         {
             if (EndedAt == null && LastResumedAt == null)
             {
-                LastResumedAt = DateTime.UtcNow;
+                LastResumedAt = DateTime.Now;
             }
         }
 
@@ -71,7 +71,7 @@ namespace StudyTime.Domain.Entities
             {
                 if (EndedAt.HasValue) return TotalActiveDuration;
                 if (LastResumedAt.HasValue)
-                    return TotalActiveDuration + (DateTime.UtcNow - LastResumedAt.Value);
+                    return TotalActiveDuration + (DateTime.Now - LastResumedAt.Value);
                 return TotalActiveDuration;
             }
         }

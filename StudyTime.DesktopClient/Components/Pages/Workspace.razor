@@ -2,14 +2,15 @@
 @using StudyTime.Application.DTOs.Lessons
 @using StudyTime.Application.DTOs.Tasks
 @using StudyTime.DesktopClient.Services
+@using StudyTime.DesktopClient.Offline
 @using StudyTime.Domain.Enums
 @implements IDisposable
 
-@inject LessonApiService LessonService
+@inject SyncedLessonApiService LessonService
 @inject StudySessionApiService SessionApiService
-@inject TaskApiService TaskApiService
+@inject SyncedTaskApiService TaskApiService
 @inject GlobalTimerService GlobalTimer
-@inject NavigationManager Navigation
+@inject NavigationManager Nav
 
 <div class="workspace-container fade-in">
     @if (isLoading)
@@ -181,26 +182,34 @@
 
                     @if (isCustomMode)
                     {
-                        <!-- CUSTOM MODE INPUTS: spinner buttons do NOT close the panel -->
-                        <div class="custom-mode-row mb-3">
+                        <!-- CUSTOM MODE PANEL: state korunur, panel açık kalır -->
+                        <div class="custom-mode-row mb-3" @onclick:stopPropagation>
                             <div class="custom-field">
                                 <label class="custom-label">Çalışma</label>
                                 <div class="custom-spin">
-                                    <button @onclick='() => { if(customWorkMin > 5) customWorkMin -= 5; }'>−</button>
+                                    <button type="button" @onclick:stopPropagation
+                                            @onclick='() => { if(customWorkMin > 5) customWorkMin -= 5; }'>−</button>
                                     <span>@customWorkMin dk</span>
-                                    <button @onclick='() => { if(customWorkMin < 120) customWorkMin += 5; }'>+</button>
+                                    <button type="button" @onclick:stopPropagation
+                                            @onclick='() => { if(customWorkMin < 120) customWorkMin += 5; }'>+</button>
                                 </div>
                             </div>
                             <div class="custom-divider">+</div>
                             <div class="custom-field">
                                 <label class="custom-label">Mola</label>
                                 <div class="custom-spin">
-                                    <button @onclick='() => { if(customBreakMin > 1) customBreakMin -= 1; breakMinutes = customBreakMin; }'>−</button>
+                                    <button type="button" @onclick:stopPropagation
+                                            @onclick='() => { if(customBreakMin > 1) customBreakMin -= 1; breakMinutes = customBreakMin; }'>−</button>
                                     <span>@customBreakMin dk</span>
-                                    <button @onclick='() => { if(customBreakMin < 30) customBreakMin += 1; breakMinutes = customBreakMin; }'>+</button>
+                                    <button type="button" @onclick:stopPropagation
+                                            @onclick='() => { if(customBreakMin < 30) customBreakMin += 1; breakMinutes = customBreakMin; }'>+</button>
                                 </div>
                             </div>
                         </div>
+                        <!-- Onay butonu: değerleri belirleyip başlatmak için -->
+                        <button class="btn-custom-confirm mb-2" @onclick="StartTimer">
+                            <i class="bi bi-play-fill me-1"></i>@customWorkMin dk başlat
+                        </button>
                     }
                     else if (selectedMode > 0)
                     {
@@ -269,9 +278,12 @@
                 <div class="timer-controls mt-4 d-flex gap-3">
                     @if (elapsedTime.TotalSeconds == 0 && !GlobalTimer.IsPaused)
                     {
-                        <button class="btn-timer-main start" style="background-color: @workspace.Color" @onclick="StartTimer">
-                            <i class="bi bi-play-fill"></i> BAŞLA
-                        </button>
+                        @if (!isCustomMode)  @* Özel modda panel içindeki BAŞLAT butonu kullanılır *@
+                        {
+                            <button class="btn-timer-main start" style="background-color: @workspace.Color" @onclick="StartTimer">
+                                <i class="bi bi-play-fill"></i> BAŞLA
+                            </button>
+                        }
                     }
                     else if (!isTimerRunning)
                     {
@@ -323,8 +335,19 @@
 
 
     // Ekranda gösterilecek süre
-    private TimeSpan DisplayTime =>
-        (isTimerRunning || GlobalTimer.IsPaused) ? GlobalTimer.RemainingTime : PreviewTime;
+    // Geri sayım modunda: kalan süre (RemainingTime)
+    // Serbest / kronometre modunda: geçen süre (ElapsedTime)
+    private TimeSpan DisplayTime
+    {
+        get
+        {
+            if (!isTimerRunning && !GlobalTimer.IsPaused)
+                return PreviewTime;
+            return GlobalTimer.IsCountdown
+                ? GlobalTimer.RemainingTime
+                : GlobalTimer.ElapsedTime;
+        }
+    }
 
     // Mod seçiliyken başlamadan önce gösterilen önizleme süresi
     private TimeSpan PreviewTime =>
@@ -400,12 +423,19 @@
         int workMin  = isCustomMode ? customWorkMin  : selectedMode;
         int breakMin = isCustomMode ? customBreakMin : breakMinutes;
 
-        TimeSpan? countdown = workMin > 0 ? TimeSpan.FromMinutes(workMin)    : null;
+        TimeSpan? countdown = workMin > 0 ? TimeSpan.FromMinutes(workMin) : null;
         TimeSpan? breakSpan = workMin > 0 && breakMin > 0
                                   ? TimeSpan.FromMinutes(breakMin) : null;
 
+        // Aktif görev başlığını servise ilet (GlobalTimerService'in ActiveTaskTitle'ı için)
+        string? taskTitle = activeTaskId.HasValue
+            ? workspace?.Tasks.FirstOrDefault(t => t.Id == activeTaskId)?.Title
+            : null;
+
         await GlobalTimer.StartAsync(Id, activeTaskId, color,
-            countdown: countdown, breakDuration: breakSpan);
+            taskTitle: taskTitle,
+            countdown: countdown,
+            breakDuration: breakSpan);
     }
 
     private void PauseTimer()
@@ -514,13 +544,10 @@
         newTask.LessonId = Id;
         newTask.Status = StudyTime.Domain.Enums.TaskStatus.Pending;
 
-        var success = await LessonService.CreateTaskAsync(newTask);
-        if (success)
-        {
-            newTask = new CreateTaskDto(); // Formu sıfırla
-            showAddTask = false;
-            await LoadData();
-        }
+        await TaskApiService.CreateAsync(newTask);
+        newTask = new CreateTaskDto(); // Formu sıfırla
+        showAddTask = false;
+        await LoadData();
     }
 
     // Feedback
@@ -541,9 +568,10 @@
         }
     }
 
-    private void ClearNotes()
+    private async Task ClearNotes()
     {
         noteContent = "";
+        await SaveNotes(); // API'yi güncelle ve "Kaydedildi" mesajını göster
     }
 
     private async Task ToggleTaskStatus(TaskListItemDto task)
@@ -551,30 +579,34 @@
         task.IsCompleted = !task.IsCompleted;
         StateHasChanged(); // Optimistik güncelleme
 
-        try 
+        try
         {
-             var newStatus = task.IsCompleted ? StudyTime.Domain.Enums.TaskStatus.Completed : StudyTime.Domain.Enums.TaskStatus.Pending;
-             await TaskApiService.UpdateTaskStatusAsync(task.Id, newStatus);
+            var newStatus = task.IsCompleted
+                ? StudyTime.Domain.Enums.TaskStatus.Completed
+                : StudyTime.Domain.Enums.TaskStatus.Pending;
 
-             // OTOMATİK SİLME (Eğer tamamlandıysa)
-             if (task.IsCompleted && workspace != null)
-             {
-                 await Task.Delay(1000); // 1 saniye beklet
-                 workspace.Tasks.Remove(task); // Listeden kaldır
-                 StateHasChanged();
-             }
+            await TaskApiService.UpdateTaskStatusAsync(task.Id, newStatus);
+
+            // OTOMATİK SİLME (Eğer tamamlandıysa)
+            if (task.IsCompleted && workspace != null)
+            {
+                await Task.Delay(1000); // 1 saniye beklet
+                workspace.Tasks.Remove(task); // Listeden kaldır
+                StateHasChanged();
+            }
         }
         catch
         {
-             task.IsCompleted = !task.IsCompleted; // Geri al
-             StateHasChanged();
+            task.IsCompleted = !task.IsCompleted; // Geri al
+            StateHasChanged();
         }
     }
 
     public void Dispose()
     {
-        GlobalTimer.OnTick -= OnTimerTick;
+        GlobalTimer.OnTick          -= OnTimerTick;
         GlobalTimer.OnTimerFinished -= OnTimerFinished;
+        GlobalTimer.OnBreakFinished -= OnBreakFinished;  // Memory leak önlemi
     }
 }
 
@@ -686,16 +718,29 @@
         color: #22c55e;
     }
 
+    .timer-circle-wrapper {
+        position: relative;
+        width: 190px;
+        height: 190px;
+        margin: 10px 0;
+    }
+
+    .timer-svg {
+        width: 100%;
+        height: 100%;
+        transform: rotate(-90deg);
+    }
+
     /* ── Custom Mode Spinner ────────────────────────────── */
     .custom-mode-row {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 6px;
         justify-content: center;
         background: rgba(255,255,255,0.03);
         border: 1px solid rgba(255,255,255,0.07);
         border-radius: 12px;
-        padding: 10px 16px;
+        padding: 4px 10px;
     }
 
     .custom-field { display: flex; flex-direction: column; align-items: center; gap: 4px; }
@@ -731,6 +776,31 @@
     .custom-spin span { font-size: 0.82rem; color: #fff; min-width: 42px; text-align: center; }
 
     .custom-divider { font-size: 1.2rem; color: rgba(255,255,255,0.2); }
+
+    /* ── Custom Confirm Button ───────────────────────────── */
+    .btn-custom-confirm {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        width: 100%;
+        padding: 9px 0;
+        border-radius: 10px;
+        border: none;
+        background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.06));
+        color: #fff;
+        font-size: 0.85rem;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        cursor: pointer;
+        transition: background 0.2s, transform 0.1s;
+    }
+    .btn-custom-confirm:hover {
+        background: linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.1));
+        transform: translateY(-1px);
+    }
+    .btn-custom-confirm:active { transform: translateY(0); }
+
 
     /* ── Break Mode Banner (in-circle region) ───────────── */
     .break-mode-banner {
@@ -803,14 +873,28 @@
 
     .break-alert-btn.secondary:hover { background: rgba(255,255,255,0.12); color: #fff; }
 
+    .timer-text {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        font-weight: 700;
+        color: #fff;
+        font-family: 'JetBrains Mono', monospace;
+    }
+
     /* ── Mode Badge inside circle ───────────────────────── */
     .timer-mode-badge {
         position: absolute;
-        bottom: 28px;
-        font-size: 0.7rem;
-        font-weight: 600;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
+        bottom: 35px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 0.65rem;
+        font-weight: 800;
+        letter-spacing: 0.1em;
         opacity: 0.8;
     }
 

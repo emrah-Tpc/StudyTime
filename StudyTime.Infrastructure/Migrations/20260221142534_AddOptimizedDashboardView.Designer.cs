@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using StudyTime.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using StudyTime.Infrastructure.Persistence;
 namespace StudyTime.Infrastructure.Migrations
 {
     [DbContext(typeof(StudyTimeDbContext))]
-    partial class StudyTimeDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260221142534_AddOptimizedDashboardView")]
+    partial class AddOptimizedDashboardView
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -77,38 +80,6 @@ namespace StudyTime.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Lessons");
-                });
-
-            modelBuilder.Entity("StudyTime.Domain.Entities.Notification", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("ActionUrl")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsRead")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Notifications");
                 });
 
             modelBuilder.Entity("StudyTime.Domain.Entities.StudySession", b =>

@@ -1,6 +1,7 @@
 using StudyTime.Application.DTOs.Statistics;
 using StudyTime.Application.Interfaces;
 using StudyTime.Domain.Enums;
+using StudyTime.Domain.Services;
 using TaskStatus = StudyTime.Domain.Enums.TaskStatus;
 
 namespace StudyTime.Application.Services
@@ -8,7 +9,8 @@ namespace StudyTime.Application.Services
     public class StatisticsService(
         IStudySessionRepository studySessionRepository,
         ITaskRepository taskRepository,
-        ILessonRepository lessonRepository) : IStatisticsService
+        ILessonRepository lessonRepository,
+        ProductivityCalculator productivityCalculator) : IStatisticsService
     {
         public async Task<StatisticsSummaryDto> GetStatisticsAsync(DateTime startDate, DateTime endDate)
         {
@@ -31,9 +33,9 @@ namespace StudyTime.Application.Services
             if (totalDays > 0)
                 summary.AverageDailyStudyMinutes = Math.Round(summary.TotalStudyTime.TotalMinutes / totalDays);
 
-            // 2. Verimlilik Skoru
-            var score = (summary.TotalStudyTime.TotalMinutes / 5) + (summary.TotalTasksCompleted * 5);
-            summary.ProductivityScore = Math.Min((int)score, 100);
+            // 2. Verimlilik Skoru — Domain Service (DashboardService ile aynı formül)
+            summary.ProductivityScore = productivityCalculator.CalculateScore(
+                workSessions, tasks, startDate, endDate);
 
             // 3. Ders İstatistikleri (mola hariç)
             summary.LessonStatistics = workSessions
