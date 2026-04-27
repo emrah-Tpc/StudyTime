@@ -19,7 +19,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="css/app.css?v=3" />
+    <link rel="stylesheet" href="css/app.css?v=5" />
     <link rel="stylesheet" href="StudyTime.DesktopClient.styles.css" />
 
     <link rel="icon" href="data:,">
@@ -100,6 +100,33 @@
     <script src="js/bootstrap.bundle.min.js"></script>
     <script src="_content/Blazor-ApexCharts/js/apexcharts.js"></script>
 
+    <!-- Tema: localStorage'dan geri yükle (Blazor render öncesi flash önleme) -->
+    <script>
+        (function () {
+            var saved = localStorage.getItem('studytime-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', saved);
+        })();
+
+                window.scrollToSlide = function (elementId) {
+            const el = document.getElementById(elementId);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }
+        };
+
+        // Desktop Zoom Engelleme (CTRL + MouseWheel / CTRL + Keyboard)
+        document.addEventListener('wheel', function (e) {
+            if (e.ctrlKey) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.ctrlKey && (e.key === '=' || e.key === '-' || e.key === '0' || e.key === '+' || e.code === 'NumpadAdd' || e.code === 'NumpadSubtract')) {
+                e.preventDefault();
+            }
+        });
+    </script>
 </body>
 
 </html>

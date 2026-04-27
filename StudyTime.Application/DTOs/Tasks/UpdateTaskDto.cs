@@ -1,4 +1,4 @@
-﻿using StudyTime.Domain.Enums;
+using StudyTime.Domain.Enums;
 using System;
 using TaskStatus = StudyTime.Domain.Enums.TaskStatus;
 namespace StudyTime.Application.DTOs.Tasks
@@ -15,5 +15,6 @@ namespace StudyTime.Application.DTOs.Tasks
         public TaskStatus Status { get; set; }
 
         public Guid? LessonId { get; set; }
+        public DateTime? UpdatedAt { get; set; }
     }
 }

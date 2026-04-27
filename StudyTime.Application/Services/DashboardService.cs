@@ -1,4 +1,4 @@
-﻿using StudyTime.Application.DTOs.Dashboard;
+using StudyTime.Application.DTOs.Dashboard;
 using StudyTime.Application.Interfaces;
 using StudyTime.Domain.Enums;
 using StudyTime.Domain.Services;
@@ -17,7 +17,6 @@ namespace StudyTime.Application.Services
         public async Task<DashboardSummaryDto> GetSummaryAsync()
         {
             var today     = DateTime.Today;
-            var yesterday = today.AddDays(-1);
 
             // ── 1. VIEW: Ders bazlı özetler (tek SQL sorgusu) ─────────────────
             var viewRows = await dashboardRepository.GetDashboardSummariesAsync();
@@ -34,7 +33,6 @@ namespace StudyTime.Application.Services
             int totalTasks     = viewRows.Sum(r => r.TotalTasks);
             int completedTasks = viewRows.Sum(r => r.CompletedTasks);
             int pendingTasks   = totalTasks - completedTasks;
-            int todayMinutes   = viewRows.Sum(r => r.TodayStudyMinutes);
             int completionRate = totalTasks == 0 ? 0
                 : (int)Math.Round((double)completedTasks / totalTasks * 100);
 
@@ -68,25 +66,35 @@ namespace StudyTime.Application.Services
                 .OrderByDescending(w => w.CompletedTasks)
                 .ToList();
 
-            // ── 4. DİNAMİK VERİLER: haftalık/günlük/kategori grafikleri ──────
-            //    (View'da tarih bazlı breakdown yok → session repository kullanılır)
-            var allSessions = await studySessionRepository.GetAllAsync() ?? new();
+            // ── 4. DİNAMİK VERİLER ───────────────────────────────────────────
+            // FIX [Kritik]: GetAllAsync() yerine son 14 günlük veri çek
+            // Haftalık (7 gün) + önceki hafta karşılaştırması (7 gün) = 14 gün yeterli
+            var rangeStart     = today.AddDays(-13); // 14 gün (bugün dahil)
+            var recentSessions = await studySessionRepository.GetByDateRangeAsync(rangeStart, today);
 
-            // Dün vs bugün çalışma farkı
-            var yesterdayMinutes = allSessions
-                .Where(s => s.StartedAt.Date == yesterday)
-                .Sum(s => (int)s.CurrentDuration.TotalMinutes);
-            int timeChange = todayMinutes - yesterdayMinutes;
+            // FIX [Orta]: IsBreak filtresi tek noktada; tüm grafik hesapları workSessions'dan
+            var workSessions = recentSessions.Where(s => !s.IsBreak).ToList();
 
-            // Verimlilik Skoru — tasks henüz yüklenmedi, aşağıya taşındı
-            int productivityScore;
+            // FIX [Kritik]: Bugün dakikasını SQL view yerine C# LINQ'dan hesapla
+            // → Bugün kartı + grafikler aynı kaynaktan, tutarlı
+            // FIX: C# LINQ'dan günlük takibi hassas hesapla
+            int todayMinutes = (int)Math.Round(workSessions
+                .Where(s => s.StartedAt.Date == today)
+                .Sum(s => s.CurrentDuration.TotalMinutes));
 
-            // Haftalık grafik (son 7 gün, mola hariç)
-            var sessionByDate = allSessions
-                .Where(s => !s.IsBreak)
+            // Geçen haftanın aynı günü vs bugün çalışma farkı
+            var lastWeekSameDay        = today.AddDays(-7);
+            var lastWeekSameDayMinutes = (int)Math.Round(workSessions
+                .Where(s => s.StartedAt.Date == lastWeekSameDay)
+                .Sum(s => s.CurrentDuration.TotalMinutes));
+            int timeChange = todayMinutes - lastWeekSameDayMinutes;
+
+            // Haftalık grafik (son 7 gün, mola hariç — workSessions'dan)
+            var sessionByDate = workSessions
                 .GroupBy(s => s.StartedAt.Date)
-                .ToDictionary(g => g.Key, g => g.Sum(s => (int)s.CurrentDuration.TotalMinutes));
+                .ToDictionary(g => g.Key, g => g.Sum(s => s.CurrentDuration.TotalMinutes));
 
+            // FIX [Minör]: Label'a gün adı + tarih numarası eklendi ("Pzt 28")
             var weeklyChartData = Enumerable.Range(0, 7)
                 .Select(i =>
                 {
@@ -94,29 +102,40 @@ namespace StudyTime.Application.Services
                     var dayName = date.ToString("ddd", new CultureInfo("tr-TR"));
                     return new ChartDataDto
                     {
-                        Label = dayName,
-                        Value = sessionByDate.GetValueOrDefault(date, 0)
+                        Label = $"{dayName} {date.Day}",
+                        Value = (int)Math.Round(sessionByDate.GetValueOrDefault(date, 0))
                     };
                 })
                 .ToList();
 
-            // Saatlik grafik (bugün 00-23, mola hariç)
-            var todaysSessions = allSessions
-                .Where(s => s.StartedAt.Date == today && !s.IsBreak)
-                .ToList();
-            var sessionByHour = todaysSessions
+            // Saatlik grafik (bugün, mola hariç — workSessions'dan)
+            var sessionByHour = workSessions
+                .Where(s => s.StartedAt.Date == today)
                 .GroupBy(s => s.StartedAt.Hour)
-                .ToDictionary(g => g.Key, g => g.Sum(s => (int)s.CurrentDuration.TotalMinutes));
-            var dailyChartData = Enumerable.Range(0, 24)
+                .ToDictionary(g => g.Key, g => g.Sum(s => s.CurrentDuration.TotalMinutes));
+
+            // FIX [Minör]: Anlamlı saat aralığı — hiç çalışılmadıysa 08-20, çalışıldıysa ±1 saat pad
+            int firstHour, lastHour;
+            if (sessionByHour.Any())
+            {
+                firstHour = Math.Max(0,  sessionByHour.Keys.Min() - 1);
+                lastHour  = Math.Min(23, sessionByHour.Keys.Max() + 1);
+            }
+            else
+            {
+                firstHour = 8; lastHour = 20;
+            }
+
+            var dailyChartData = Enumerable.Range(firstHour, lastHour - firstHour + 1)
                 .Select(h => new ChartDataDto
                 {
                     Label = $"{h:D2}:00",
-                    Value = sessionByHour.GetValueOrDefault(h, 0)
+                    Value = (int)Math.Round(sessionByHour.GetValueOrDefault(h, 0))
                 })
                 .ToList();
 
-            // Kategori grafiği (Lesson.Type gruplandırması)
-            var categoryChartData = allSessions
+            // FIX [Orta]: Kategori grafiği — IsBreak zaten workSessions ile filtrelendi ✓
+            var categoryChartData = workSessions
                 .Where(s => s.LessonId != Guid.Empty && s.Lesson != null)
                 .GroupBy(s => s.Lesson!.Type)
                 .Select(g =>
@@ -136,7 +155,7 @@ namespace StudyTime.Application.Services
                     return new ChartDataDto
                     {
                         Label = typeName,
-                        Value = (int)g.Sum(s => s.CurrentDuration.TotalMinutes),
+                        Value = (int)Math.Round(g.Sum(s => s.CurrentDuration.TotalMinutes)),
                         Color = dominantLesson?.Color ?? "#6b7280"
                     };
                 })
@@ -147,10 +166,12 @@ namespace StudyTime.Application.Services
             // ── 5. SON AKTİVİTELER + GÖREV İSTATİSTİKLERİ ───────────────────
             var tasks = await taskRepository.GetAllAsync() ?? new();
 
-            // Verimlilik Skoru — Domain Service (DashboardService+StatisticsService birleşik formül)
-            productivityScore = productivityCalculator.CalculateScore(
-                allSessions.Where(s => !s.IsBreak),
-                tasks,
+            // FIX [Kritik]: Yamayı kaldırdık. Yalnızca bugünün görevlerini kullanarak doğru tutarlılığı sağlıyoruz.
+            var todayTasks   = tasks.Where(t => t.StartDate?.Date == today).ToList();
+
+            int productivityScore = productivityCalculator.CalculateScore(
+                workSessions.Where(s => s.StartedAt.Date == today),
+                todayTasks,
                 today,
                 today.AddDays(1).AddTicks(-1));
 

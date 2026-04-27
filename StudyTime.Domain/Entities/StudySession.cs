@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace StudyTime.Domain.Entities
 {
@@ -10,6 +10,12 @@ namespace StudyTime.Domain.Entities
         public Guid? TaskId { get; private set; }
         /// <summary>Bu oturum bir mola seçeneği mi?</summary>
         public bool IsBreak { get; private set; }
+        public bool IsDeleted { get; set; }
+        public DateTime? UpdatedAt { get; set; }
+
+        // Auth Properties
+        public string? UserId { get; set; }
+        public AppUser? User { get; set; }
 
         public DateTime StartedAt { get; private set; }
         public DateTime? EndedAt { get; private set; }
@@ -30,8 +36,8 @@ namespace StudyTime.Domain.Entities
 
         public void Start()
         {
-            StartedAt = DateTime.Now;
-            LastResumedAt = DateTime.Now;
+            StartedAt = DateTime.UtcNow;
+            LastResumedAt = DateTime.UtcNow;
             EndedAt = null;
         }
 
@@ -41,10 +47,10 @@ namespace StudyTime.Domain.Entities
 
             if (LastResumedAt.HasValue)
             {
-                TotalActiveDuration += DateTime.Now - LastResumedAt.Value;
+                TotalActiveDuration += DateTime.UtcNow - LastResumedAt.Value;
             }
 
-            EndedAt = DateTime.Now;
+            EndedAt = DateTime.UtcNow;
             LastResumedAt = null;
         }
 
@@ -52,7 +58,7 @@ namespace StudyTime.Domain.Entities
         {
             if (LastResumedAt.HasValue)
             {
-                TotalActiveDuration += DateTime.Now - LastResumedAt.Value;
+                TotalActiveDuration += DateTime.UtcNow - LastResumedAt.Value;
                 LastResumedAt = null;
             }
         }
@@ -61,7 +67,7 @@ namespace StudyTime.Domain.Entities
         {
             if (EndedAt == null && LastResumedAt == null)
             {
-                LastResumedAt = DateTime.Now;
+                LastResumedAt = DateTime.UtcNow;
             }
         }
 
@@ -71,7 +77,7 @@ namespace StudyTime.Domain.Entities
             {
                 if (EndedAt.HasValue) return TotalActiveDuration;
                 if (LastResumedAt.HasValue)
-                    return TotalActiveDuration + (DateTime.Now - LastResumedAt.Value);
+                    return TotalActiveDuration + (DateTime.UtcNow - LastResumedAt.Value);
                 return TotalActiveDuration;
             }
         }

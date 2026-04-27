@@ -10,9 +10,9 @@ namespace StudyTime.DesktopClient.Services
     {
         private readonly HttpClient _http;
 
-        public NotificationApiService(HttpClient http)
+        public NotificationApiService(IHttpClientFactory factory)
         {
-            _http = http;
+            _http = factory.CreateClient("StudyTimeApi");
         }
 
         public async Task<List<Notification>> GetNotificationsAsync()

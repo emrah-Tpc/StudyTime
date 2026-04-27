@@ -1,0 +1,106 @@
+@page "/register"
+@layout StudyTime.DesktopClient.Components.Layout.AuthLayout
+@using StudyTime.Application.DTOs.Auth
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+
+@if (DeviceInfo.Platform == DevicePlatform.WinUI)
+{
+    <div class="d-flex align-items-center justify-content-center" style="height: 100vh; background-color: var(--st-bg-color);">
+        <div class="card p-4 shadow-sm text-center" style="width: 400px; border-radius: 12px; background-color: var(--st-surface-color);">
+            <h2 class="fw-bold mb-3" style="color: var(--st-text-color);">StudyTime</h2>
+            <p class="text-muted">Masaüstü uygulaması sadece Premium üyeler içindir.</p>
+            <div class="alert alert-info mt-3" role="alert">
+                <i class="bi bi-info-circle-fill me-2"></i> Lütfen Premium üyeliğinizi başlatmak ve kayıt olmak için mobil uygulamamızı kullanın.
+            </div>
+            <button class="btn btn-outline-primary mt-3 w-100" @onclick='() => NavigationManager.NavigateTo("/login")'>Giriş Ekranına Dön</button>
+        </div>
+    </div>
+}
+else
+{
+    <div class="d-flex align-items-center justify-content-center" style="height: 100vh; background-color: var(--st-bg-color);">
+        <div class="card p-4 shadow-sm" style="width: 400px; border-radius: 12px; background-color: var(--st-surface-color);">
+            <div class="text-center mb-4">
+                <h2 class="fw-bold" style="color: var(--st-text-color);">Yeni Hesap Oluştur</h2>
+                <p class="text-muted">StudyTime'a katılın</p>
+            </div>
+
+            @if (!string.IsNullOrEmpty(ErrorMessage))
+            {
+                <div class="alert alert-danger p-2 mb-3" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i> @ErrorMessage
+                </div>
+            }
+
+            <EditForm Model="RegisterModel" OnValidSubmit="HandleRegister">
+                <DataAnnotationsValidator />
+
+                <div class="mb-3">
+                    <label class="form-label" style="color: var(--st-text-color);">Tam Ad</label>
+                    <InputText @bind-Value="RegisterModel.FullName" class="form-control" style="background-color: var(--st-input-bg); color: var(--st-text-color); border: 1px solid var(--st-border-color);" placeholder="Ad Soyad" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" style="color: var(--st-text-color);">E-Posta</label>
+                    <InputText @bind-Value="RegisterModel.Email" class="form-control" style="background-color: var(--st-input-bg); color: var(--st-text-color); border: 1px solid var(--st-border-color);" placeholder="ornek@email.com" />
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label" style="color: var(--st-text-color);">Şifre</label>
+                    <InputText @bind-Value="RegisterModel.Password" type="password" class="form-control" style="background-color: var(--st-input-bg); color: var(--st-text-color); border: 1px solid var(--st-border-color);" placeholder="******" />
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 py-2 fw-bold" disabled="@IsLoading">
+                    @if (IsLoading)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        <span>Kayıt Olunuyor...</span>
+                    }
+                    else
+                    {
+                        <span>Kayıt Ol</span>
+                    }
+                </button>
+            </EditForm>
+            
+            <div class="text-center mt-3">
+                <small class="text-muted">Zaten hesabın var mı? <a href="/login" class="text-decoration-none fw-bold" style="color: var(--st-primary-color);">Giriş Yap</a></small>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private RegisterRequestDto RegisterModel = new();
+    private bool IsLoading = false;
+    private string? ErrorMessage;
+
+    private async Task HandleRegister()
+    {
+        IsLoading = true;
+        ErrorMessage = null;
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/auth/register", RegisterModel);
+            if (response.IsSuccessStatusCode)
+            {
+                NavigationManager.NavigateTo("/login");
+            }
+            else
+            {
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                ErrorMessage = string.IsNullOrEmpty(errorMsg) ? "Kayıt işlemi başarısız oldu." : errorMsg;
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = "Bir hata oluştu: " + ex.Message;
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+}

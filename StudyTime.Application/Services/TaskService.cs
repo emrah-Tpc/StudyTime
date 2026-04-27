@@ -1,4 +1,4 @@
-﻿using StudyTime.Application.Interfaces;
+using StudyTime.Application.Interfaces;
 using StudyTime.Domain.Entities;
 using StudyTime.Application.DTOs.Tasks;
 using StudyTime.Application.DTOs.Common;
@@ -28,54 +28,75 @@ namespace StudyTime.Application.Services
             var task = await _taskRepository.GetByIdAsync(taskId);
             if (task is null) throw new InvalidOperationException("Task not found.");
 
+            // LAST-WRITE-WINS Conflict Resolution
+            if (dto.UpdatedAt.HasValue && task.UpdatedAt.HasValue && dto.UpdatedAt < task.UpdatedAt)
+            {
+                // Gelen veri veritabanındakinden eskiyse güncellemeyi yoksay, ancak hata fırlatma (kuyruktan silinsin diye)
+                return;
+            }
+
             task.ChangeTitle(dto.Title);
             task.UpdateDates(dto.StartDate, dto.EndDate);
             task.UpdateNote(dto.Note);
             if (dto.PlannedDurationMinutes.HasValue)
                 task.UpdatePlannedDuration(TimeSpan.FromMinutes(dto.PlannedDurationMinutes.Value));
             task.AssignLesson(dto.LessonId);
+            
+            task.UpdatedAt = dto.UpdatedAt ?? DateTime.UtcNow;
 
             await _taskRepository.UpdateAsync(task);
         }
 
         // COMPLETE
-        public async Task CompleteTaskAsync(Guid taskId)
+        public async Task CompleteTaskAsync(Guid taskId, DateTime? updatedAt = null)
         {
             var task = await _taskRepository.GetByIdAsync(taskId);
             if (task is null) throw new InvalidOperationException("Task not found.");
 
+            if (updatedAt.HasValue && task.UpdatedAt.HasValue && updatedAt < task.UpdatedAt) return;
+
             task.Complete();
+            task.UpdatedAt = updatedAt ?? DateTime.UtcNow;
             await _taskRepository.UpdateAsync(task);
         }
 
         // CANCEL
-        public async Task CancelTaskAsync(Guid taskId)
+        public async Task CancelTaskAsync(Guid taskId, DateTime? updatedAt = null)
         {
             var task = await _taskRepository.GetByIdAsync(taskId);
             if (task is null) throw new InvalidOperationException("Task not found.");
 
+            if (updatedAt.HasValue && task.UpdatedAt.HasValue && updatedAt < task.UpdatedAt) return;
+
             task.Cancel();
+            task.UpdatedAt = updatedAt ?? DateTime.UtcNow;
             await _taskRepository.UpdateAsync(task);
         }
 
         // REOPEN
-        public async Task ReopenTaskAsync(Guid taskId)
+        public async Task ReopenTaskAsync(Guid taskId, DateTime? updatedAt = null)
         {
             var task = await _taskRepository.GetByIdAsync(taskId);
             if (task is null) throw new InvalidOperationException("Task not found.");
 
+            if (updatedAt.HasValue && task.UpdatedAt.HasValue && updatedAt < task.UpdatedAt) return;
+
             task.Reopen();
+            task.UpdatedAt = updatedAt ?? DateTime.UtcNow;
             await _taskRepository.UpdateAsync(task);
         }
 
         // 👇 SOFT DELETE İŞLEMİ (Buraya Dikkat!)
-        public async Task DeleteTaskAsync(Guid id)
+        public async Task DeleteTaskAsync(Guid id, DateTime? updatedAt = null)
         {
             var task = await _taskRepository.GetByIdAsync(id);
             if (task is null) throw new InvalidOperationException("Task not found.");
 
+            if (updatedAt.HasValue && task.UpdatedAt.HasValue && updatedAt < task.UpdatedAt) return;
+
             // 1. TaskItem içindeki Delete metodunu çağır (IsDeleted = true yapar)
             task.Delete();
+            task.UpdatedAt = updatedAt ?? DateTime.UtcNow;
 
             // 2. Veritabanından silmek yerine GÜNCELLİYORUZ
             await _taskRepository.UpdateAsync(task);

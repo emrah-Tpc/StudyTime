@@ -1,4 +1,4 @@
-﻿@page "/tasks"
+@page "/tasks"
 @using StudyTime.Application.DTOs.Tasks
 @using StudyTime.Application.DTOs.Lessons
 @using StudyTime.DesktopClient.Services
@@ -59,7 +59,20 @@
                     <div class="cell-content">
                         @foreach (var task in day.Tasks.Take(3)) 
                         {
-                             <div class="task-dot" style="background-color: @(task.Lesson?.Color ?? "#fff");" title="@task.Title"></div>
+                             var dotColor = task.Lesson?.Color ?? "#fff";
+                             if (task.Status == StudyTime.Domain.Enums.TaskStatus.Completed)
+                             {
+                                 <div class="task-dot-completed" title="@task.Title - Tamamlandı">
+                                     <svg viewBox="0 0 10 10" width="10" height="10" stroke="@dotColor" stroke-width="2.5" opacity="0.6" stroke-linecap="round">
+                                         <line x1="2" y1="2" x2="8" y2="8" />
+                                         <line x1="8" y1="2" x2="2" y2="8" />
+                                     </svg>
+                                 </div>
+                             }
+                             else
+                             {
+                                 <div class="task-dot" style="background-color: @dotColor;" title="@task.Title"></div>
+                             }
                         }
                         @if(day.Tasks.Count > 3)
                         {
@@ -84,7 +97,9 @@
                         <h5 class="modal-title fw-bold text-white">@selectedDay.Date.ToString("dd MMMM dddd", CurrentCulture)</h5>
                          <span class="text-white opacity-50 small">@selectedDay.Tasks.Count Görev</span>
                     </div>
-                    <button type="button" class="btn-close btn-close-white" @onclick="CloseModal"></button>
+                    <button type="button" class="modal-close-adaptive" @onclick="CloseModal" aria-label="Kapat">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
                 </div>
                 <div class="modal-body" style="max-height: 500px; overflow-y: auto;">
                     @if (selectedDay.Tasks.Any())
@@ -96,6 +111,7 @@
                                     <div class="d-flex align-items-center gap-3">
                                         <div class="form-check">
                                             <input class="form-check-input" type="checkbox" checked="@IsTaskCompleted(task)"
+                                                   disabled="@IsTaskCompleted(task)"
                                                    @onchange="(e) => ToggleTaskStatus(task, e.Value)">
                                         </div>
                                         <div>
@@ -106,14 +122,24 @@
                                                 <i class="bi bi-circle-fill me-1" style="font-size: 6px;"></i>
                                                 @(task.Lesson?.Name ?? "Genel")
                                             </div>
+                                            @if (task.EndDate.HasValue)
+                                            {
+                                                <div class="small mt-1 task-due-date">
+                                                    <i class="bi bi-calendar-check me-1"></i>
+                                                    Bitiş: @task.EndDate.Value.ToString("dd MMM HH:mm", CurrentCulture)
+                                                </div>
+                                            }
                                         </div>
                                     </div>
-                                    <div class="d-flex gap-2">
-                                        <!-- Edit/Delete buttons could go here -->
+                                    <div class="d-flex gap-2 align-items-center">
                                         @if(task.PlannedDuration.HasValue)
                                         {
-                                            <span class="badge bg-dark text-white opacity-75">@GetFormattedDuration(task.PlannedDuration.Value)</span>
+                                            <span class="badge bg-dark text-white opacity-75 h-100 d-flex align-items-center">@GetFormattedDuration(task.PlannedDuration.Value)</span>
                                         }
+                                        <button class="btn btn-sm" style="border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); border-radius: 6px; color: white;" 
+                                                @onclick="() => selectedDetailTask = task">
+                                            <i class="bi bi-info-circle me-1"></i> Detay
+                                        </button>
                                     </div>
                                 </div>
                             }
@@ -135,8 +161,68 @@
             </div>
         </div>
     </div>
+    
 }
 
+<!-- Alt Görev Detay Modalı (Yeni Ekleme) -->
+@if (selectedDetailTask != null)
+{
+    <div class="modal-backdrop fade show" style="z-index: 1060;"></div>
+    <div class="modal fade show d-block" tabindex="-1" style="z-index: 1065;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="background: linear-gradient(145deg, #2b2b2b, #1f1f1f); border-radius: 12px;">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold text-white d-flex align-items-center">
+                        <i class="bi bi-list-task me-2" style="color: @(selectedDetailTask.Lesson?.Color ?? "#fff")"></i> 
+                        <span style="font-size: 1.1rem; line-height: 1.2;">@selectedDetailTask.Title</span>
+                    </h5>
+                    <button type="button" class="modal-close-adaptive" @onclick="() => selectedDetailTask = null" aria-label="Kapat">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="p-3 mb-3" style="background: rgba(255,255,255,0.05); border-radius: 8px;">
+                        <h6 class="text-white opacity-75 small text-uppercase mb-2"><i class="bi bi-card-text me-1"></i>Açıklama</h6>
+                        <p class="text-white m-0" style="font-size: 0.95rem; word-wrap: break-word; word-break: break-all; white-space: pre-wrap; max-height: 200px; overflow-y: auto;">
+                            @(string.IsNullOrWhiteSpace(selectedDetailTask.Note) ? "Bu görev için açıklama veya not bulunmuyor." : selectedDetailTask.Note)
+                        </p>
+                    </div>
+
+                    <div class="row g-2">
+                         <div class="col-6">
+                            <div class="p-2 h-100" style="background: rgba(255,255,255,0.03); border-radius: 8px;">
+                                <div class="text-white opacity-50 small mb-1"><i class="bi bi-clock-history"></i> Tahmini Süre</div>
+                                <div class="fw-bold text-white fs-6">
+                                    @(selectedDetailTask.PlannedDuration.HasValue ? GetFormattedDuration(selectedDetailTask.PlannedDuration.Value) : "-")
+                                </div>
+                            </div>
+                         </div>
+                         <div class="col-6">
+                            <div class="p-2 h-100" style="background: rgba(255,255,255,0.03); border-radius: 8px;">
+                                <div class="text-white opacity-50 small mb-1"><i class="bi bi-tag"></i> Ders</div>
+                                <div class="fw-bold fs-6" style="color: @(selectedDetailTask.Lesson?.Color ?? "#fff")">
+                                    @(selectedDetailTask.Lesson?.Name ?? "Genel")
+                                </div>
+                            </div>
+                         </div>
+                         <div class="col-12 mt-2">
+                             <div class="d-flex justify-content-between p-2" style="background: rgba(255,255,255,0.03); border-radius: 8px;">
+                                 <div>
+                                     <div class="text-white opacity-50 small"><i class="bi bi-calendar-event"></i> Başlangıç</div>
+                                     <div class="text-white small fw-medium mt-1">@(selectedDetailTask.StartDate?.ToString("dd MMM yyyy HH:mm", CurrentCulture) ?? "-")</div>
+                                 </div>
+                                 <div class="text-end">
+                                     <div class="text-white opacity-50 small"><i class="bi bi-calendar-check"></i> Bitiş (Hedef)</div>
+                                     <div class="text-white small fw-medium mt-1">@(selectedDetailTask.EndDate?.ToString("dd MMM yyyy HH:mm", CurrentCulture) ?? "-")</div>
+                                 </div>
+                             </div>
+                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 <style>
     .calendar-grid {
         display: grid;
@@ -206,10 +292,38 @@
         height: 8px;
         border-radius: 50%;
     }
+
+    .task-dot-completed {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
     
     .task-dot-more {
         font-size: 0.6rem;
         color: var(--text-muted);
+    }
+
+    .task-due-date {
+        color: var(--text-dim);
+    }
+
+    /* Adaptive modal close button — works in dark & light mode */
+    .modal-close-adaptive {
+        background: none;
+        border: none;
+        font-size: 1.1rem;
+        color: var(--text-main);
+        opacity: 0.6;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 6px;
+        line-height: 1;
+        transition: opacity 0.15s, background 0.15s;
+    }
+    .modal-close-adaptive:hover {
+        opacity: 1;
+        background: var(--bg-surface);
     }
 
     /* Mobile Responsive Adjustments */
@@ -264,6 +378,7 @@
     private List<CalendarDay> CalendarDays = new();
     private bool isLoading = true;
     private CalendarDay? selectedDay;
+    private TaskDto? selectedDetailTask;
 
     private string CurrentMonthName => CurrentDate.ToString("MMMM", CurrentCulture);
     private int CurrentYear => CurrentDate.Year;
@@ -367,6 +482,12 @@
         bool isChecked = (bool)(checkedValue ?? false);
         var newStatus = isChecked ? StudyTime.Domain.Enums.TaskStatus.Completed : StudyTime.Domain.Enums.TaskStatus.Pending;
 
+        if (!isChecked && task.Status == StudyTime.Domain.Enums.TaskStatus.Completed)
+        {
+            // Kullanıcı Görev Takviminden tamamlanmış görevi geri alamaz.
+            return;
+        }
+
         // Optimistic UI
         task.Status = newStatus;
         
@@ -385,8 +506,12 @@
 
     private string GetFormattedDuration(TimeSpan ts)
     {
-        if (ts.TotalMinutes < 60) return $"{ts.TotalMinutes}dk";
-        return $"{ts.Hours}s {ts.Minutes}dk";
+        int totalMinutes = (int)ts.TotalMinutes;
+        if (totalMinutes < 60) return $"{totalMinutes}dk";
+        
+        int hours = totalMinutes / 60;
+        int minutes = totalMinutes % 60;
+        return $"{hours}s {minutes}dk";
     }
 
     public class CalendarDay

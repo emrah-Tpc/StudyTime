@@ -38,9 +38,14 @@ namespace StudyTime.DesktopClient.Offline
                 await _conn.CreateTableAsync<LessonCacheEntry>();
                 await _conn.CreateTableAsync<TaskCacheEntry>();
                 await _conn.CreateTableAsync<OutboxEntry>();
+                await _conn.CreateTableAsync<DeadLetterEntry>();
+                await _conn.CreateTableAsync<SessionServerIdMapEntry>();
+                await _conn.CreateTableAsync<TempIdMapEntry>();
                 await _conn.CreateTableAsync<SnapshotCacheEntry>();
                 await _conn.CreateTableAsync<StudySessionCacheEntry>();
                 await _conn.CreateTableAsync<NotificationCacheEntry>();
+
+                await MigrateUserIsolationColumnsAsync(_conn);
 
                 return _conn;
             }
@@ -56,6 +61,39 @@ namespace StudyTime.DesktopClient.Offline
             {
                 await _conn.CloseAsync();
                 _conn = null;
+            }
+        }
+
+        /// <summary>
+        /// Mevcut kurulumlara UserId / IsDeleted sütunlarını ekler ve kullanıcı bağlamı olmayan eski satırları siler.
+        /// </summary>
+        private static async Task MigrateUserIsolationColumnsAsync(SQLiteAsyncConnection conn)
+        {
+            await TryAddColumnAsync(conn, "LessonCache", "UserId", "TEXT");
+            await TryAddColumnAsync(conn, "LessonCache", "IsDeleted", "INTEGER NOT NULL DEFAULT 0");
+            await TryAddColumnAsync(conn, "TaskCache", "UserId", "TEXT");
+            await TryAddColumnAsync(conn, "TaskCache", "IsDeleted", "INTEGER NOT NULL DEFAULT 0");
+            await TryAddColumnAsync(conn, "StudySessionCache", "UserId", "TEXT");
+            await TryAddColumnAsync(conn, "NotificationCache", "UserId", "TEXT");
+
+            await conn.ExecuteAsync("DELETE FROM LessonCache WHERE UserId IS NULL OR TRIM(IFNULL(UserId,'')) = ''");
+            await conn.ExecuteAsync("DELETE FROM TaskCache WHERE UserId IS NULL OR TRIM(IFNULL(UserId,'')) = ''");
+            await conn.ExecuteAsync("DELETE FROM StudySessionCache WHERE UserId IS NULL OR TRIM(IFNULL(UserId,'')) = ''");
+            await conn.ExecuteAsync("DELETE FROM NotificationCache WHERE UserId IS NULL OR TRIM(IFNULL(UserId,'')) = ''");
+
+            // Eski kullanıcı öneki olmayan snapshot anahtarları (Dashboard vb.) — hesap izolasyonu
+            await conn.ExecuteAsync("DELETE FROM SnapshotCache WHERE Instr([Key], ':') = 0");
+        }
+
+        private static async Task TryAddColumnAsync(SQLiteAsyncConnection conn, string table, string column, string definition)
+        {
+            try
+            {
+                await conn.ExecuteAsync($"ALTER TABLE [{table}] ADD COLUMN {column} {definition}");
+            }
+            catch (Exception ex) when (ex.Message.Contains("duplicate column", StringComparison.OrdinalIgnoreCase)
+                                       || ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase))
+            {
             }
         }
     }

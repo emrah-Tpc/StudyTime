@@ -1,4 +1,4 @@
-﻿using StudyTime.Domain.Enums;
+using StudyTime.Domain.Enums;
 namespace StudyTime.Application.DTOs.Tasks
 {
     public sealed class CreateTaskDto
@@ -7,6 +7,7 @@ namespace StudyTime.Application.DTOs.Tasks
         public Guid? LessonId { get; set; }
         public DateTime? StartDate { get; set; }
         public DateTime? EndDate { get; set; }
+        [System.ComponentModel.DataAnnotations.MaxLength(400, ErrorMessage = "Açıklama 400 karakterden uzun olamaz.")]
         public string? Note { get; set; }
         public Domain.Enums.TaskStatus Status { get; set; } = Domain.Enums.TaskStatus.Pending;
         // UI'dan dakika olarak gelecek, backend'de TimeSpan'a çevireceğiz

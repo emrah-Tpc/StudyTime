@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using StudyTime.Application.Interfaces;
 using StudyTime.Domain.Entities;
 using StudyTime.Infrastructure.Persistence;
@@ -25,6 +25,12 @@ namespace StudyTime.Infrastructure.Repositories
                 .Where(s => s.LessonId == lessonId && s.EndedAt == null)
                 .OrderByDescending(s => s.StartedAt)
                 .FirstOrDefaultAsync();
+        }
+
+        public async Task<StudySession?> GetActiveSessionAsync(string userId)
+        {
+            return await context.StudySessions
+                .FirstOrDefaultAsync(s => s.UserId == userId && s.EndedAt == null && !s.IsDeleted);
         }
 
         public async Task<List<StudySession>> GetByDateAsync(DateTime date)

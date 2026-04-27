@@ -25,7 +25,7 @@ namespace StudyTime.Infrastructure.Repositories
             return await context.Tasks
                 .AsNoTracking()
                 .Include(t => t.Lesson)
-                .OrderByDescending(t => t.Id)
+                .OrderByDescending(t => t.CreatedAt)
                 .ToListAsync();
         }
 
@@ -81,7 +81,7 @@ namespace StudyTime.Infrastructure.Repositories
             var totalCount = await query.CountAsync();
 
             var items = await query
-                .OrderByDescending(t => t.Id)
+                .OrderByDescending(t => t.CreatedAt)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
@@ -91,7 +91,7 @@ namespace StudyTime.Infrastructure.Repositories
         public async Task<List<TaskItem>> GetByDateRangeAsync(DateTime startDate, DateTime endDate)
         {
             // Global Query Filter WHERE IsDeleted = 0 otomatik ekler
-            // StartDate veya EndDate aralık içindeyse görev döner (ikisi de null olanlar hariç)
+            // StartDate veya EndDate aralık içindeyse veya UpdatedAt/CreatedAt aralık içindeyse görev döner
             return await context.Tasks
                 .AsNoTracking()
                 .Include(t => t.Lesson)
@@ -104,8 +104,17 @@ namespace StudyTime.Infrastructure.Repositories
                     // EndDate aralık içinde (StartDate null olsa bile)
                     (t.EndDate.HasValue &&
                      t.EndDate.Value.Date >= startDate.Date &&
-                     t.EndDate.Value.Date <= endDate.Date))
-                .OrderByDescending(t => t.StartDate ?? t.EndDate)
+                     t.EndDate.Value.Date <= endDate.Date)
+                    ||
+                    // Yeni eklendi: Eğer start/end seçilmemiş ama o tarihte bitirilmiş/güncellenmişse (Top 5 için gerekli)
+                    (t.UpdatedAt.HasValue &&
+                     t.UpdatedAt.Value.Date >= startDate.Date &&
+                     t.UpdatedAt.Value.Date <= endDate.Date)
+                    ||
+                    (t.CreatedAt.Date >= startDate.Date &&
+                     t.CreatedAt.Date <= endDate.Date)
+                )
+                .OrderByDescending(t => t.StartDate ?? t.EndDate ?? t.UpdatedAt ?? t.CreatedAt)
                 .ToListAsync();
         }
     }

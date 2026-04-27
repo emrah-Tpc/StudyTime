@@ -1,0 +1,134 @@
+@page "/login"
+@layout StudyTime.DesktopClient.Components.Layout.AuthLayout
+@using StudyTime.DesktopClient.Services
+@inject AuthService AuthService
+@inject NavigationManager NavigationManager
+
+<div class="d-flex align-items-center justify-content-center" style="height: 100vh; background-color: var(--st-bg-color);">
+    <div class="card p-4 shadow-sm" style="width: 400px; border-radius: 12px; background-color: var(--st-surface-color);">
+        <div class="text-center mb-4">
+            <h2 class="fw-bold" style="color: var(--st-text-color);">StudyTime'a Hoş Geldin</h2>
+            <p class="text-muted">Masaüstü uygulamasına giriş yap (Sadece Premium)</p>
+        </div>
+
+        @if (!string.IsNullOrEmpty(ErrorMessage))
+        {
+            <div class="alert alert-danger p-2 mb-3" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> @ErrorMessage
+            </div>
+        }
+
+        <EditForm Model="LoginModel" OnValidSubmit="HandleLogin">
+            <DataAnnotationsValidator />
+
+            <div class="mb-3">
+                <label class="form-label" style="color: var(--st-text-color);">E-Posta</label>
+                <InputText @bind-Value="LoginModel.Email" class="form-control" style="background-color: var(--st-input-bg); color: var(--st-text-color); border: 1px solid var(--st-border-color);" placeholder="ornek@email.com" />
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label" style="color: var(--st-text-color);">Şifre</label>
+                <InputText @bind-Value="LoginModel.Password" type="password" class="form-control" style="background-color: var(--st-input-bg); color: var(--st-text-color); border: 1px solid var(--st-border-color);" placeholder="******" />
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 py-2 fw-bold" disabled="@IsLoading">
+                @if (IsLoading)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    <span>Giriş Yapılıyor...</span>
+                }
+                else
+                {
+                    <span>Giriş Yap</span>
+                }
+            </button>
+        </EditForm>
+        
+        <div class="text-center mt-3">
+            @if (DeviceInfo.Platform == DevicePlatform.WinUI)
+            {
+                <small class="text-muted">Premium üyeliği mobil uygulamamızdan başlatabilirsiniz.</small>
+            }
+            else
+            {
+                <small class="text-muted">Hesabın yok mu? <a href="/register" class="text-decoration-none fw-bold" style="color: var(--st-primary-color);">Kayıt Ol</a></small>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    public string? Error { get; set; }
+
+    private LoginViewModel LoginModel = new();
+    private bool IsLoading = false;
+    private string? ErrorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Error == "session_mismatch")
+        {
+            ErrorMessage = "Oturumunuz başka bir cihazda açıldığı için sonlandırıldı. Lütfen tekrar giriş yapın.";
+        }
+        else if (Error == "premium_expired")
+        {
+            ErrorMessage = "Üyeliğinizin süresi dolmuştur. Lütfen mobil uygulamamız üzerinden üyeliğinizi yenileyiniz.";
+        }
+        else
+        {
+            var storedError = await Microsoft.Maui.Storage.SecureStorage.Default.GetAsync("LoginError");
+            if (storedError == "session_mismatch")
+            {
+                ErrorMessage = "Oturumunuz başka bir cihazda açıldığı için sonlandırıldı. Lütfen tekrar giriş yapın.";
+                Microsoft.Maui.Storage.SecureStorage.Default.Remove("LoginError");
+            }
+            else if (storedError == "premium_expired")
+            {
+                ErrorMessage = "Üyeliğinizin süresi dolmuştur. Lütfen mobil uygulamamız üzerinden üyeliğinizi yenileyiniz.";
+                Microsoft.Maui.Storage.SecureStorage.Default.Remove("LoginError");
+            }
+        }
+    }
+
+    private async Task HandleLogin()
+    {
+        IsLoading = true;
+        ErrorMessage = null;
+
+        try
+        {
+            var success = await AuthService.LoginAsync(LoginModel.Email, LoginModel.Password);
+            if (success)
+            {
+                NavigationManager.NavigateTo("/"); // Ana sayfaya yönlendir
+            }
+            else
+            {
+                ErrorMessage = "E-posta veya şifre hatalı.";
+            }
+        }
+        catch (UnauthorizedAccessException ex) when (ex.Message == "PREMIUM_REQUIRED" || ex.Message == "DESKTOP_PREMIUM_REQUIRED")
+        {
+            ErrorMessage = "Bu masaüstü uygulaması SADECE Premium üyeler içindir. Lütfen mobil uygulamamız üzerinden Premium üyeliğe yükseltin.";
+        }
+        catch (UnauthorizedAccessException ex) when (ex.Message == "DEVICE_LIMIT_REACHED")
+        {
+            ErrorMessage = "Cihaz sınırınız doldu. Uygulama sadece maksimum 2 farklı bilgisayarda kullanılabilir.";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = "Bir hata oluştu: " + ex.Message;
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    public class LoginViewModel
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+}

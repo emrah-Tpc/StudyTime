@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using StudyTime.Domain.Enums;
 using TaskStatus = StudyTime.Domain.Enums.TaskStatus;
 
@@ -20,6 +20,12 @@ namespace StudyTime.Domain.Entities
         public TaskStatus Status { get; private set; }
 
         public bool IsDeleted { get; private set; }
+        public DateTime? UpdatedAt { get; set; }
+        public DateTime CreatedAt { get; private set; }
+
+        // Auth Properties
+        public string? UserId { get; set; }
+        public AppUser? User { get; set; }
 
         private TaskItem() { } // EF Core için
 
@@ -39,6 +45,7 @@ namespace StudyTime.Domain.Entities
             UpdatePlannedDuration(plannedDuration);
             Status = TaskStatus.Pending;
             IsDeleted = false;
+            CreatedAt = DateTime.UtcNow;
         }
 
         public void ChangeTitle(string title)

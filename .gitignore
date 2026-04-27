@@ -63,6 +63,10 @@ wwwroot/**/*.br
 Thumbs.db
 
 # =========================
-# Logs
+# Logs and Temp Text Files
 # =========================
 *.log
+build_*.txt
+ef_*.txt
+git_diff_out.txt
+

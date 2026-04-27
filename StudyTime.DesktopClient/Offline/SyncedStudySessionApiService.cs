@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using StudyTime.DesktopClient.Services;
 
 namespace StudyTime.DesktopClient.Offline
@@ -9,12 +10,32 @@ namespace StudyTime.DesktopClient.Offline
     /// <b>Offline Start:</b> Lokal Guid üretilir, OutboxQueue'ya eklenir — timer çalışmaya devam eder.<br/>
     /// <b>Offline Stop:</b> OutboxQueue'ya başlangıç/bitiş zamanıyla birlikte eklenir.<br/>
     /// <b>Offline Pause/Resume:</b> Sessizce yoksayılır (kritik değil, istatistikleri bozmaz).
+    /// <br/>
+    /// Outbox replay tamamlandıktan sonra yerel oturum Id'si sunucu Id'si ile <see cref="SessionServerIdMapEntry"/> üzerinden eşlenir;
+    /// çevrimiçi API çağrılarında önce bu eşleme çözülür (C1/C2).
     /// </summary>
     public class SyncedStudySessionApiService(
-        StudySessionApiService remote,
-        OutboxProcessor        outbox,
-        ConnectivityService    connectivity)
+        IServiceScopeFactory scopeFactory,
+        LocalDb              localDb,
+        OutboxProcessor      outbox,
+        ConnectivityService  connectivity,
+        LocalSnapshotCache   snapshotCache)
     {
+        private async Task<Guid> ResolveToServerSessionIdAsync(Guid sessionId)
+        {
+            var conn = await localDb.GetAsync();
+            var row  = await conn.FindAsync<SessionServerIdMapEntry>(sessionId);
+            return row?.ServerSessionId ?? sessionId;
+        }
+
+        private async Task RemoveLocalMappingAsync(Guid localSessionId)
+        {
+            var conn = await localDb.GetAsync();
+            var row  = await conn.FindAsync<SessionServerIdMapEntry>(localSessionId);
+            if (row != null)
+                await conn.DeleteAsync(row);
+        }
+
         // ── START ─────────────────────────────────────────────────────────────
 
         /// <summary>
@@ -29,6 +50,8 @@ namespace StudyTime.DesktopClient.Offline
             {
                 try
                 {
+                    using var scope     = scopeFactory.CreateScope();
+                    var remote = scope.ServiceProvider.GetRequiredService<StudySessionApiService>();
                     var sessionId = await remote.StartSessionAsync(lessonId, taskId, isBreak);
                     if (sessionId != Guid.Empty)
                         return sessionId;
@@ -60,11 +83,17 @@ namespace StudyTime.DesktopClient.Offline
         /// </summary>
         public async Task StopSessionAsync(Guid sessionId)
         {
+            var resolved = await ResolveToServerSessionIdAsync(sessionId);
+
             if (connectivity.IsOnline)
             {
                 try
                 {
-                    await remote.StopSessionAsync(sessionId);
+                    using var scope  = scopeFactory.CreateScope();
+                    var remote = scope.ServiceProvider.GetRequiredService<StudySessionApiService>();
+                    await remote.StopSessionAsync(resolved);
+                    await RemoveLocalMappingAsync(sessionId);
+                    await snapshotCache.InvalidateDashboardAndStatisticsAsync();
                     return;
                 }
                 catch
@@ -73,12 +102,13 @@ namespace StudyTime.DesktopClient.Offline
                 }
             }
 
-            // Offline: outbox'a kaydet (sadece gerçek session ID'leri replay'de API'ye gider)
             await outbox.EnqueueAsync("StudySession", "Stop", new StudySessionStopPayload
             {
                 LocalSessionId = sessionId,
                 StoppedAt      = DateTime.UtcNow
             });
+
+            await snapshotCache.InvalidateDashboardAndStatisticsAsync();
         }
 
         // ── PAUSE / RESUME ────────────────────────────────────────────────────
@@ -89,7 +119,14 @@ namespace StudyTime.DesktopClient.Offline
         public async Task PauseSessionAsync(Guid sessionId)
         {
             if (!connectivity.IsOnline) return;
-            try { await remote.PauseSessionAsync(sessionId); } catch { /* yoksay */ }
+            try
+            {
+                var resolved = await ResolveToServerSessionIdAsync(sessionId);
+                using var scope  = scopeFactory.CreateScope();
+                var remote = scope.ServiceProvider.GetRequiredService<StudySessionApiService>();
+                await remote.PauseSessionAsync(resolved);
+            }
+            catch { /* yoksay */ }
         }
 
         /// <summary>
@@ -98,8 +135,14 @@ namespace StudyTime.DesktopClient.Offline
         public async Task ResumeSessionAsync(Guid sessionId)
         {
             if (!connectivity.IsOnline) return;
-            try { await remote.ResumeSessionAsync(sessionId); } catch { /* yoksay */ }
+            try
+            {
+                var resolved = await ResolveToServerSessionIdAsync(sessionId);
+                using var scope  = scopeFactory.CreateScope();
+                var remote = scope.ServiceProvider.GetRequiredService<StudySessionApiService>();
+                await remote.ResumeSessionAsync(resolved);
+            }
+            catch { /* yoksay */ }
         }
     }
-
 }

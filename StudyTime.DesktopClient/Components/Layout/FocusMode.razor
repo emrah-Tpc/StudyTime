@@ -27,13 +27,27 @@
                 {
                     <span><i class="bi bi-cup-hot-fill me-2"></i>Mola Vakti</span>
                 }
-                else if (GlobalTimer.IsCountdown)
-                {
-                    <span><i class="bi bi-bullseye me-2"></i>Odaklanma Modu</span>
-                }
                 else
                 {
-                    <span><i class="bi bi-infinity me-2"></i>Serbest Çalışma</span>
+                    <span>
+                        @if (GlobalTimer.ActiveModeName == "Serbest")
+                        {
+                            <i class="bi bi-infinity me-2"></i>
+                        }
+                        else if (GlobalTimer.ActiveModeName == "Klasik")
+                        {
+                            <i class="bi bi-clock me-2"></i>
+                        }
+                        else if (GlobalTimer.ActiveModeName == "Derin Odak")
+                        {
+                            <i class="bi bi-bullseye me-2"></i>
+                        }
+                        else
+                        {
+                            <i class="bi bi-sliders me-2"></i>
+                        }
+                        @(GlobalTimer.ActiveModeName ?? "Odaklanma Modu")
+                    </span>
                 }
             </div>
 

@@ -1,11 +1,11 @@
-@using StudyTime.Application.DTOs.Dashboard
+﻿@using StudyTime.Application.DTOs.Dashboard
 @using ApexCharts
 @namespace StudyTime.DesktopClient.Components.Charts
 
-<div style="width: 100%; overflow: hidden; max-height: 200px;">
+<div style="width: 100%; overflow: visible; max-height: 250px;">
     <ApexChart TItem="ChartDataDto"
                Title=""
-               Height="180"
+               Height="220"
                Width="@("100%")"
                @ref="chart"
                Options="options">
@@ -46,7 +46,7 @@
         {
             Pie = new PlotOptionsPie
             {
-                CustomScale = 0.8,
+                
                 Donut = new PlotOptionsDonut
                 {
                     Size = "65%",
@@ -89,7 +89,7 @@
             }
         };
         options.DataLabels = new DataLabels { Enabled = false };
-        options.Tooltip = new Tooltip { Enabled = true, Theme = ApexCharts.Mode.Dark };
+        options.Tooltip = new Tooltip { Enabled = true, Theme = ApexCharts.Mode.Dark, Y = new TooltipY { Formatter = @"function(val) { return Math.round(val) + ' dk' }" } };
     }
 
     protected override async Task OnParametersSetAsync()

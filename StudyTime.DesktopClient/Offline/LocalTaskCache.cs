@@ -6,54 +6,61 @@ namespace StudyTime.DesktopClient.Offline
 {
     /// <summary>
     /// <see cref="TaskCacheEntry"/> tablosunu yöneten yerel SQLite önbelleği.
-    /// <br/>
-    /// <b>Okuma:</b> Online → API → cache refresh. Offline → SQLite cache.<br/>
-    /// <b>Yazma:</b> Optimistik UI güncellemesi + OutboxQueue üzerinden API replay.
+    /// Sorgular <see cref="LocalUserContext.UserId"/> ve <see cref="TaskCacheEntry.IsDeleted"/> ile izole edilir.
     /// </summary>
-    public class LocalTaskCache(LocalDb db)
+    public class LocalTaskCache(LocalDb db, LocalUserContext userContext)
     {
         // ── Okuma ────────────────────────────────────────────────────────────
 
-        /// <summary>Önbellekteki tüm görevleri döndürür.</summary>
+        /// <summary>Geçerli kullanıcıya ait silinmemiş görevler.</summary>
         public async Task<List<TaskDto>> GetAllAsync()
         {
-            var conn    = await db.GetAsync();
-            var entries = await conn.Table<TaskCacheEntry>().ToListAsync();
-            return entries.Select(ToDto).ToList();
-        }
+            var uid = userContext.UserId;
+            if (string.IsNullOrEmpty(uid))
+                return new List<TaskDto>();
 
-        /// <summary>Belirli bir derse ait görevleri döndürür.</summary>
-        public async Task<List<TaskDto>> GetByLessonIdAsync(Guid lessonId)
-        {
             var conn    = await db.GetAsync();
             var entries = await conn.Table<TaskCacheEntry>()
-                                    .Where(e => e.LessonId == lessonId)
-                                    .ToListAsync();
+                .Where(e => e.UserId == uid && !e.IsDeleted)
+                .ToListAsync();
             return entries.Select(ToDto).ToList();
         }
 
-        /// <summary>
-        /// Tarih aralığındaki görevleri döndürür.
-        /// StartDate VEYA EndDate aralık içindeyse (OR) eşleşir.
-        /// Her ikisi de null olan görevler dahil edilmez.
-        /// </summary>
+        /// <summary>Belirli derse ait görevler (kullanıcı izolasyonu).</summary>
+        public async Task<List<TaskDto>> GetByLessonIdAsync(Guid lessonId)
+        {
+            var uid = userContext.UserId;
+            if (string.IsNullOrEmpty(uid))
+                return new List<TaskDto>();
+
+            var conn    = await db.GetAsync();
+            var entries = await conn.Table<TaskCacheEntry>()
+                .Where(e => e.LessonId == lessonId && e.UserId == uid && !e.IsDeleted)
+                .ToListAsync();
+            return entries.Select(ToDto).ToList();
+        }
+
+        /// <summary>Tarih aralığı (bellek içi OR filtresi + kullanıcı izolasyonu).</summary>
         public async Task<List<TaskDto>> GetByDateRangeAsync(DateTime start, DateTime end)
         {
+            var uid = userContext.UserId;
+            if (string.IsNullOrEmpty(uid))
+                return new List<TaskDto>();
+
             long startTicks = start.Ticks;
             long endTicks   = end.Ticks;
 
             var conn    = await db.GetAsync();
-            // SQLite-net LINQ OR sorgusunu doğrudan desteklemez — hepsini çek, bellek içi filtrele
-            var entries = await conn.Table<TaskCacheEntry>().ToListAsync();
+            var entries = await conn.Table<TaskCacheEntry>()
+                .Where(e => e.UserId == uid && !e.IsDeleted)
+                .ToListAsync();
 
             return entries
                 .Where(e =>
-                    // StartDate aralık içinde
                     (e.StartDateTicks.HasValue &&
                      e.StartDateTicks.Value >= startTicks &&
                      e.StartDateTicks.Value <= endTicks)
                     ||
-                    // EndDate aralık içinde
                     (e.EndDateTicks.HasValue &&
                      e.EndDateTicks.Value >= startTicks &&
                      e.EndDateTicks.Value <= endTicks))
@@ -63,15 +70,14 @@ namespace StudyTime.DesktopClient.Offline
 
         // ── Yazma ────────────────────────────────────────────────────────────
 
-        /// <summary>
-        /// API'den alınan listeyi önbelleğe yazar (INSERT OR REPLACE).
-        /// Eski kayıtların üzerine geçer.
-        /// </summary>
         public async Task UpsertAllAsync(IEnumerable<TaskDto> dtos)
         {
+            var uid = userContext.UserId;
+            if (string.IsNullOrEmpty(uid))
+                return;
+
             var conn    = await db.GetAsync();
-            var entries = dtos.Select(ToEntry).ToList();
-            Console.WriteLine($"[TaskCache] UpsertAllAsync: {entries.Count} kayıt yazılıyor...");
+            var entries = dtos.Select(d => ToEntry(d, uid)).ToList();
 
             try
             {
@@ -80,12 +86,10 @@ namespace StudyTime.DesktopClient.Offline
                     foreach (var entry in entries)
                         tran.InsertOrReplace(entry);
                 });
-                Console.WriteLine($"[TaskCache] UpsertAllAsync: {entries.Count} kayıt başarıyla yazıldı.");
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[TaskCache] UpsertAllAsync HATA: {ex.Message}");
-                // Fallback: tek tek insert dene
                 foreach (var entry in entries)
                 {
                     try { await conn.InsertOrReplaceAsync(entry); }
@@ -94,23 +98,51 @@ namespace StudyTime.DesktopClient.Offline
             }
         }
 
-        /// <summary>Önbellekten tek kayıt siler.</summary>
-        public async Task DeleteAsync(Guid id)
+        /// <summary>Bu kullanıcının tüm görev satırlarını silip API listesini yazar (tarih aralığı senkronu).</summary>
+        public async Task ReplaceAllAsync(IEnumerable<TaskDto> dtos)
         {
+            var uid = userContext.UserId;
+            if (string.IsNullOrEmpty(uid))
+                return;
+
             var conn = await db.GetAsync();
-            await conn.DeleteAsync<TaskCacheEntry>(id);
+            await conn.ExecuteAsync("DELETE FROM TaskCache WHERE UserId = ?", uid);
+            await UpsertAllAsync(dtos);
         }
 
-        /// <summary>
-        /// Lokal olarak görevin durumunu Completed ↔ Open arasında geçirir.
-        /// API replay <see cref="OutboxProcessor"/> tarafından yapılır.
-        /// </summary>
+        /// <summary>Bir derse ait görevleri değiştirir — sunucuda silinen görevlerin hayalet kalmaması için.</summary>
+        public async Task ReplaceForLessonAsync(Guid lessonId, IEnumerable<TaskDto> dtos)
+        {
+            var uid = userContext.UserId;
+            if (string.IsNullOrEmpty(uid))
+                return;
+
+            var conn = await db.GetAsync();
+            await conn.ExecuteAsync("DELETE FROM TaskCache WHERE UserId = ? AND LessonId = ?", uid, lessonId);
+            await UpsertAllAsync(dtos);
+        }
+
+        /// <summary>Önbellekten tek kayıt siler (fiziksel).</summary>
+        public async Task DeleteAsync(Guid id)
+        {
+            var uid = userContext.UserId;
+            if (string.IsNullOrEmpty(uid))
+                return;
+
+            var conn = await db.GetAsync();
+            await conn.ExecuteAsync("DELETE FROM TaskCache WHERE Id = ? AND UserId = ?", id, uid);
+        }
+
         public async Task ToggleCompleteAsync(Guid id)
         {
+            var uid = userContext.UserId;
+            if (string.IsNullOrEmpty(uid))
+                return;
+
             var conn  = await db.GetAsync();
             var entry = await conn.Table<TaskCacheEntry>()
-                                  .Where(e => e.Id == id)
-                                  .FirstOrDefaultAsync();
+                .Where(e => e.Id == id && e.UserId == uid && !e.IsDeleted)
+                .FirstOrDefaultAsync();
             if (entry is null) return;
 
             entry.Status = entry.Status == TaskStatus.Completed.ToString()
@@ -120,16 +152,32 @@ namespace StudyTime.DesktopClient.Offline
             await conn.UpdateAsync(entry);
         }
 
-        /// <summary>
-        /// Lokal olarak görev alan bilgilerini günceller (optimistik UI).
-        /// API replay OutboxProcessor tarafından yapılır.
-        /// </summary>
-        public async Task UpdateAsync(Guid id, UpdateTaskDto dto)
+        public async Task UpdateStatusAsync(Guid id, StudyTime.Domain.Enums.TaskStatus newStatus)
         {
+            var uid = userContext.UserId;
+            if (string.IsNullOrEmpty(uid))
+                return;
+
             var conn  = await db.GetAsync();
             var entry = await conn.Table<TaskCacheEntry>()
-                                  .Where(e => e.Id == id)
-                                  .FirstOrDefaultAsync();
+                .Where(e => e.Id == id && e.UserId == uid && !e.IsDeleted)
+                .FirstOrDefaultAsync();
+            if (entry is null) return;
+
+            entry.Status = newStatus.ToString();
+            await conn.UpdateAsync(entry);
+        }
+
+        public async Task UpdateAsync(Guid id, UpdateTaskDto dto)
+        {
+            var uid = userContext.UserId;
+            if (string.IsNullOrEmpty(uid))
+                return;
+
+            var conn  = await db.GetAsync();
+            var entry = await conn.Table<TaskCacheEntry>()
+                .Where(e => e.Id == id && e.UserId == uid && !e.IsDeleted)
+                .FirstOrDefaultAsync();
             if (entry is null) return;
 
             entry.Title                = dto.Title ?? entry.Title;
@@ -144,7 +192,26 @@ namespace StudyTime.DesktopClient.Offline
             await conn.UpdateAsync(entry);
         }
 
-        /// <summary>Tüm önbelleği temizler (logout / hard refresh).</summary>
+        /// <summary>
+        /// Outbox POST başarısından sonra geçici görev Id'sini sunucu Id'si ile değiştirir.
+        /// </summary>
+        public async Task ReconcileCreateIdAsync(Guid tempId, Guid serverId)
+        {
+            if (tempId == serverId) return;
+            var uid = userContext.UserId;
+            if (string.IsNullOrEmpty(uid)) return;
+
+            var conn  = await db.GetAsync();
+            var entry = await conn.Table<TaskCacheEntry>()
+                .Where(e => e.Id == tempId && e.UserId == uid)
+                .FirstOrDefaultAsync();
+            if (entry is null) return;
+
+            await conn.DeleteAsync(entry);
+            entry.Id = serverId;
+            await conn.InsertOrReplaceAsync(entry);
+        }
+
         public async Task ClearAsync()
         {
             var conn = await db.GetAsync();
@@ -169,7 +236,7 @@ namespace StudyTime.DesktopClient.Offline
                                 ? new DateTime(e.EndDateTicks.Value, DateTimeKind.Utc) : null
         };
 
-        private static TaskCacheEntry ToEntry(TaskDto d) => new()
+        private static TaskCacheEntry ToEntry(TaskDto d, string userId) => new()
         {
             Id                   = d.Id,
             LessonId             = d.LessonId,
@@ -179,7 +246,9 @@ namespace StudyTime.DesktopClient.Offline
             PlannedDurationTicks = d.PlannedDuration?.Ticks,
             StartDateTicks       = d.StartDate?.Ticks,
             EndDateTicks         = d.EndDate?.Ticks,
-            CachedAt             = DateTime.UtcNow
+            CachedAt             = DateTime.UtcNow,
+            UserId               = userId,
+            IsDeleted            = false
         };
     }
 }

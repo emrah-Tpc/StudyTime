@@ -11,8 +11,26 @@
 @inject SyncedTaskApiService TaskApiService
 @inject GlobalTimerService GlobalTimer
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <div class="workspace-container fade-in">
+
+@if (showBreakAlert)
+{
+    <div class="break-alert-overlay" @onclick="DismissBreakAlert">
+        <div class="break-alert-popup" @onclick:stopPropagation>
+            <div class="break-alert-emoji">☕</div>
+            <div class="break-alert-title">Mola Bitti!</div>
+            <p class="break-alert-subtitle">Hazır hissediyorsan yeni seansa başlayalım.</p>
+            <div class="break-alert-actions">
+                <button class="break-alert-btn primary" @onclick="StartTimer">
+                    <i class="bi bi-play-fill me-1"></i> Başla
+                </button>
+                <button class="break-alert-btn secondary" @onclick="DismissBreakAlert">Kapat</button>
+            </div>
+        </div>
+    </div>
+}
     @if (isLoading)
     {
         <div class="d-flex justify-content-center align-items-center h-100">
@@ -29,17 +47,19 @@
 
         <div class="ws-grid">
 
-            <div class="ws-card task-panel">
+            <div id="task-panel" class="ws-card task-panel">
                 <div class="panel-header">
                     <h5>Görevler</h5>
-                    <button class="btn-icon-xs" @onclick="() => showAddTask = !showAddTask">
+                    <button class="btn-add-task-trigger" style="--lesson-color: @workspace.Color" disabled="@(GlobalTimer.IsRunning && GlobalTimer.ActiveLessonId != Id)"
+                            @onclick="() => showAddTask = !showAddTask">
                         <i class="bi @(showAddTask ? "bi-x-lg" : "bi-plus-lg")"></i>
+                        <span>@(showAddTask ? "Kapat" : "Görev Ekle")</span>
                     </button>
                 </div>
 
                 @if (showAddTask)
                 {
-                    <div class="task-creation-form mb-3 fade-in p-3" style="background: rgba(255,255,255,0.05); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
+                    <div class="task-creation-form mb-3 fade-in p-3" style="background: rgba(255,255,255,0.05); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); max-height: 300px; overflow-y: auto;">
                         <div class="mb-2">
                             <label class="text-white small mb-1 opacity-75">Görev Adı</label>
                             <input type="text" class="form-control custom-input" placeholder="Örn: Matematik çalış..." @bind="newTask.Title" />
@@ -57,8 +77,8 @@
                         </div>
 
                         <div class="mb-2">
-                             <label class="text-white small mb-1 opacity-75">Tahmini Süre (Dk)</label>
-                             <input type="number" class="form-control custom-input" placeholder="45" @bind="newTask.PlannedDurationMinutes" />
+                             <label class="text-white small mb-1 opacity-75">Tahmini Süre (Maksimum 1440 dk)</label>
+                             <input type="number" min="1" max="1440" class="form-control custom-input" placeholder="Örn: 45" @bind="newTask.PlannedDurationMinutes" />
                         </div>
 
                         <div class="mb-3">
@@ -84,11 +104,11 @@
                             @foreach (var task in visibleTasks)
                             {
                                 <div class="ws-task-item @(activeTaskId == task.Id ? "active-task" : "")"
+                                     @key="task.Id"
                                      style="--accent-color: @workspace.Color">
     
                                     <div class="d-flex align-items-center gap-2" style="flex: 1; overflow: hidden;">
-                                        <input type="checkbox" class="form-check-input custom-check" 
-                                               checked="@task.IsCompleted" 
+                                        <input type="checkbox" class="form-check-input custom-check" disabled="@(GlobalTimer.IsRunning && GlobalTimer.ActiveLessonId != Id)" checked="@task.IsCompleted" 
                                                @onchange="@(async (e) => await ToggleTaskStatus(task))"
                                                style="cursor: pointer; flex-shrink: 0;" />
                                         
@@ -105,7 +125,7 @@
                                         </div>
                                     </div>
     
-                                    <button class="btn-play-task" @onclick="() => SelectTask(task.Id)">
+                                    <button class="btn-play-task" disabled="@(GlobalTimer.IsRunning && GlobalTimer.ActiveLessonId != Id)" @onclick="() => SelectTask(task.Id)">
                                         @if (activeTaskId == task.Id && isTimerRunning)
                                         {
                                             <i class="bi bi-pause-fill"></i>
@@ -130,7 +150,27 @@
                 </div>
             </div>
 
-            <div class="ws-card timer-panel d-flex flex-column align-items-center justify-content-center">
+            <div id="timer-panel" class="ws-card timer-panel d-flex flex-column align-items-center justify-content-center">
+                <!-- Mobil Affordance Buttons -->
+                <div class="swipe-nav left d-md-none" @onclick='() => ScrollToSlide("task-panel")'>
+                    <i class="bi bi-chevron-left"></i> Görevler
+                </div>
+                <div class="swipe-nav right d-md-none" @onclick='() => ScrollToSlide("notes-panel")'>
+                    Notlar <i class="bi bi-chevron-right"></i>
+                </div>
+
+                @if (GlobalTimer.IsRunning && GlobalTimer.ActiveLessonId != Id)
+                {
+                    <div class="other-lesson-timer-info">
+                        <i class="bi bi-clock-history mb-2" style="font-size: 2rem; color: @GlobalTimer.ActiveColor"></i>
+                        <p class="text-muted small text-center mb-1">Başka bir derste aktif çalışma var.</p>
+                        <a href="workspace/@GlobalTimer.ActiveLessonId" class="btn-goto-active">
+                            <i class="bi bi-arrow-right-circle me-1"></i> O derse dön
+                        </a>
+                    </div>
+                }
+                else
+                {
                 <div class="current-task-display mb-4">
                     @if (activeTaskId != null)
                     {
@@ -234,7 +274,7 @@
                 }
 
                 <div class="timer-circle-wrapper">
-                    <svg class="timer-svg" viewBox="0 0 200 200">
+                    <svg class="timer-svg" viewBox="0 0 200 200" style="overflow: visible;">
                         <circle cx="100" cy="100" r="90" class="timer-bg-ring" />
 
                         <circle cx="100" cy="100" r="90" class="timer-progress-ring neon-effect"
@@ -254,6 +294,13 @@
                     }
                 </div>
 
+                @if (GlobalTimer.IsCountdown && !GlobalTimer.IsBreak && GlobalTimer.BreakDuration.TotalMinutes > 0)
+                {
+                    <div class="timer-break-badge">
+                        <i class="bi bi-cup-hot me-1"></i>@GlobalTimer.BreakDuration.TotalMinutes dk mola bekleniyor
+                    </div>
+                }
+
                 @if (isTimerRunning && !GlobalTimer.IsBreak)
                 {
                     <button class="btn-focus-mode mt-2" @onclick="EnterFocusMode" title="Odak Modu">
@@ -261,19 +308,7 @@
                     </button>
                 }
 
-                @if (showBreakAlert)
-                {
-                    <div class="break-alert-card mt-3">
-                        <div class="break-alert-icon"><i class="bi bi-alarm-fill"></i></div>
-                        <p class="break-alert-msg">Mola bitti!<br/><small>Yeni bir seansa hazır mısın?</small></p>
-                        <div class="break-alert-actions">
-                            <button class="break-alert-btn primary" @onclick="StartTimer">
-                                <i class="bi bi-play-fill"></i> Başla
-                            </button>
-                            <button class="break-alert-btn secondary" @onclick="DismissBreakAlert">Kapat</button>
-                        </div>
-                    </div>
-                }
+
 
                 <div class="timer-controls mt-4 d-flex gap-3">
                     @if (elapsedTime.TotalSeconds == 0 && !GlobalTimer.IsPaused)
@@ -298,9 +333,10 @@
                         <button class="btn-timer-secondary stop" @onclick="StopTimer">BİTİR</button>
                     }
                 </div>
+                }
             </div>
 
-            <div class="ws-card notes-panel">
+            <div id="notes-panel" class="ws-card notes-panel">
                 <div class="panel-header">
                     <h5>Hızlı Notlar</h5>
                     <div class="d-flex gap-2 align-items-center">
@@ -354,8 +390,8 @@
         isCustomMode ? TimeSpan.FromMinutes(customWorkMin) :
         selectedMode == 0 ? TimeSpan.Zero : TimeSpan.FromMinutes(selectedMode);
 
-    // Timer state (synced from GlobalTimerService)
-    private bool isTimerRunning => GlobalTimer.IsRunning;
+    // Timer state (synced from GlobalTimerService) — sadece bu derse ait timer aktif sayılır
+    private bool isTimerRunning => GlobalTimer.IsRunning && GlobalTimer.ActiveLessonId == Id;
     private TimeSpan elapsedTime => GlobalTimer.IsRunning || GlobalTimer.IsPaused ? GlobalTimer.ElapsedTime : TimeSpan.Zero;
     private Guid? activeTaskId = null;
 
@@ -378,17 +414,41 @@
     private int customBreakMin   = 5;    // özel mod: mola dk
     private bool showBreakAlert  = false; // mola bitti uyarısı
 
-    protected override async Task OnInitializedAsync()
+    private bool hasCenteredOnLoad = false;
+
+    private async Task ScrollToSlide(string panelId)
+    {
+        await JS.InvokeVoidAsync("scrollToSlide", panelId);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!isLoading && workspace != null && !hasCenteredOnLoad)
+        {
+            hasCenteredOnLoad = true;
+            await Task.Delay(150); // DOM render süresi tanınır
+            try { await JS.InvokeVoidAsync("scrollToSlide", "timer-panel"); } catch { }
+        }
+    }
+
+    protected override void OnInitialized()
     {
         GlobalTimer.OnTick          += OnTimerTick;
         GlobalTimer.OnTimerFinished += OnTimerFinished;
         GlobalTimer.OnBreakFinished += OnBreakFinished;
-        await LoadData();
+    }
 
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadData();
         if (GlobalTimer.IsRunning && GlobalTimer.ActiveLessonId == Id)
         {
             activeTaskId = GlobalTimer.ActiveTaskId;
             CalculateProgress();
+        }
+        else
+        {
+            activeTaskId = null;
         }
     }
 
@@ -640,6 +700,59 @@
         background: rgba(255, 255, 255, 0.3); 
     }
 
+    /* ── Görev Ekle Trigger Butonu ─────────────────── */
+    .btn-add-task-trigger {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        border-radius: 999px;
+        border: 1px solid var(--lesson-color, #3b82f6);
+        background: transparent;
+        color: var(--lesson-color, #3b82f6);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-add-task-trigger:hover {
+        background: color-mix(in srgb, var(--lesson-color, #3b82f6) 15%, transparent);
+        box-shadow: 0 0 8px color-mix(in srgb, var(--lesson-color, #3b82f6) 40%, transparent);
+    }
+
+    /* ── Başka Ders Timer Bilgi Kutusu ─────────────── */
+    .other-lesson-timer-info {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 2rem 1rem;
+        text-align: center;
+    }
+
+    .btn-goto-active {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 16px;
+        border-radius: 999px;
+        border: 1px solid rgba(255,255,255,0.15);
+        background: rgba(255,255,255,0.06);
+        color: #fff;
+        font-size: 0.82rem;
+        font-weight: 500;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+
+    .btn-goto-active:hover {
+        background: rgba(255,255,255,0.12);
+        border-color: rgba(255,255,255,0.3);
+        color: #fff;
+    }
+
     /* ── Preset Buttons ────────────────────────────────── */
     .timer-preset-row {
         display: flex;
@@ -655,9 +768,9 @@
         gap: 2px;
         padding: 8px 14px;
         border-radius: 12px;
-        border: 1px solid rgba(255,255,255,0.08);
-        background: rgba(255,255,255,0.03);
-        color: rgba(255,255,255,0.5);
+        border: 1px solid var(--border-color);
+        background: var(--bg-surface);
+        color: var(--text-dim);
         font-size: 0.78rem;
         font-weight: 500;
         cursor: pointer;
@@ -668,16 +781,16 @@
     .btn-preset i { font-size: 1rem; }
 
     .btn-preset:hover {
-        background: rgba(255,255,255,0.08);
-        color: #fff;
-        border-color: rgba(255,255,255,0.18);
+        background: var(--bg-card-hover);
+        color: var(--text-main);
+        border-color: var(--border-highlight);
     }
 
     .btn-preset.active {
-        background: rgba(255,255,255,0.12);
-        color: #fff;
-        border-color: rgba(255,255,255,0.25);
-        box-shadow: 0 0 10px rgba(255,255,255,0.06);
+        background: rgba(59,130,246,0.12);
+        color: var(--accent-blue);
+        border-color: rgba(59,130,246,0.3);
+        box-shadow: 0 0 10px rgba(59,130,246,0.08);
     }
 
     .preset-sub {
@@ -698,7 +811,7 @@
 
     .break-chip-label {
         font-size: 0.75rem;
-        color: rgba(255,255,255,0.45);
+        color: var(--text-dim);
     }
 
     .break-chip {
@@ -706,7 +819,7 @@
         border-radius: 999px;
         border: 1px solid rgba(34,197,94,0.25);
         background: rgba(34,197,94,0.06);
-        color: rgba(255,255,255,0.5);
+        color: var(--text-dim);
         font-size: 0.75rem;
         cursor: pointer;
         transition: all 0.2s;
@@ -718,12 +831,7 @@
         color: #22c55e;
     }
 
-    .timer-circle-wrapper {
-        position: relative;
-        width: 190px;
-        height: 190px;
-        margin: 10px 0;
-    }
+    /* timer-circle-wrapper boyutlari app.css responsive kurallarindan gelir */
 
     .timer-svg {
         width: 100%;
@@ -737,8 +845,8 @@
         align-items: center;
         gap: 6px;
         justify-content: center;
-        background: rgba(255,255,255,0.03);
-        border: 1px solid rgba(255,255,255,0.07);
+        background: var(--bg-surface);
+        border: 1px solid var(--border-color);
         border-radius: 12px;
         padding: 4px 10px;
     }
@@ -747,7 +855,7 @@
 
     .custom-label {
         font-size: 0.68rem;
-        color: rgba(255,255,255,0.4);
+        color: var(--text-dim);
         text-transform: uppercase;
         letter-spacing: 0.05em;
     }
@@ -761,9 +869,9 @@
     .custom-spin button {
         width: 26px; height: 26px;
         border-radius: 50%;
-        border: 1px solid rgba(255,255,255,0.15);
-        background: rgba(255,255,255,0.06);
-        color: #fff;
+        border: 1px solid var(--border-color);
+        background: var(--bg-surface);
+        color: var(--text-main);
         font-size: 1rem;
         cursor: pointer;
         line-height: 1;
@@ -771,11 +879,11 @@
         transition: background 0.15s;
     }
 
-    .custom-spin button:hover { background: rgba(255,255,255,0.14); }
+    .custom-spin button:hover { background: var(--bg-card-hover); }
 
-    .custom-spin span { font-size: 0.82rem; color: #fff; min-width: 42px; text-align: center; }
+    .custom-spin span { font-size: 0.82rem; color: var(--text-main); min-width: 42px; text-align: center; }
 
-    .custom-divider { font-size: 1.2rem; color: rgba(255,255,255,0.2); }
+    .custom-divider { font-size: 1.2rem; color: var(--border-highlight); }
 
     /* ── Custom Confirm Button ───────────────────────────── */
     .btn-custom-confirm {
@@ -783,12 +891,13 @@
         align-items: center;
         justify-content: center;
         gap: 6px;
-        width: 100%;
-        padding: 9px 0;
+        width: auto;
+        padding: 9px 24px;
+        margin: 0 auto;
         border-radius: 10px;
-        border: none;
-        background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.06));
-        color: #fff;
+        border: 1px solid var(--border-color);
+        background: var(--bg-surface);
+        color: var(--text-main);
         font-size: 0.85rem;
         font-weight: 600;
         letter-spacing: 0.03em;
@@ -796,7 +905,7 @@
         transition: background 0.2s, transform 0.1s;
     }
     .btn-custom-confirm:hover {
-        background: linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.1));
+        background: var(--bg-card-hover);
         transform: translateY(-1px);
     }
     .btn-custom-confirm:active { transform: translateY(0); }
@@ -821,38 +930,62 @@
         50% { box-shadow: 0 0 12px 3px rgba(34,197,94,0.25); }
     }
 
-    /* ── Break Alert Card ───────────────────────────────── */
-    .break-alert-card {
-        background: rgba(34,197,94,0.08);
-        border: 1px solid rgba(34,197,94,0.3);
-        border-radius: 14px;
-        padding: 16px 18px;
+    /* ── Break Alert Overlay Popup ──────────────────────── */
+    .break-alert-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(6px);
+        animation: fadeInOverlay 0.25s ease;
+    }
+
+    .break-alert-popup {
+        background: rgba(20, 27, 43, 0.92);
+        border: 1px solid rgba(34, 197, 94, 0.35);
+        border-radius: 20px;
+        padding: 36px 42px;
         text-align: center;
-        animation: slideUp 0.35s cubic-bezier(0.34,1.56,0.64,1);
+        min-width: 300px;
+        max-width: 380px;
+        box-shadow:
+            0 0 0 1px rgba(34,197,94,0.1),
+            0 24px 60px rgba(0,0,0,0.5),
+            0 0 40px rgba(34,197,94,0.08);
+        animation: popupIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
-    .break-alert-icon {
-        font-size: 1.6rem;
+    .break-alert-emoji {
+        font-size: 2.8rem;
+        margin-bottom: 12px;
+        filter: drop-shadow(0 0 12px rgba(34,197,94,0.4));
+    }
+
+    .break-alert-title {
+        font-size: 1.25rem;
+        font-weight: 800;
         color: #22c55e;
-        margin-bottom: 6px;
+        margin-bottom: 8px;
+        letter-spacing: -0.01em;
     }
 
-    .break-alert-msg {
-        color: #fff;
-        font-size: 0.88rem;
-        font-weight: 600;
-        margin: 0 0 10px;
+    .break-alert-subtitle {
+        font-size: 0.85rem;
+        color: var(--text-dim);
+        margin: 0 0 24px;
+        line-height: 1.5;
     }
 
-    .break-alert-msg small { color: rgba(255,255,255,0.5); font-weight: 400; font-size: 0.78rem; }
-
-    .break-alert-actions { display: flex; gap: 8px; justify-content: center; }
+    .break-alert-actions { display: flex; gap: 10px; justify-content: center; }
 
     .break-alert-btn {
-        padding: 6px 18px;
-        border-radius: 8px;
+        padding: 9px 22px;
+        border-radius: 10px;
         border: none;
-        font-size: 0.82rem;
+        font-size: 0.85rem;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.2s;
@@ -861,17 +994,35 @@
     .break-alert-btn.primary {
         background: #22c55e;
         color: #000;
+        box-shadow: 0 4px 16px rgba(34,197,94,0.35);
     }
 
-    .break-alert-btn.primary:hover { background: #16a34a; }
+    .break-alert-btn.primary:hover {
+        background: #16a34a;
+        box-shadow: 0 4px 20px rgba(34,197,94,0.5);
+        transform: translateY(-1px);
+    }
 
     .break-alert-btn.secondary {
         background: rgba(255,255,255,0.07);
-        color: rgba(255,255,255,0.6);
-        border: 1px solid rgba(255,255,255,0.1);
+        color: var(--text-dim);
+        border: 1px solid rgba(255,255,255,0.12);
     }
 
-    .break-alert-btn.secondary:hover { background: rgba(255,255,255,0.12); color: #fff; }
+    .break-alert-btn.secondary:hover {
+        background: rgba(255,255,255,0.12);
+        color: var(--text-main);
+    }
+
+    @@keyframes fadeInOverlay {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+    }
+
+    @@keyframes popupIn {
+        from { opacity: 0; transform: scale(0.85) translateY(20px); }
+        to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
 
     .timer-text {
         position: absolute;
@@ -881,7 +1032,7 @@
         justify-content: center;
         font-size: 2rem;
         font-weight: 700;
-        color: #fff;
+        color: var(--text-main);
         font-family: 'JetBrains Mono', monospace;
     }
 
@@ -896,6 +1047,22 @@
         font-weight: 800;
         letter-spacing: 0.1em;
         opacity: 0.8;
+    }
+
+    .timer-break-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-top: 6px;
+        padding: 3px 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        font-size: 0.65rem;
+        font-weight: 500;
+        color: var(--text-dim);
+        letter-spacing: 0.03em;
+        opacity: 0.75;
     }
 
     @@keyframes slideUp {

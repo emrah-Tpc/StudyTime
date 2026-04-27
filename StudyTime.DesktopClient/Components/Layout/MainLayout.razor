@@ -1,4 +1,4 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 
 <div class="app-layout-container">
     
@@ -21,5 +21,28 @@
 </div>
 
 <!-- Global Modals & Overlays -->
+<StudyTime.DesktopClient.Components.Layout.SyncIndicator />
 <StudyTime.DesktopClient.Components.Layout.FocusMode />
 <StudyTime.DesktopClient.Components.Navigation.NotificationCenter />
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+    
+    [Inject]
+    private NavigationManager NavigationManager { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState is not null)
+        {
+            var authState = await AuthState;
+            var user = authState.User;
+
+            if (user.Identity?.IsAuthenticated == false)
+            {
+                NavigationManager.NavigateTo("/login");
+            }
+        }
+    }
+}

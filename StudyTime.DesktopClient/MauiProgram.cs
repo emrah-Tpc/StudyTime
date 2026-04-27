@@ -1,9 +1,8 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Microsoft.Maui.Controls.Hosting;
 using Microsoft.Maui.Hosting;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Devices; // DeviceInfo ve DevicePlatform için gerekli
-using Microsoft.Maui.Storage;
 using StudyTime.Application.Interfaces;
 using StudyTime.DesktopClient.Services; // Senin servislerin
 #if WINDOWS
@@ -16,6 +15,11 @@ namespace StudyTime.DesktopClient
 {
     public static class MauiProgram
     {
+        /// <summary>
+        /// Arkadaş dağıtımı / API’siz Offline Beta. Yayın + sunucu modunda <c>false</c> yapın.
+        /// </summary>
+        public static readonly bool IsOfflineBeta = false;
+
         public static MauiApp CreateMauiApp()
         {
             var builder = MauiApp.CreateBuilder();
@@ -34,11 +38,18 @@ namespace StudyTime.DesktopClient
             builder.Logging.AddDebug();
 #endif
 
+            var appOptions = StudyTimeAppOptions.Load();
+            builder.Services.AddSingleton(appOptions);
+
+            // Auth State Provider & Dependencies (LocalDataWipeService aşağıda kayıtlı; ctor çözümlemesi Build sonrası)
+            builder.Services.AddAuthorizationCore();
+            builder.Services.AddScoped<CustomAuthenticationStateProvider>();
+            builder.Services.AddScoped<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider>(sp => sp.GetRequiredService<CustomAuthenticationStateProvider>());
+            builder.Services.AddTransient<AuthorizationMessageHandler>();
+            builder.Services.AddScoped<AuthService>();
+
             // --- HTTP Client Ayarları ---
-            // Android emülatör için 10.0.2.2, Windows için localhost
-            string baseUrl = DeviceInfo.Platform == DevicePlatform.Android
-                ? "https://10.0.2.2:7288"
-                : "https://localhost:7288";
+            string baseUrl = appOptions.ApiBaseUrl;
 
             builder.Services.AddScoped(sp =>
             {
@@ -57,6 +68,33 @@ namespace StudyTime.DesktopClient
                 };
             });
 
+            // "StudyTimeApi" adlı özel HttpClient, AuthorizationMessageHandler kullanır
+            builder.Services.AddHttpClient("StudyTimeApi", client =>
+            {
+                client.BaseAddress = new Uri(baseUrl);
+            })
+            .ConfigurePrimaryHttpMessageHandler(() => {
+                var handler = new HttpClientHandler();
+#if DEBUG
+                handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true;
+#endif
+                return handler;
+            })
+            .AddHttpMessageHandler<AuthorizationMessageHandler>();
+
+            // Refresh/login/register gibi çağrılar için handler'sız istemci.
+            builder.Services.AddHttpClient("StudyTimeApiNoAuth", client =>
+            {
+                client.BaseAddress = new Uri(baseUrl);
+            })
+            .ConfigurePrimaryHttpMessageHandler(() => {
+                var handler = new HttpClientHandler();
+#if DEBUG
+                handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true;
+#endif
+                return handler;
+            });
+
             // --- UI Servisleri ---
             builder.Services.AddScoped<DashboardApiService>();
             builder.Services.AddScoped<LessonApiService>();
@@ -72,14 +110,19 @@ namespace StudyTime.DesktopClient
 #if WINDOWS
             // Sistem tepsisi (Windows) — Singleton: uygulama boyunca tek tray icon
             builder.Services.AddSingleton<TrayIconService>();
+            builder.Services.AddSingleton<IDeviceIdentityService, WindowsDeviceIdentityService>();
+#else
+            builder.Services.AddSingleton<IDeviceIdentityService, DeviceIdentityService>();
 #endif
             // Mobil bildirimler (iOS/Android) — Singleton: eventlere sürekli bağlı olmalı
             builder.Services.AddSingleton<TimerNotificationService>();
             builder.Services.AddSingleton<AppNotificationCenterService>();
 
             // --- Offline Sync Servisleri ---
+            builder.Services.AddSingleton<LocalUserContext>();
             builder.Services.AddSingleton<IConnectivity>(Connectivity.Current);
             builder.Services.AddSingleton<ConnectivityService>();
+            builder.Services.AddSingleton<SyncStatusService>();
             builder.Services.AddSingleton<LocalDb>();
             builder.Services.AddSingleton<LocalLessonCache>();
             builder.Services.AddSingleton<LocalTaskCache>();
@@ -87,21 +130,14 @@ namespace StudyTime.DesktopClient
             builder.Services.AddSingleton<LocalSnapshotCache>();
             builder.Services.AddSingleton<LocalStudySessionCache>();
             builder.Services.AddSingleton<LocalNotificationCache>();
+            builder.Services.AddSingleton<LocalDataWipeService>();
             builder.Services.AddScoped<SyncedLessonApiService>();
             builder.Services.AddScoped<SyncedTaskApiService>();
             builder.Services.AddScoped<SyncedDashboardApiService>();
             builder.Services.AddScoped<SyncedStatisticsApiService>();
             builder.Services.AddScoped<StudyTime.DesktopClient.Offline.SyncedNotificationApiService>();
-            builder.Services.AddScoped<SyncedStudySessionApiService>(sp =>
-            {
-                // GlobalTimerService Singleton — SyncedStudySessionApiService de Singleton-safe olmalı
-                // HttpClient Scoped olduğundan sp.CreateScope() ile kısa ömürlü bir scope aç
-                var scope      = sp.CreateScope();
-                var remote     = scope.ServiceProvider.GetRequiredService<StudySessionApiService>();
-                var outbox     = sp.GetRequiredService<OutboxProcessor>();
-                var conn       = sp.GetRequiredService<ConnectivityService>();
-                return new SyncedStudySessionApiService(remote, outbox, conn);
-            });
+            // Singleton: her API çağrısında IServiceScopeFactory ile StudySessionApiService (Scoped) güvenli şekilde çözülür (C4)
+            builder.Services.AddSingleton<SyncedStudySessionApiService>();
 
             return builder.Build();
         }

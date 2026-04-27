@@ -5,9 +5,13 @@
 @using StudyTime.DesktopClient.Components.Charts
 @using System.Globalization
 @using System.Text
+@implements IDisposable
 @inject SyncedDashboardApiService DashboardService
 @inject SyncedTaskApiService TaskService
+@inject GlobalTimerService GlobalTimerService
+@inject SyncStatusService SyncStatusService
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <div class="dashboard-container fade-in">
     @if (isLoading)
@@ -25,186 +29,217 @@
             </div>
 
             <div class="header-actions align-items-center">
-            <div class="header-actions align-items-center">
-            <div class="header-actions align-items-center">
                 <button class="btn-outline" @onclick='() => Nav.NavigateTo("lessons?showAdd=true")'>
                     <i class="bi bi-plus-lg"></i> <span class="d-none d-md-inline">Yeni Alan</span>
                 </button>
             </div>
-            </div>
-            </div>
         </div>
 
-        <div class="stats-grid">
-            <div class="st-card stat-card-inner">
-                <div class="stat-label">Toplam Görev</div>
-                <div class="stat-value text-white">@summary.TotalTasks</div>
-                <div class="stat-trend @(summary.TasksCreatedThisWeek > 0 ? "up" : "text-white opacity-50")">
-                    @if (summary.TasksCreatedThisWeek > 0)
-                    {
-                        <i class="bi bi-arrow-up-short"></i>
-                    }
-                    <span>+@summary.TasksCreatedThisWeek bu hafta</span>
+        <div class="dash-swipe-grid">
+            <div id="slide-1" class="dash-slide">
+                <div class="stats-grid">
+                    <div class="st-card stat-card-inner">
+                        <div class="stat-label">Toplam Görev</div>
+                        <div class="stat-value text-white">@summary.TotalTasks</div>
+                        <div class="stat-trend @(summary.TasksCreatedThisWeek > 0 ? "up" : "text-white opacity-50")">
+                            @if (summary.TasksCreatedThisWeek > 0)
+                            {
+                                <i class="bi bi-arrow-up-short"></i>
+                            }
+                            <span>+@summary.TasksCreatedThisWeek bu hafta</span>
+                        </div>
+                        <div class="stat-icon-wrapper"><i class="bi bi-layers"></i></div>
+                    </div>
+                    <div class="st-card stat-card-inner">
+                        <div class="stat-label">Tamamlanan</div>
+                        <div class="stat-value text-white">@summary.CompletedTasks</div>
+                        <div class="stat-trend up"><i class="bi bi-pie-chart"></i> %@summary.CompletionRate tamamlama oranı</div>
+                        <div class="stat-icon-wrapper"><i class="bi bi-check-circle"></i></div>
+                    </div>
+                    <div class="st-card stat-card-inner">
+                        <div class="stat-label">Bekleyen</div>
+                        <div class="stat-value text-white">@summary.PendingTasks</div>
+                        <div class="stat-trend down"><i class="bi bi-hourglass"></i> Bekleyen görev</div>
+                        <div class="stat-icon-wrapper"><i class="bi bi-clock"></i></div>
+                    </div>
+                    <div class="st-card stat-card-inner">
+                        <div class="stat-label">Bugün</div>
+                        <div class="stat-value text-white">@GetHours(DisplayTodayStudiedMinutes)</div>
+                        <div class="stat-trend @(summary.StudyTimeChange > 0 ? "up" : summary.StudyTimeChange < 0 ? "down" : "text-white opacity-50")">
+                            @if (summary.StudyTimeChange > 0)
+                            {
+                                <i class="bi bi-arrow-up-short"></i>
+                                <span>Geçen hafta aynı güne göre @GetHours(summary.StudyTimeChange) daha fazla</span>
+                            }
+                            else if (summary.StudyTimeChange < 0)
+                            {
+                                <i class="bi bi-arrow-down-short"></i>
+                                <span>Geçen hafta aynı güne göre @GetHours(-summary.StudyTimeChange) daha az</span>
+                            }
+                            else
+                            {
+                                <span>Geçen hafta aynı günle eşdeğer</span>
+                            }
+                        </div>
+                        <div class="stat-icon-wrapper"><i class="bi bi-hourglass-split"></i></div>
+                    </div>
                 </div>
-                <div class="stat-icon-wrapper"><i class="bi bi-layers"></i></div>
+                <div class="swipe-nav right d-md-none" @onclick='() => ScrollToSlide("slide-2")'>
+                    Verimlilik <i class="bi bi-chevron-right"></i>
+                </div>
             </div>
-            <div class="st-card stat-card-inner">
-                <div class="stat-label">Tamamlanan</div>
-                <div class="stat-value text-white">@summary.CompletedTasks</div>
-                <div class="stat-trend up"><i class="bi bi-pie-chart"></i> %@summary.CompletionRate başarı</div>
-                <div class="stat-icon-wrapper"><i class="bi bi-check-circle"></i></div>
-            </div>
-            <div class="st-card stat-card-inner">
-                <div class="stat-label">Bekleyen</div>
-                <div class="stat-value text-white">@summary.PendingTasks</div>
-                <div class="stat-trend down"><i class="bi bi-hourglass"></i> Aktif</div>
-                <div class="stat-icon-wrapper"><i class="bi bi-clock"></i></div>
-            </div>
-            <div class="st-card stat-card-inner">
-                <div class="stat-label">Bugün</div>
-                <div class="stat-value text-white">@GetHours(summary.TodayStudiedMinutes)</div>
-                <div class="stat-trend up"><span>Veriler güncel</span></div>
-                <div class="stat-icon-wrapper"><i class="bi bi-hourglass-split"></i></div>
-            </div>
-        </div>
 
-        <div class="main-grid">
-            <div class="st-card">
-                <div class="card-header">
-                    <span class="card-title">Verimlilik Skoru</span>
-                    <i class="bi bi-graph-up text-success"></i>
+            <div id="slide-2" class="dash-slide">
+                <div class="swipe-nav left d-md-none" @onclick='() => ScrollToSlide("slide-1")'>
+                    <i class="bi bi-chevron-left"></i> Özet
                 </div>
-                <div class="prod-card-content">
-                    <div style="position:relative; width:140px; height:140px;">
-                        <svg width="140" height="140" style="transform: rotate(-90deg);">
-                            <circle cx="70" cy="70" r="58" fill="none" stroke="#27272a" stroke-width="12" />
-                            <circle cx="70" cy="70" r="58" fill="none" stroke="#3B82F6" stroke-width="12"
-                                    stroke-dasharray="364"
-                                    stroke-dashoffset="@((364 - (364 * summary.ProductivityScore / 100)).ToString(CultureInfo.InvariantCulture))"
-                                    stroke-linecap="round" />
-                        </svg>
-                        <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;">
-                            <span class="fs-1 fw-bold text-white">@summary.ProductivityScore</span>
-                            <span class="text-white opacity-75" style="font-size:0.7rem;">/ 100</span>
+                <div class="main-grid">
+                    <div class="st-card">
+                        <div class="card-header">
+                            <span class="card-title">Verimlilik Skoru</span>
+                            <i class="bi bi-graph-up text-success"></i>
+                        </div>
+                        <div class="prod-card-content">
+                            <div class="prod-donut-wrapper">
+                                <svg viewBox="0 0 140 140" class="prod-donut-svg" style="transform: rotate(-90deg);">
+                                    <circle cx="70" cy="70" r="58" fill="none" stroke="#27272a" stroke-width="12" />
+                                    <circle cx="70" cy="70" r="58" fill="none" stroke="#3B82F6" stroke-width="12"
+                                            stroke-dasharray="364"
+                                            stroke-dashoffset="@((364 - (364 * summary.ProductivityScore / 100)).ToString(CultureInfo.InvariantCulture))"
+                                            stroke-linecap="round" />
+                                </svg>
+                                <div class="prod-donut-label">
+                                    <span class="fs-1 fw-bold text-white">@summary.ProductivityScore</span>
+                                    <span class="text-white opacity-75" style="font-size:0.7rem;">/ 100</span>
+                                </div>
+                            </div>
+
+                            <div class="prod-text">
+                                <div class="prod-status">
+                                    @(summary.ProductivityScore >= 80 ? "Mükemmel" : summary.ProductivityScore >= 50 ? "İyi Gidiyor" : "Gayret Gerek")
+                                </div>
+                                <div class="prod-quote text-white opacity-75">"Başarının sırrı, her gün atılan küçük adımlarda gizlidir."</div>
+                            </div>
                         </div>
                     </div>
-                    <div class="prod-text">
-                        <div class="prod-status">
-                            @(summary.ProductivityScore >= 80 ? "Mükemmel" : summary.ProductivityScore >= 50 ? "İyi Gidiyor" : "Gayret Gerek")
+
+                    <div class="st-card">
+                        <div class="card-header">
+                            <span class="card-title"> <i class="bi bi-clock-history me-2 text-primary"></i> Zaman Takibi</span>
+
+                            <div class="tab-group">
+                                <button class="tab-btn @(selectedChart == "Daily" ? "active" : "")" @onclick='() => SetChart("Daily")'>Günlük</button>
+                                <button class="tab-btn @(selectedChart == "Weekly" ? "active" : "")" @onclick='() => SetChart("Weekly")'>Haftalık</button>
+                                <button class="tab-btn @(selectedChart == "Category" ? "active" : "")" @onclick='() => SetChart("Category")'>Kategori</button>
+                            </div>
                         </div>
-                        <div class="prod-quote text-white opacity-75">"Başarının sırrı, her gün atılan küçük adımlarda gizlidir."</div>
+
+                        <div class="chart-wrapper chart-container-relative d-flex align-items-center justify-content-center" style="padding-left: 10px; padding-bottom: 5px;">
+
+                            @if (selectedChart == "Weekly" || selectedChart == "Daily")
+                            {
+                                var chartData = GetActiveChartData();
+                                if (chartData.Any())
+                                {
+                                    <DynamicLineChart Data="@chartData" />
+                                }
+                                else
+                                {
+                                    <div class="text-center text-white opacity-50 w-100">Veri yok.</div>
+                                }
+                            }
+                            else if (selectedChart == "Category")
+                            {
+                                @if (summary.CategoryChartData.Any())
+                                {
+                                    <DynamicDonutChart Data="@summary.CategoryChartData" />
+                                }
+                                else
+                                {
+                                     <div class="text-center text-white opacity-50 w-100">Veri yok.</div>
+                                }
+                            }
+                        </div>
                     </div>
+                </div>
+                <div class="swipe-nav right d-md-none" @onclick='() => ScrollToSlide("slide-3")'>
+                    Aktiviteler <i class="bi bi-chevron-right"></i>
                 </div>
             </div>
 
-            <div class="st-card">
-                <div class="card-header">
-                    <span class="card-title"> <i class="bi bi-clock-history me-2 text-primary"></i> Zaman Takibi</span>
-
-                    <div class="tab-group">
-                        <button class="tab-btn @(selectedChart == "Daily" ? "active" : "")" @onclick='() => SetChart("Daily")'>Günlük</button>
-                        <button class="tab-btn @(selectedChart == "Weekly" ? "active" : "")" @onclick='() => SetChart("Weekly")'>Haftalık</button>
-                        <button class="tab-btn @(selectedChart == "Category" ? "active" : "")" @onclick='() => SetChart("Category")'>Kategori</button>
-                    </div>
+            <div id="slide-3" class="dash-slide">
+                <div class="swipe-nav left d-md-none" @onclick='() => ScrollToSlide("slide-2")'>
+                    <i class="bi bi-chevron-left"></i> Grafikler
                 </div>
-
-                <div class="chart-wrapper chart-container-relative d-flex align-items-center justify-content-center" style="padding-left: 10px; padding-bottom: 5px;">
-
-                    @if (selectedChart == "Weekly" || selectedChart == "Daily")
-                    {
-                        var chartData = GetActiveChartData();
-                        if (chartData.Any())
+                <div class="bottom-grid">
+                    <div class="st-card">
+                        <div class="card-header">
+                            <span class="card-title">Çalışma Alanları</span>
+                            <a href="lessons" class="small text-primary text-decoration-none">Tümünü Gör</a>
+                        </div>
+                        @if (summary.Workspaces.Any())
                         {
-                            <DynamicLineChart Data="@chartData" />
-                        }
-                        else
-                        {
-                            <div class="text-center text-white opacity-50 w-100">Veri yok.</div>
-                        }
-                    }
-                    else if (selectedChart == "Category")
-                    {
-                        @if (summary.CategoryChartData.Any())
-                        {
-                            <DynamicDonutChart Data="@summary.CategoryChartData" />
-                        }
-                        else
-                        {
-                             <div class="text-center text-white opacity-50 w-100">Veri yok.</div>
-                        }
-                    }
-                </div>
-            </div>
-        </div>
-
-        <div class="bottom-grid">
-            <div class="st-card">
-                <div class="card-header">
-                    <span class="card-title">Çalışma Alanları</span>
-                    <a href="lessons" class="small text-primary text-decoration-none">Tümünü Gör</a>
-                </div>
-                @if (summary.Workspaces.Any())
-                {
-                    <div class="d-flex flex-column gap-2">
-                        @foreach (var ws in summary.Workspaces)
-                        {
-                            <div class="work-item">
-                                <div class="work-header">
-                                    <div class="work-info">
-                                        <div class="work-dot" style="background-color: @ws.Color;"></div>
-                                        <span class="work-name text-white">@ws.Name</span>
+                            <div class="d-flex flex-column gap-2">
+                                @foreach (var ws in summary.Workspaces)
+                                {
+                                    <div class="work-item">
+                                        <div class="work-header">
+                                            <div class="work-info">
+                                                <div class="work-dot" style="background-color: @ws.Color;"></div>
+                                                <span class="work-name text-white">@ws.Name</span>
+                                            </div>
+                                            <span class="small text-white opacity-75">@ws.ProgressPercent%</span>
+                                        </div>
+                                        <div class="progress-bar-bg">
+                                            <div class="progress-bar-fill" style="width: @ws.ProgressPercent%; background-color: @ws.Color;"></div>
+                                        </div>
                                     </div>
-                                    <span class="small text-white opacity-75">@ws.ProgressPercent%</span>
-                                </div>
-                                <div class="progress-bar-bg">
-                                    <div class="progress-bar-fill" style="width: @ws.ProgressPercent%; background-color: @ws.Color;"></div>
-                                </div>
+                                }
                             </div>
                         }
                     </div>
-                }
-            </div>
-            <div class="st-card">
-                <div class="card-header">
-                    <span class="card-title">Son Aktiviteler</span>
-                    <a href="tasks" class="small text-primary text-decoration-none">Tümünü Gör</a>
-                </div>
-                @if (summary.RecentActivities.Any())
-                {
-                    <div class="d-flex flex-column gap-3 mt-3">
-                        @foreach (var activity in summary.RecentActivities)
+                    <div class="st-card">
+                        <div class="card-header">
+                            <span class="card-title">Son Aktiviteler</span>
+                            <a href="tasks" class="small text-primary text-decoration-none">Tümünü Gör</a>
+                        </div>
+                        @if (summary.RecentActivities.Any())
                         {
-                            <div class="activity-item">
-                                <!-- Checkbox / Durum İkonu -->
-                                <div class="activity-icon @(activity.IsCompleted ? "bg-success text-white" : "text-white")" 
-                                     style="cursor: pointer; border: 1px solid rgba(255,255,255,0.2);"
-                                     @onclick="() => ToggleTaskStatus(activity)">
-                                    @if (activity.IsCompleted)
-                                    {
-                                        <i class="bi bi-check-lg"></i>
-                                    }
-                                    else
-                                    {
-                                        <i class="bi bi-circle"></i>
-                                    }
-                                </div>
-                                <div class="activity-content">
-                                    <div class="activity-header">
-                                        <div class="activity-title @(activity.IsCompleted ? "text-decoration-line-through opacity-50" : "")">@activity.Title</div>
-                                        <div class="activity-badge">@activity.StatusText</div>
+                            <div class="d-flex flex-column gap-3 mt-3">
+                                @foreach (var activity in summary.RecentActivities)
+                                {
+                                    <div class="activity-item">
+                                        <!-- Checkbox / Durum İkonu -->
+                                        <div class="activity-icon @(activity.IsCompleted ? "bg-success text-white" : "text-white")" 
+                                             style="border: 1px solid rgba(255,255,255,0.2);">
+                                            @if (activity.IsCompleted)
+                                            {
+                                                <i class="bi bi-check-lg"></i>
+                                            }
+                                            else
+                                            {
+                                                <i class="bi bi-circle"></i>
+                                            }
+                                        </div>
+                                        <div class="activity-content">
+                                            <div class="activity-header">
+                                                <div class="activity-title @(activity.IsCompleted ? "text-decoration-line-through opacity-50" : "")">@activity.Title</div>
+                                                <div class="activity-badge">@activity.StatusText</div>
+                                            </div>
+                                            <div class="activity-meta">
+                                                @activity.Subtitle
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="activity-meta">
-                                        @activity.Subtitle
-                                    </div>
-                                </div>
+                                }
                             </div>
                         }
+                        else
+                        {
+                            <div class="text-white opacity-50 small text-center py-3">Henüz aktivite yok.</div>
+                        }
                     </div>
-                }
-                else
-                {
-                    <div class="text-white opacity-50 small text-center py-3">Henüz aktivite yok.</div>
-                }
+                </div>
             </div>
         </div>
     }
@@ -229,7 +264,67 @@
     private bool isLoading = true;
     private string selectedChart = "Weekly";
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    private async Task ScrollToSlide(string panelId)
+    {
+        await JS.InvokeVoidAsync("scrollToSlide", panelId);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        GlobalTimerService.OnTimerFinished += OnTimerFinished;
+        GlobalTimerService.OnBreakFinished += OnTimerFinished;
+        GlobalTimerService.OnTick += OnGlobalTick;
+        SyncStatusService.OnChange += OnSyncStatusChanged;
+        
+        await LoadAsync();
+    }
+
+    private DateTime _lastTickUi = DateTime.MinValue;
+
+    private void OnGlobalTick()
+    {
+        if (!GlobalTimerService.IsRunning || GlobalTimerService.IsBreak)
+            return;
+        var now = DateTime.UtcNow;
+        if ((now - _lastTickUi).TotalMilliseconds < 900)
+            return;
+        _lastTickUi = now;
+        InvokeAsync(StateHasChanged);
+        if ((now - _lastSoftReloadFromTick).TotalSeconds >= 8)
+        {
+            _lastSoftReloadFromTick = now;
+            InvokeAsync(SoftReload);
+        }
+    }
+
+    private DateTime _lastSoftReloadFromTick = DateTime.UtcNow;
+
+    /// <summary>Aktif çalışma oturumu süresi; snapshot henüz güncellenmeden Bugün kartında canlı gösterim.</summary>
+    private int DisplayTodayStudiedMinutes =>
+        (summary?.TodayStudiedMinutes ?? 0) + ActiveSessionExtraMinutesToday;
+
+    private int ActiveSessionExtraMinutesToday =>
+        GlobalTimerService.IsRunning && !GlobalTimerService.IsBreak
+            ? (int)Math.Floor(GlobalTimerService.ElapsedTime.TotalMinutes)
+            : 0;
+
+    private void OnTimerFinished()
+    {
+        InvokeAsync(SoftReload);
+    }
+
+    private void OnSyncStatusChanged()
+    {
+        InvokeAsync(SoftReload);
+    }
+
+    public void Dispose()
+    {
+        GlobalTimerService.OnTimerFinished -= OnTimerFinished;
+        GlobalTimerService.OnBreakFinished -= OnTimerFinished;
+        GlobalTimerService.OnTick -= OnGlobalTick;
+        SyncStatusService.OnChange -= OnSyncStatusChanged;
+    }
 
     private async Task Reload()
     {
@@ -237,6 +332,20 @@
         summary = null;
         StateHasChanged();
         await LoadAsync();
+    }
+
+    private async Task SoftReload()
+    {
+        try 
+        { 
+            var newSummary = await DashboardService.GetSummaryAsync();
+            if (newSummary != null)
+            {
+                summary = newSummary;
+            }
+        }
+        catch { }
+        finally { StateHasChanged(); }
     }
 
     private async Task LoadAsync()

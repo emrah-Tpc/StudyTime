@@ -1,4 +1,4 @@
-﻿using StudyTime.Domain.Enums;
+using StudyTime.Domain.Enums;
 
 namespace StudyTime.Domain.Entities
 {
@@ -11,8 +11,12 @@ namespace StudyTime.Domain.Entities
         public LessonStatus Status { get; private set; }
         public string? Notes { get; private set; }
         public LessonType Type { get; private set; } = LessonType.Academic;
-        // 👇 YENİ: Silindi mi bayrağı
         public bool IsDeleted { get; private set; } = false;
+        public DateTime? UpdatedAt { get; set; }
+        
+        // Auth Properties
+        public string? UserId { get; set; }
+        public AppUser? User { get; set; }
 
         // Constructor
         public Lesson(string name, string color, LessonType type = LessonType.Academic) // Constructor değişti

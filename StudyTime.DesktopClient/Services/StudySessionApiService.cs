@@ -1,4 +1,4 @@
-﻿using System.Net.Http.Json;
+using System.Net.Http.Json;
 using StudyTime.Application.DTOs.StudySessions;
 
 namespace StudyTime.DesktopClient.Services
@@ -7,9 +7,9 @@ namespace StudyTime.DesktopClient.Services
     {
         private readonly HttpClient _http;
 
-        public StudySessionApiService(HttpClient http)
+        public StudySessionApiService(IHttpClientFactory factory)
         {
-            _http = http;
+            _http = factory.CreateClient("StudyTimeApi");
         }
 
         public async Task<Guid> StartSessionAsync(Guid lessonId, Guid? taskId, bool isBreak = false)
@@ -31,24 +31,27 @@ namespace StudyTime.DesktopClient.Services
             return Guid.Empty;
         }
 
-        public async Task PauseSessionAsync(Guid sessionId)
+        public async Task PauseSessionAsync(Guid sessionId, DateTime? updatedAt = null)
         {
+            string q = updatedAt.HasValue ? $"?updatedAt={updatedAt.Value:O}" : "";
             // URL başına / eklendi ve hata fırlatması için kontrol konuldu
-            var response = await _http.PostAsync($"/api/studysession/{sessionId}/pause", null);
+            var response = await _http.PostAsync($"/api/studysession/{sessionId}/pause{q}", null);
             response.EnsureSuccessStatusCode();
         }
 
-        public async Task ResumeSessionAsync(Guid sessionId)
+        public async Task ResumeSessionAsync(Guid sessionId, DateTime? updatedAt = null)
         {
+            string q = updatedAt.HasValue ? $"?updatedAt={updatedAt.Value:O}" : "";
             // URL başına / eklendi
-            var response = await _http.PostAsync($"/api/studysession/{sessionId}/resume", null);
+            var response = await _http.PostAsync($"/api/studysession/{sessionId}/resume{q}", null);
             response.EnsureSuccessStatusCode();
         }
 
-        public async Task StopSessionAsync(Guid sessionId)
+        public async Task StopSessionAsync(Guid sessionId, DateTime? updatedAt = null)
         {
+            string q = updatedAt.HasValue ? $"?updatedAt={updatedAt.Value:O}" : "";
             // URL başına / eklendi
-            var response = await _http.PostAsync($"/api/studysession/{sessionId}/stop", null);
+            var response = await _http.PostAsync($"/api/studysession/{sessionId}/stop{q}", null);
             response.EnsureSuccessStatusCode();
         }
     }

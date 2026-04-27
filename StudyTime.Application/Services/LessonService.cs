@@ -1,4 +1,4 @@
-﻿using StudyTime.Application.DTOs.Lessons;
+using StudyTime.Application.DTOs.Lessons;
 using StudyTime.Application.DTOs.Tasks;
 using StudyTime.Application.Interfaces;
 using StudyTime.Domain.Entities;
@@ -77,45 +77,57 @@ namespace StudyTime.Application.Services
         }
 
         // UPDATE (Notes)
-        public async Task UpdateNotesAsync(Guid lessonId, string notes)
+        public async Task UpdateNotesAsync(Guid lessonId, string notes, DateTime? updatedAt = null)
         {
             var lesson = await _lessonRepository.GetByIdAsync(lessonId);
             if (lesson != null)
             {
+                if (updatedAt.HasValue && lesson.UpdatedAt.HasValue && updatedAt < lesson.UpdatedAt) return;
+
                 lesson.UpdateNotes(notes);
+                lesson.UpdatedAt = updatedAt ?? DateTime.UtcNow;
                 await _lessonRepository.UpdateAsync(lesson);
             }
         }
 
         // ARCHIVE
-        public async Task ArchiveAsync(Guid id)
+        public async Task ArchiveAsync(Guid id, DateTime? updatedAt = null)
         {
             var lesson = await _lessonRepository.GetByIdAsync(id);
             if (lesson != null)
             {
+                if (updatedAt.HasValue && lesson.UpdatedAt.HasValue && updatedAt < lesson.UpdatedAt) return;
+
                 lesson.Archive();
+                lesson.UpdatedAt = updatedAt ?? DateTime.UtcNow;
                 await _lessonRepository.UpdateAsync(lesson);
             }
         }
 
         // RESTORE
-        public async Task RestoreAsync(Guid id)
+        public async Task RestoreAsync(Guid id, DateTime? updatedAt = null)
         {
             var lesson = await _lessonRepository.GetByIdAsync(id);
             if (lesson != null)
             {
+                if (updatedAt.HasValue && lesson.UpdatedAt.HasValue && updatedAt < lesson.UpdatedAt) return;
+
                 lesson.Unarchive();
+                lesson.UpdatedAt = updatedAt ?? DateTime.UtcNow;
                 await _lessonRepository.UpdateAsync(lesson);
             }
         }
 
         // DELETE (Soft Delete)
-        public async Task DeleteAsync(Guid id)
+        public async Task DeleteAsync(Guid id, DateTime? updatedAt = null)
         {
             var lesson = await _lessonRepository.GetByIdAsync(id);
             if (lesson != null)
             {
+                if (updatedAt.HasValue && lesson.UpdatedAt.HasValue && updatedAt < lesson.UpdatedAt) return;
+
                 lesson.MarkAsDeleted();
+                lesson.UpdatedAt = updatedAt ?? DateTime.UtcNow;
                 await _lessonRepository.UpdateAsync(lesson);
             }
         }

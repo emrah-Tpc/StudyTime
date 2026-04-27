@@ -1,6 +1,7 @@
 using StudyTime.Application.DTOs.Lessons;
 using StudyTime.Application.DTOs.Tasks;
 using StudyTime.DesktopClient.Services;
+using StudyTime.Domain.Enums;
 
 namespace StudyTime.DesktopClient.Offline
 {
@@ -31,9 +32,8 @@ namespace StudyTime.DesktopClient.Offline
                 try
                 {
                     var fresh = await remote.GetAllAsync();
-                    // Arka plan: önbelleği güncelle (await etmeden de yapılabilir,
-                    // burada güvenilirlik için awaited)
-                    await cache.UpsertAllAsync(fresh);
+                    // Tam liste — sunucuda silinen derslerin yerelde hayalet kalmaması için replace
+                    await cache.ReplaceAllAsync(fresh);
                     return fresh;
                 }
                 catch
@@ -101,21 +101,101 @@ namespace StudyTime.DesktopClient.Offline
 
         /// <summary>
         /// Yeni ders oluşturur.
-        /// Offline ise outbox'a ekler ve optimistik başarı döndürür.
+        /// Çevrimdışı: geçici Guid + yerel cache + outbox; senkron sonrası sunucu Id ile reconcilation.
         /// </summary>
         public async Task<string?> CreateAsync(CreateLessonDto dto)
         {
             if (connectivity.IsOnline)
-                return await remote.CreateAsync(dto);
+            {
+                try
+                {
+                    var err = await remote.CreateAsync(dto);
+                    if (err != null) return err;
+                    var fresh = await remote.GetAllAsync();
+                    await cache.ReplaceAllAsync(fresh);
+                    return null;
+                }
+                catch
+                {
+                    // API erişilemez — offline iyimser oluşturma
+                }
+            }
 
-            await outbox.EnqueueAsync("Lesson", "Create", dto);
-            return null; // Optimistik başarı
+            var tempId = Guid.NewGuid();
+            var lesson = new LessonListItemDto
+            {
+                Id     = tempId,
+                Name   = dto.Name,
+                Color  = dto.Color,
+                Type   = dto.Type,
+                Status = LessonStatus.Active,
+                Notes  = null
+            };
+            await cache.UpsertAllAsync(new[] { lesson });
+            await outbox.EnqueueAsync("Lesson", "Create", new LessonCreateOutboxPayload
+            {
+                ClientTempId = tempId,
+                Dto          = dto
+            });
+            return null;
         }
 
         /// <summary>
         /// Ders siler.
         /// Offline ise hem local önbelleği temizler hem outbox'a koyar.
         /// </summary>
+        public async Task<bool> ArchiveAsync(Guid id)
+        {
+            if (connectivity.IsOnline)
+            {
+                var result = await remote.ArchiveAsync(id);
+                if (result)
+                {
+                    var lesson = await cache.GetByIdAsync(id);
+                    if (lesson != null) {
+                        lesson.Status = LessonStatus.Archived;
+                        await cache.UpsertAllAsync(new[] { lesson });
+                    }
+                }
+                return result;
+            }
+            
+            // Offline
+            var l = await cache.GetByIdAsync(id);
+            if (l != null) {
+                l.Status = LessonStatus.Archived;
+                await cache.UpsertAllAsync(new[] { l });
+            }
+            await outbox.EnqueueAsync("Lesson", "Archive", id);
+            return true;
+        }
+
+        public async Task<bool> RestoreAsync(Guid id)
+        {
+            if (connectivity.IsOnline)
+            {
+                var result = await remote.RestoreAsync(id);
+                if (result)
+                {
+                    var lesson = await cache.GetByIdAsync(id);
+                    if (lesson != null) {
+                        lesson.Status = LessonStatus.Active;
+                        await cache.UpsertAllAsync(new[] { lesson });
+                    }
+                }
+                return result;
+            }
+
+            // Offline
+            var l = await cache.GetByIdAsync(id);
+            if (l != null) {
+                l.Status = LessonStatus.Active;
+                await cache.UpsertAllAsync(new[] { l });
+            }
+            await outbox.EnqueueAsync("Lesson", "Restore", id);
+            return true;
+        }
+
         public async Task<bool> DeleteAsync(Guid id)
         {
             // Önbellek her zaman güncelle (optimistik UI)
@@ -137,6 +217,7 @@ namespace StudyTime.DesktopClient.Offline
             if (connectivity.IsOnline)
                 return await remote.UpdateNotesAsync(lessonId, notes);
 
+            await cache.UpdateNotesLocalAsync(lessonId, notes);
             await outbox.EnqueueAsync("Lesson", "UpdateNotes",
                 new { LessonId = lessonId, Notes = notes });
             return true;

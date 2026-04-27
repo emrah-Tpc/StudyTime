@@ -1,4 +1,5 @@
 using SQLite;
+using StudyTime.Application.DTOs.Lessons;
 using StudyTime.Application.DTOs.Tasks;
 
 namespace StudyTime.DesktopClient.Offline
@@ -20,6 +21,12 @@ namespace StudyTime.DesktopClient.Offline
 
         /// <summary>Bu kaydın API'den son yenilendiği zaman.</summary>
         public DateTime CachedAt { get; set; }
+
+        /// <summary>AspNetUsers Id — sunucu global filtresiyle uyumlu yerel izolasyon.</summary>
+        public string? UserId { get; set; }
+
+        /// <summary>Yerel soft delete (1) veya sunucu soft delete yansıması; okumada filtrelenir.</summary>
+        public bool IsDeleted { get; set; }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -51,6 +58,11 @@ namespace StudyTime.DesktopClient.Offline
         public long?   EndDateTicks         { get; set; }
 
         public DateTime CachedAt            { get; set; }
+
+        /// <summary>AspNetUsers Id — yerel izolasyon.</summary>
+        public string? UserId { get; set; }
+
+        public bool IsDeleted { get; set; }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -77,6 +89,38 @@ namespace StudyTime.DesktopClient.Offline
         public DateTime CreatedAt  { get; set; } = DateTime.UtcNow;
         public int      RetryCount { get; set; } = 0;
     }
+
+    /// <summary>
+    /// Outbox aynı kayıt için maksimum deneme sayısını aştığında taşınan kalıcı kayıt (veri kaybı yok; müdahale için).
+    /// </summary>
+    [Table("DeadLetterQueue")]
+    public class DeadLetterEntry
+    {
+        [PrimaryKey, AutoIncrement]
+        public int Id { get; set; }
+
+        public string EntityType { get; set; } = string.Empty;
+        public string Operation { get; set; } = string.Empty;
+        public string Payload { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; }
+        public int RetryCount { get; set; }
+        public DateTime FailedAt { get; set; }
+        public string? LastError { get; set; }
+    }
+
+    /// <summary>
+    /// Offline üretilen yerel oturum Guid'i ile sunucunun döndürdüğü gerçek oturum Id eşlemesi (Stop/Pause/Resume için).
+    /// </summary>
+    [Table("SessionServerIdMap")]
+    public class SessionServerIdMapEntry
+    {
+        [PrimaryKey]
+        public Guid LocalSessionId { get; set; }
+
+        public Guid ServerSessionId { get; set; }
+        public DateTime MappedAt { get; set; }
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -117,6 +161,8 @@ namespace StudyTime.DesktopClient.Offline
         public string    LessonName      { get; set; } = string.Empty;
         public string    LessonColor     { get; set; } = string.Empty;
         public DateTime  CachedAt        { get; set; }
+
+        public string? UserId { get; set; }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -147,6 +193,32 @@ namespace StudyTime.DesktopClient.Offline
         public UpdateTaskDto Dto { get; init; } = new();
     }
 
+    /// <summary>Task Create outbox — POST sonrası yerel temp Id sunucu Id ile değiştirilir.</summary>
+    public record TaskCreateOutboxPayload
+    {
+        public Guid          ClientTempId { get; init; }
+        public CreateTaskDto Dto          { get; init; } = new();
+    }
+
+    /// <summary>Lesson Create outbox.</summary>
+    public record LessonCreateOutboxPayload
+    {
+        public Guid           ClientTempId { get; init; }
+        public CreateLessonDto Dto         { get; init; } = new();
+    }
+
+    /// <summary>Çevrimdışı geçici Guid → sunucu Id (outbox zincirinde Update/Delete çözümü).</summary>
+    [Table("TempIdMap")]
+    public class TempIdMapEntry
+    {
+        public string EntityType { get; set; } = string.Empty;
+
+        [PrimaryKey]
+        public Guid TempId { get; set; }
+
+        public Guid ServerId { get; set; }
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -164,5 +236,7 @@ namespace StudyTime.DesktopClient.Offline
         public string?  ActionUrl { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime CachedAt  { get; set; }
+
+        public string? UserId { get; set; }
     }
 }

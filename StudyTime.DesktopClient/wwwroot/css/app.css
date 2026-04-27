@@ -1,4 +1,4 @@
-﻿/* =========================================
+/* =========================================
    1. CORE VARIABLES & THEME CONFIG
    ========================================= */
 :root {
@@ -35,6 +35,541 @@
     --header-height: 64px;
     --bottom-bar-height: 70px;
 }
+
+/* ── Light Mode ──────────────────────────────────────────────── */
+[data-theme="light"] {
+    /* Background hierarchy */
+    --bg-app: #F0F4F8;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f8fafc;
+    --bg-surface: #e8eef5;
+    /* Borders */
+    --border-color: rgba(0, 0, 0, 0.07);
+    --border-highlight: rgba(0, 0, 0, 0.15);
+    /* Typography */
+    --text-main: #1E293B;
+    --text-muted: #475569;
+    --text-dim: #64748B;
+    /* Accents */
+    --accent-blue: #2563EB;
+    --accent-green: #16A34A;
+    --accent-orange: #F59E0B;
+    --accent-red: #EF4444;
+    --accent-cyan: #06B6D4;
+    /* Shadows — light mode needs explicit shadows for card depth */
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.04);
+    --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.10);
+}
+
+/* Navigation */
+[data-theme="light"] .topbar-header {
+    background-color: rgba(255, 255, 255, 0.97);
+    border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .bottom-bar {
+    background-color: rgba(255, 255, 255, 0.97);
+    border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .nav-item {
+    color: #64748b;
+    font-weight: 500;
+}
+
+[data-theme="light"] .nav-item:hover {
+    color: #1E293B;
+    background: rgba(37, 99, 235, 0.06);
+}
+
+[data-theme="light"] .nav-item.active {
+    color: #2563EB;
+    background: rgba(37, 99, 235, 0.10);
+    box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.18);
+}
+
+[data-theme="light"] .icon-btn {
+    color: #475569;
+}
+
+[data-theme="light"] .icon-btn:hover {
+    color: #1E293B;
+    background: rgba(37, 99, 235, 0.08);
+}
+
+[data-theme="light"] .brand-name {
+    color: #1E293B;
+    font-weight: 700;
+}
+
+[data-theme="light"] .bottom-nav-item {
+    color: #64748b;
+}
+
+[data-theme="light"] .bottom-nav-item.active {
+    color: #2563EB;
+}
+
+/* Cards — add depth in light mode */
+[data-theme="light"] .st-card,
+[data-theme="light"] .ws-card,
+[data-theme="light"] .lesson-card {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.04);
+    border-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .st-card:hover,
+[data-theme="light"] .lesson-card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10);
+    transform: translateY(-2px);
+}
+
+/* Text — many components hardcode .text-white */
+[data-theme="light"] .text-white {
+    color: #1E293B !important;
+}
+
+[data-theme="light"] .text-muted {
+    color: #64748B !important;
+    opacity: 1 !important;
+}
+
+/* Form controls */
+[data-theme="light"] .form-control,
+[data-theme="light"] .custom-input,
+[data-theme="light"] textarea.custom-input {
+    background-color: #ffffff;
+    border-color: #e2e8f0;
+    color: #1E293B;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .form-control::placeholder,
+[data-theme="light"] .custom-input::placeholder {
+    color: #94a3b8;
+}
+
+/* Stat icon wrapper */
+[data-theme="light"] .stat-icon-wrapper {
+    background: rgba(37, 99, 235, 0.08);
+    color: #2563EB;
+    border-radius: 10px;
+}
+
+/* Tab / period buttons — pill style */
+[data-theme="light"] .tab-group {
+    background: #e8eef5;
+    border-color: #e2e8f0;
+    border-radius: 999px;
+    padding: 3px;
+}
+
+[data-theme="light"] .tab-btn {
+    color: #64748b;
+    border-radius: 999px;
+}
+
+[data-theme="light"] .tab-btn.active {
+    background: #ffffff;
+    color: #2563EB;
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.10);
+}
+
+[data-theme="light"] .tab-btn:hover {
+    color: #1E293B;
+    background: rgba(255, 255, 255, 0.5);
+}
+
+/* Period filter / outline buttons */
+[data-theme="light"] .btn-outline {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    color: #475569;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    border-radius: 999px;
+}
+
+[data-theme="light"] .btn-outline:hover {
+    background: #f8fafc;
+    color: #1E293B;
+    border-color: #cbd5e1;
+}
+
+/* ── Workspace Timer Panel ─────────────────────────────────── */
+[data-theme="light"] .btn-preset {
+    background: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.1);
+    color: #475569;
+}
+
+[data-theme="light"] .btn-preset:hover {
+    background: rgba(0, 0, 0, 0.07);
+    color: #0f172a;
+    border-color: rgba(0, 0, 0, 0.18);
+}
+
+[data-theme="light"] .btn-preset.active {
+    background: rgba(37, 99, 235, 0.1);
+    color: var(--accent-blue);
+    border-color: rgba(37, 99, 235, 0.3);
+    box-shadow: none;
+}
+
+[data-theme="light"] .preset-sub {
+    background: rgba(0, 0, 0, 0.06);
+    color: #64748b;
+}
+
+[data-theme="light"] .break-chip {
+    border-color: rgba(5, 150, 105, 0.25);
+    background: rgba(5, 150, 105, 0.05);
+    color: #475569;
+}
+
+[data-theme="light"] .break-chip:hover,
+[data-theme="light"] .break-chip.active {
+    background: rgba(5, 150, 105, 0.15);
+    border-color: rgba(5, 150, 105, 0.5);
+    color: #059669;
+}
+
+/* SVG timer track ring */
+[data-theme="light"] .timer-bg-ring {
+    stroke: rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .timer-text {
+    color: #0f172a !important;
+}
+
+/* Break banner */
+[data-theme="light"] .break-mode-banner {
+    background: rgba(5, 150, 105, 0.1);
+    color: #059669;
+    border-color: rgba(5, 150, 105, 0.2);
+}
+
+/* SVG Timer elements — global base (not scoped) */
+.timer-bg-ring {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.08);
+    stroke-width: 12;
+}
+
+.timer-progress-ring {
+    fill: none;
+    stroke-width: 12;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.5s;
+}
+
+[data-theme="light"] .timer-bg-ring {
+    stroke: rgba(0, 0, 0, 0.09);
+}
+
+/* Timer secondary button */
+[data-theme="light"] .btn-timer-secondary {
+    background: rgba(0, 0, 0, 0.06);
+    border-color: rgba(0, 0, 0, 0.12);
+    color: #334155;
+}
+
+/* Task items inside workspace */
+[data-theme="light"] .ws-task-item {
+    background: rgba(0, 0, 0, 0.02);
+    border-color: rgba(0, 0, 0, 0.07);
+}
+
+[data-theme="light"] .ws-task-item:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+/* Custom mode row */
+[data-theme="light"] .custom-mode-row {
+    background: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .custom-spin button {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.12);
+    color: #0f172a;
+}
+
+[data-theme="light"] .custom-spin span {
+    color: #0f172a;
+}
+
+[data-theme="light"] .custom-label {
+    color: #64748b;
+}
+
+[data-theme="light"] .custom-divider {
+    color: #cbd5e1;
+}
+
+/* Notes textarea */
+[data-theme="light"] .ws-note-input {
+    background: rgba(0, 0, 0, 0.02);
+    border-color: rgba(0, 0, 0, 0.08);
+    color: #0f172a;
+}
+
+[data-theme="light"] .ws-note-input::placeholder {
+    color: #94a3b8;
+}
+
+/* Panel header */
+[data-theme="light"] .panel-header h5 {
+    color: #0f172a;
+}
+
+/* btn-play-task */
+[data-theme="light"] .btn-play-task {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.1);
+    color: #334155;
+}
+
+/* Global timer widget */
+[data-theme="light"] .global-timer-widget {
+    background: rgba(0, 0, 0, 0.04);
+    border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .gts-mode-badge {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Modal */
+[data-theme="light"] .modal-content,
+[data-theme="light"] .custom-modal {
+    background-color: #ffffff;
+    color: #0f172a;
+}
+
+[data-theme="light"] .modal-header .modal-title {
+    color: #0f172a;
+}
+
+[data-theme="light"] .modal-backdrop {
+    opacity: 0.25 !important;
+}
+
+/* Scrollbar */
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+}
+
+/* Badge */
+[data-theme="light"] .badge.bg-dark {
+    background-color: #e2e8f0 !important;
+    color: #334155 !important;
+}
+
+/* btn-goto-active */
+[data-theme="light"] .btn-goto-active {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.12);
+    color: #0f172a;
+}
+
+/* current-task-display span */
+[data-theme="light"] .current-task-display .text-muted {
+    color: #64748b !important;
+}
+
+/* ── Bootstrap table-dark hover override ─────────────────────
+   Bootstrap table-dark sets --bs-table-hover-bg to #1c1f23
+   which looks terrible in light mode. Override it. */
+[data-theme="light"] .table-dark {
+    --bs-table-bg: transparent;
+    --bs-table-color: #1E293B;
+    --bs-table-hover-bg: rgba(37, 99, 235, 0.05);
+    --bs-table-hover-color: #1E293B;
+    --bs-table-striped-bg: rgba(0, 0, 0, 0.02);
+    --bs-table-border-color: #e2e8f0;
+}
+
+/* Table header in light mode */
+[data-theme="light"] .table-dark th {
+    color: #64748b !important;
+}
+
+/* Table rows in light mode */
+[data-theme="light"] .table-dark td,
+[data-theme="light"] .table-dark td span.text-white,
+[data-theme="light"] .table-dark td .fw-medium {
+    color: #1E293B !important;
+}
+
+/* lesson badge bg-dark inside table */
+[data-theme="light"] .table-dark .badge.bg-dark {
+    background-color: #e8eef5 !important;
+    color: #475569 !important;
+    border-color: #e2e8f0 !important;
+}
+
+/* bg-dark badge global override */
+[data-theme="light"] .badge.bg-dark,
+[data-theme="light"] .badge.bg-secondary {
+    background-color: #e8eef5 !important;
+    color: #475569 !important;
+}
+
+/* Dashboard / home row item hover */
+[data-theme="light"] .activity-item:hover,
+[data-theme="light"] .recent-item:hover,
+[data-theme="light"] .workspace-row:hover {
+    background: rgba(37, 99, 235, 0.04) !important;
+}
+
+/* Progress bar track in light mode */
+[data-theme="light"] .progress {
+    background-color: #e2e8f0;
+}
+
+/* ── Dashboard Work Items ───────────────────────────────────── */
+[data-theme="light"] .work-item {
+    background: rgba(241, 245, 249, 0.7);
+    border-color: rgba(0, 0, 0, 0.07);
+}
+
+[data-theme="light"] .work-item:hover {
+    background: rgba(226, 232, 240, 0.9);
+    border-color: rgba(0, 0, 0, 0.13);
+}
+
+[data-theme="light"] .work-name {
+    color: #1E293B;
+}
+
+[data-theme="light"] .progress-bar-bg {
+    background: #dde4ee;
+}
+
+/* ── Workspace Timer Panel ──────────────────────────────────── */
+[data-theme="light"] .timer-panel {
+    background: radial-gradient(circle at center, #f0f5fd 0%, #e8eef5 70%) !important;
+}
+
+[data-theme="light"] .timer-text {
+    color: #0f172a !important;
+}
+
+[data-theme="light"] .btn-focus-mode {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.12);
+    color: #475569;
+}
+
+[data-theme="light"] .btn-focus-mode:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: #0f172a;
+}
+
+[data-theme="light"] .btn-timer-main.pause {
+    background-color: #fff8e7 !important;
+    color: #b45309 !important;
+    border: 2px solid #fbbf24 !important;
+}
+
+[data-theme="light"] .btn-timer-main.pause:hover {
+    background-color: #fbbf24 !important;
+    color: #0f172a !important;
+}
+
+[data-theme="light"] .ws-task-item.active-task {
+    background-color: #eef2ff;
+    border-left-color: var(--accent-color, #2563eb);
+}
+
+[data-theme="light"] .ws-task-item:hover {
+    background-color: #edf2f7;
+}
+
+/* ── Focus Mode Light ───────────────────────────────────────── */
+[data-theme="light"] .focus-overlay {
+    background: #f0f4f8;
+}
+
+[data-theme="light"] .focus-ambient {
+    background: radial-gradient(ellipse 60% 50% at 50% 50%,
+            color-mix(in srgb, var(--accent, #2563eb) 18%, transparent) 0%,
+            transparent 70%);
+}
+
+[data-theme="light"] .focus-exit-btn {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.1);
+    color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .focus-exit-btn:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: #0f172a;
+}
+
+[data-theme="light"] .focus-quote {
+    color: rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="light"] .focus-stop-btn {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.25);
+}
+
+[data-theme="light"] .focus-stop-btn:hover {
+    background: rgba(239, 68, 68, 0.18);
+}
+
+[data-theme="light"] .btn-goto-active {
+    border-color: rgba(0, 0, 0, 0.12);
+    background: rgba(0, 0, 0, 0.04);
+    color: #1E293B;
+}
+
+[data-theme="light"] .btn-goto-active:hover {
+    background: rgba(0, 0, 0, 0.08);
+    border-color: rgba(0, 0, 0, 0.2);
+    color: #0f172a;
+}
+
+/* Workspace misc elements */
+[data-theme="light"] .btn-back {
+    color: #64748b;
+}
+
+[data-theme="light"] .btn-back:hover {
+    color: #0f172a;
+}
+
+[data-theme="light"] .btn-note-action {
+    border-color: rgba(0, 0, 0, 0.12);
+    color: #64748b;
+}
+
+[data-theme="light"] .btn-note-action:hover {
+    color: #0f172a;
+    border-color: rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="light"] .break-chip-label {
+    color: #64748b;
+}
+
+[data-theme="light"] .timer-mode-badge {
+    /* inherit from inline style which already uses workspace color */
+    opacity: 1;
+}
+
+[data-theme="light"] .heatmap-day-label {
+    color: rgba(0, 0, 0, 0.35);
+}
+
+
 
 /* =========================================
    2. GLOBAL RESET & BASE
@@ -123,6 +658,12 @@ main {
 .content-wrapper {
     width: 100%;
     max-width: 1400px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.dash-swipe-grid {
     display: flex;
     flex-direction: column;
     gap: 24px;
@@ -579,9 +1120,42 @@ main {
 
 .prod-card-content {
     display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 1.25rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+/* Fluid productivity donut chart */
+.prod-donut-wrapper {
+    position: relative;
+    width: min(140px, 40vw);
+    height: min(140px, 40vw);
+    max-width: 140px;
+    max-height: 140px;
+    flex-shrink: 0;
+}
+
+.prod-donut-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.prod-donut-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
     flex-direction: column;
     align-items: center;
-    margin-top: 1rem;
+    justify-content: center;
+}
+
+.prod-text {
+    text-align: center;
+    min-width: 0;
 }
 
 .prod-status {
@@ -1192,7 +1766,7 @@ main {
 
 .ws-grid {
     display: grid;
-    grid-template-columns: 320px 1fr 320px;
+    grid-template-columns: minmax(0, 300px) 1fr minmax(0, 300px);
     gap: 20px;
     flex: 1;
     min-height: 0;
@@ -1205,7 +1779,7 @@ main {
     padding: 20px;
     display: flex;
     flex-direction: column;
-    height: 100%;
+    min-height: 0;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
@@ -1312,12 +1886,15 @@ main {
 
 .timer-circle-wrapper {
     position: relative;
-    width: 250px;
-    height: 250px;
+    width: min(250px, 70vw);
+    height: min(250px, 70vw);
+    max-width: 250px;
+    max-height: 250px;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 20px 0;
+    margin: 12px auto;
+    flex-shrink: 0;
 }
 
 .timer-svg {
@@ -1436,20 +2013,187 @@ main {
     border-color: white;
 }
 
-/* Mobile Workspace */
-@media (max-width: 992px) {
-    .workspace-container {
-        height: auto;
+/* Mobile Workspace (Adaptive Swiping - Scroll Snap) */
+@media (max-width: 767px) {
+    /* --- DASHBOARD SWIPE --- */
+    .dashboard-container {
+        height: calc(100vh - 60px);
+        overflow: hidden;
+        padding-bottom: var(--bottom-bar-height, 70px);
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .dashboard-container .header-section {
+        flex-shrink: 0;
+        margin-bottom: 10px;
+    }
+
+    .dash-swipe-grid {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        gap: 0;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scroll-snap-type: x mandatory;
+        scroll-behavior: smooth;
+        width: calc(100vw + 40px); /* negate dashboard container padding */
+        margin-left: -20px;
+        height: 100%;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+    .dash-swipe-grid::-webkit-scrollbar { display: none; }
+
+    .dash-slide {
+        flex: 0 0 100vw;
+        min-width: 100vw;
+        scroll-snap-align: center;
         overflow-y: auto;
+        height: 100%;
+        padding: 0 20px 20px 20px;
+        position: relative;
+    }
+    
+    /* Modify existing dashboard grids to adapt inside slides */
+    .stats-grid, .main-grid, .bottom-grid {
+        margin-bottom: 0; 
+    }
+
+    /* --- WORKSPACE SWIPE --- */
+    .workspace-container {
+        height: calc(100vh - 60px); /* Fill screen minus bottom nav */
+        overflow: hidden; /* Stop vertical outer scroll */
+        padding: 20px 0; /* Remove horizontal padding so slides hit edges */
+        padding-bottom: var(--bottom-bar-height, 70px);
+    }
+
+    .ws-header {
+        padding: 0 20px; /* Restore header padding */
     }
 
     .ws-grid {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto auto auto;
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        gap: 0; /* Gap is managed by padding inside slides now */
+        overflow-x: auto;
+        overflow-y: hidden;
+        scroll-snap-type: x mandatory;
+        scroll-behavior: smooth;
+        width: 100vw;
+        height: 100%;
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none;  /* IE and Edge */
+    }
+    
+    .ws-grid::-webkit-scrollbar {
+        display: none; /* Chrome, Safari and Opera */
     }
 
     .ws-card {
-        min-height: 300px;
+        flex: 0 0 100vw;
+        min-width: 100vw;
+        scroll-snap-align: center;
+        overflow-y: auto;
+        height: 100%;
+        margin: 0;
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+        position: relative;
+    }
+
+    .swipe-nav {
+        position: absolute; /* relative to ws-card */
+        top: 50%;
+        transform: translateY(-50%);
+        background: rgba(24, 24, 27, 0.9); /* var(--bg-card) with opacity */
+        backdrop-filter: blur(8px);
+        color: white;
+        border: 1px solid var(--border-color);
+        padding: 12px 10px;
+        z-index: 50;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+    .swipe-nav.left {
+        left: -10px; /* Hidden somewhat */
+        padding-left: 15px;
+        border-radius: 0 16px 16px 0;
+        border-left: none;
+    }
+    .swipe-nav.right {
+        right: -10px;
+        padding-right: 15px;
+        border-radius: 16px 0 0 16px;
+        border-right: none;
+    }
+
+    .timer-circle-wrapper {
+        width: min(200px, 60vw);
+        height: min(200px, 60vw);
+    }
+
+    .timer-text {
+        font-size: clamp(1.2rem, 5vw, 2rem);
+    }
+
+    .notes-panel .ws-note-input {
+        min-height: 120px;
+        height: 160px;
+        flex: none;
+    }
+
+    .timer-preset-row {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .btn-preset {
+        min-width: 56px;
+        flex: 1 1 auto;
+        max-width: calc(50% - 4px);
+    }
+
+    .btn-timer-main {
+        padding: 10px 24px;
+        font-size: 0.9rem;
+    }
+
+    .btn-timer-secondary {
+        padding: 8px 18px;
+    }
+}
+
+@media (max-width: 480px) {
+    .workspace-container {
+        padding: 12px;
+    }
+
+    .ws-header {
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .ws-header h2 {
+        font-size: 1.1rem;
+    }
+
+    .timer-circle-wrapper {
+        width: min(180px, 55vw);
+        height: min(180px, 55vw);
+    }
+
+    .timer-text {
+        font-size: clamp(1rem, 4.5vw, 1.75rem);
     }
 }
 
@@ -1702,9 +2446,11 @@ main {
    ========================================= */
 .heatmap-grid {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 5px;
-    padding: 8px 0 4px;
+    padding: 8px 0 12px;
+    overflow-x: auto;
+    scrollbar-width: thin;
 }
 
 .heatmap-cell {
@@ -1744,8 +2490,14 @@ main {
 
 .heatmap-day-labels {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 5px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.heatmap-day-labels::-webkit-scrollbar {
+    display: none;
 }
 
 .heatmap-day-label {
@@ -1770,4 +2522,33 @@ main {
     width: 14px;
     height: 14px;
     border-radius: 3px;
+}/* Sync Indicator */
+.sync-indicator {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    z-index: 1000;
+    transition: all 0.3s ease;
+}
+
+.sync-indicator i {
+    font-size: 1.2rem;
+}
+
+.sync-indicator .overlay-icon {
+    position: absolute;
+    bottom: 5px;
+    right: 5px;
+    font-size: 0.7rem;
+    background: var(--surface);
+    border-radius: 50%;
 }

@@ -4,6 +4,7 @@
 
 @inject GlobalTimerService GlobalTimer
 @inject NavigationManager Nav
+@inject AuthService AuthService
 
 <div class="topbar-header">
     <div class="brand-section">
@@ -44,6 +45,15 @@
                 <span class="gts-time" style="color: @GlobalTimer.ActiveColor">
                     @GlobalTimer.ElapsedTime.ToString(@"hh\:mm\:ss")
                 </span>
+                <span class="gts-mode-badge" style="color: @(GlobalTimer.IsBreak ? "#22c55e" : GlobalTimer.ActiveColor)">
+                    @(GlobalTimer.IsBreak ? "☕ Mola" : GlobalTimer.ActiveModeName)
+                </span>
+                @if (!string.IsNullOrEmpty(GlobalTimer.ActiveTaskTitle) && !GlobalTimer.IsBreak)
+                {
+                    <span class="gts-mode-badge" style="color: inherit; opacity: 0.85; font-weight: bold; margin-left: 4px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        <i class="bi bi-check2-square me-1"></i> @GlobalTimer.ActiveTaskTitle
+                    </span>
+                }
             </a>
         }
         
@@ -57,7 +67,15 @@
             </button>
         </div>
 
-        <button class="icon-btn" @onclick="ShowProfileInfo"><i class="bi bi-person-fill"></i></button>
+        <button class="icon-btn" @onclick="ShowProfileInfo" title="Profil"><i class="bi bi-person-fill"></i></button>
+
+        <NavLink class="icon-btn" href="settings" title="Ayarlar">
+            <i class="bi bi-gear-fill"></i>
+        </NavLink>
+
+        <button class="icon-btn text-danger" @onclick="Logout" title="Çıkış Yap">
+            <i class="bi bi-box-arrow-right"></i>
+        </button>
     </div>
 
 </div>
@@ -92,6 +110,12 @@
     {
         // "Kullanıcı kısmı daha yapılmadığı için es geçebilirsin" talebine istinaden şimdilik alert
         if (Shell.Current != null) await Shell.Current.DisplayAlert("Profil", "Kullanıcı sistemi yakında eklenecek!", "Tamam");
+    }
+
+    private async Task Logout()
+    {
+        await AuthService.LogoutAsync();
+        Nav.NavigateTo("/login", forceLoad: true);
     }
 
     private void OnTimerTick() => InvokeAsync(StateHasChanged);
@@ -133,5 +157,16 @@
         0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
         70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(59, 130, 246, 0); }
         100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+    }
+
+    .gts-mode-badge {
+        font-size: 0.67rem;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        padding: 2px 7px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.07);
+        border: 1px solid rgba(255,255,255,0.12);
     }
 </style>

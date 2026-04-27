@@ -2,42 +2,55 @@ namespace StudyTime.DesktopClient.Offline
 {
     /// <summary>
     /// Çalışma oturumu geçmişini SQLite'ta önbellekler (read-only).
-    /// StudySessionApiService'den gelen liste buraya yansıtılır.
+    /// Okumalar <see cref="LocalUserContext.UserId"/> ile filtrelenir.
     /// </summary>
-    public class LocalStudySessionCache(LocalDb db)
+    public class LocalStudySessionCache(LocalDb db, LocalUserContext userContext)
     {
-        // ── Okuma ────────────────────────────────────────────────────────────
-
-        /// <summary>Son <paramref name="count"/> oturumu yeniden eskilere doğru döndürür.</summary>
         public async Task<List<StudySessionCacheEntry>> GetRecentAsync(int count = 50)
         {
+            var uid = userContext.UserId;
+            if (string.IsNullOrEmpty(uid))
+                return new List<StudySessionCacheEntry>();
+
             var conn = await db.GetAsync();
-            return await conn.Table<StudySessionCacheEntry>()
-                             .OrderByDescending(e => e.StartedAt)
-                             .Take(count)
-                             .ToListAsync();
+            var list = await conn.Table<StudySessionCacheEntry>()
+                .Where(e => e.UserId == uid)
+                .ToListAsync();
+            return list.OrderByDescending(e => e.StartedAt).Take(count).ToList();
         }
 
-        /// <summary>Tarih aralığına göre oturumları döndürür.</summary>
         public async Task<List<StudySessionCacheEntry>> GetByDateRangeAsync(DateTime start, DateTime end)
         {
+            var uid = userContext.UserId;
+            if (string.IsNullOrEmpty(uid))
+                return new List<StudySessionCacheEntry>();
+
             var conn    = await db.GetAsync();
-            var entries = await conn.Table<StudySessionCacheEntry>().ToListAsync();
+            var entries = await conn.Table<StudySessionCacheEntry>()
+                .Where(e => e.UserId == uid)
+                .ToListAsync();
             return entries
                 .Where(e => e.StartedAt.Date >= start.Date && e.StartedAt.Date <= end.Date)
                 .OrderByDescending(e => e.StartedAt)
                 .ToList();
         }
 
-        // ── Yazma ────────────────────────────────────────────────────────────
-
         /// <summary>
-        /// API'den gelen oturum listesini toplu upsert eder.
+        /// API'den gelen oturum listesini toplu upsert eder (UserId atanır).
         /// </summary>
         public async Task UpsertAllAsync(IEnumerable<StudySessionCacheEntry> entries)
         {
+            var uid = userContext.UserId;
+            if (string.IsNullOrEmpty(uid))
+                return;
+
             var conn = await db.GetAsync();
-            var list = entries.ToList();
+            var list = entries.Select(e =>
+            {
+                e.UserId = uid;
+                return e;
+            }).ToList();
+
             if (list.Count == 0) return;
 
             try
@@ -50,7 +63,6 @@ namespace StudyTime.DesktopClient.Offline
             }
             catch
             {
-                // Fallback: tek tek dene
                 foreach (var e in list)
                 {
                     try { await conn.InsertOrReplaceAsync(e); } catch { /* yoksay */ }
@@ -58,7 +70,6 @@ namespace StudyTime.DesktopClient.Offline
             }
         }
 
-        /// <summary>Tüm cache'i temizler.</summary>
         public async Task ClearAsync()
         {
             var conn = await db.GetAsync();

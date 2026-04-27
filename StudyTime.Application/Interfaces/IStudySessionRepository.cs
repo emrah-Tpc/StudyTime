@@ -1,4 +1,4 @@
-﻿using StudyTime.Domain.Entities;
+using StudyTime.Domain.Entities;
 
 namespace StudyTime.Application.Interfaces
 {
@@ -8,6 +8,7 @@ namespace StudyTime.Application.Interfaces
         Task UpdateAsync(StudySession session);
         Task<StudySession?> GetByIdAsync(Guid id);
         Task<StudySession?> GetActiveByLessonIdAsync(Guid lessonId);
+        Task<StudySession?> GetActiveSessionAsync(string userId);
         Task<List<StudySession>> GetByDateAsync(DateTime date);
 
         // Bu metodu ekledik, Service katmanı bunu kullanıyor:

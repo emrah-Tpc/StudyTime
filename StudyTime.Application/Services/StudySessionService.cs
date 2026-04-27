@@ -1,4 +1,4 @@
-﻿using StudyTime.Application.DTOs.StudySessions;
+using StudyTime.Application.DTOs.StudySessions;
 using StudyTime.Application.Interfaces;
 using StudyTime.Domain.Entities;
 
@@ -14,45 +14,66 @@ namespace StudyTime.Application.Services
         }
 
         // ▶ START
-        public async Task<Guid> StartAsync(StartStudySessionDto dto)
+        public async Task<Guid> StartAsync(StartStudySessionDto dto, string userId)
         {
+            var activeSession = await _studySessionRepository.GetActiveSessionAsync(userId);
+            if (activeSession != null)
+            {
+                throw new InvalidOperationException("ACTIVE_SESSION_EXISTS");
+            }
+
             var session = new StudySession(dto.LessonId, dto.TaskId, dto.IsBreak);
+            session.UserId = userId;
             session.Start();
             await _studySessionRepository.AddAsync(session);
             return session.Id;
         }
 
+        public async Task<StudySession?> GetActiveSessionAsync(string userId)
+        {
+            return await _studySessionRepository.GetActiveSessionAsync(userId);
+        }
+
         // ⏹ STOP
-        public async Task StopAsync(Guid sessionId)
+        public async Task StopAsync(Guid sessionId, DateTime? updatedAt = null)
         {
             var session = await _studySessionRepository.GetByIdAsync(sessionId);
             if (session is null)
                 throw new InvalidOperationException("Study session not found.");
 
+            if (updatedAt.HasValue && session.UpdatedAt.HasValue && updatedAt < session.UpdatedAt) return;
+
             session.Stop();
+            session.UpdatedAt = updatedAt ?? DateTime.UtcNow;
             await _studySessionRepository.UpdateAsync(session);
         }
         // StudyTime.Application.Services.StudySessionService.cs içine ekle:
 
         // ⏸ PAUSE (Duraklat)
-        public async Task PauseAsync(Guid sessionId)
+        public async Task PauseAsync(Guid sessionId, DateTime? updatedAt = null)
         {
             var session = await _studySessionRepository.GetByIdAsync(sessionId);
             if (session is null)
                 throw new InvalidOperationException("Study session not found.");
 
+            if (updatedAt.HasValue && session.UpdatedAt.HasValue && updatedAt < session.UpdatedAt) return;
+
             session.Pause();
+            session.UpdatedAt = updatedAt ?? DateTime.UtcNow;
             await _studySessionRepository.UpdateAsync(session);
         }
 
         // ▶️ RESUME (Devam Et)
-        public async Task ResumeAsync(Guid sessionId)
+        public async Task ResumeAsync(Guid sessionId, DateTime? updatedAt = null)
         {
             var session = await _studySessionRepository.GetByIdAsync(sessionId);
             if (session is null)
                 throw new InvalidOperationException("Study session not found.");
 
+            if (updatedAt.HasValue && session.UpdatedAt.HasValue && updatedAt < session.UpdatedAt) return;
+
             session.Resume();
+            session.UpdatedAt = updatedAt ?? DateTime.UtcNow;
             await _studySessionRepository.UpdateAsync(session);
         }
         // 📊 TODAY TOTAL

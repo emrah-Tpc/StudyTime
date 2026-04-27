@@ -1,11 +1,13 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using StudyTime.Application.DTOs.StudySessions;
 using StudyTime.Application.Services;
+using System.Security.Claims;
 
 namespace StudyTime.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
     public class StudySessionController : ControllerBase
     {
         private readonly StudySessionService _service;
@@ -15,32 +17,54 @@ namespace StudyTime.Controllers
             _service = service;
         }
 
+        private string GetUserId() =>
+            User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? throw new UnauthorizedAccessException("Kullanıcı kimliği alınamadı.");
+
         [HttpPost("start")]
         public async Task<IActionResult> Start([FromBody] StartStudySessionDto dto)
         {
-            var id = await _service.StartAsync(dto);
-            return Ok(new { SessionId = id });
+            try
+            {
+                var id = await _service.StartAsync(dto, GetUserId());
+                return Ok(new { SessionId = id });
+            }
+            catch (InvalidOperationException ex) when (ex.Message == "ACTIVE_SESSION_EXISTS")
+            {
+                return Conflict(new { message = "ACTIVE_SESSION_EXISTS" });
+            }
         }
-        // StudyTime.Controllers.StudySessionController.cs içine ekle:
 
         [HttpPost("{id:guid}/pause")]
-        public async Task<IActionResult> Pause(Guid id)
+        public async Task<IActionResult> Pause(Guid id, [FromQuery] DateTime? updatedAt = null)
         {
-            await _service.PauseAsync(id);
+            await _service.PauseAsync(id, updatedAt);
             return NoContent();
         }
 
         [HttpPost("{id:guid}/resume")]
-        public async Task<IActionResult> Resume(Guid id)
+        public async Task<IActionResult> Resume(Guid id, [FromQuery] DateTime? updatedAt = null)
         {
-            await _service.ResumeAsync(id);
+            await _service.ResumeAsync(id, updatedAt);
             return NoContent();
         }
+
         [HttpPost("{id:guid}/stop")]
-        public async Task<IActionResult> Stop(Guid id)
+        public async Task<IActionResult> Stop(Guid id, [FromQuery] DateTime? updatedAt = null)
         {
-            await _service.StopAsync(id);
+            await _service.StopAsync(id, updatedAt);
             return NoContent();
+        }
+
+        [HttpGet("active")]
+        public async Task<IActionResult> GetActive()
+        {
+            var session = await _service.GetActiveSessionAsync(GetUserId());
+            if (session == null)
+            {
+                return NotFound(new { message = "Aktif oturum bulunamadı." });
+            }
+            return Ok(session);
         }
 
         [HttpGet("today-total")]

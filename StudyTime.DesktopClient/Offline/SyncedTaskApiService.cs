@@ -31,7 +31,7 @@ namespace StudyTime.DesktopClient.Offline
                 {
                     // Tüm task'ları API'den çek, cache'e yaz
                     var all = await remote.GetTasksByLessonIdAsync(lessonId);
-                    await cache.UpsertAllAsync(all);
+                    await cache.ReplaceForLessonAsync(lessonId, all);
                     return all;
                 }
                 catch
@@ -51,24 +51,20 @@ namespace StudyTime.DesktopClient.Offline
         /// </summary>
         public async Task<List<TaskDto>> GetTasksByDateRangeAsync(DateTime start, DateTime end)
         {
-            Console.WriteLine($"[SyncedTask] GetTasksByDateRangeAsync çağrıldı. IsOnline={connectivity.IsOnline}");
             if (connectivity.IsOnline)
             {
                 try
                 {
                     var fresh = await remote.GetTasksByDateRangeAsync(start, end);
-                    Console.WriteLine($"[SyncedTask] API'den {fresh.Count} görev alındı, cache'e yazılıyor...");
-                    await cache.UpsertAllAsync(fresh);
+                    await cache.ReplaceAllAsync(fresh);
                     return fresh;
                 }
-                catch (Exception ex)
+                catch
                 {
-                    Console.WriteLine($"[SyncedTask] API hatası: {ex.Message} — cache'e düşülüyor");
                     return await cache.GetByDateRangeAsync(start, end);
                 }
             }
 
-            Console.WriteLine($"[SyncedTask] Offline — cache'ten okunuyor");
             return await cache.GetByDateRangeAsync(start, end);
         }
 
@@ -76,17 +72,48 @@ namespace StudyTime.DesktopClient.Offline
 
         /// <summary>
         /// Yeni görev oluşturur.
-        /// Offline ise outbox'a ekler.
+        /// Çevrimdışı: geçici Guid + yerel cache + outbox; senkron sonrası sunucu Id ile reconcilation.
         /// </summary>
         public async Task CreateAsync(CreateTaskDto dto)
         {
             if (connectivity.IsOnline)
             {
-                await remote.CreateAsync(dto);
-                return;
+                try
+                {
+                    await remote.CreateAsync(dto);
+                    if (dto.LessonId.HasValue)
+                    {
+                        var list = await remote.GetTasksByLessonIdAsync(dto.LessonId.Value);
+                        await cache.ReplaceForLessonAsync(dto.LessonId.Value, list);
+                    }
+                    return;
+                }
+                catch
+                {
+                    // API düşerse offline iyimser yola geç
+                }
             }
 
-            await outbox.EnqueueAsync("Task", "Create", dto);
+            var tempId = Guid.NewGuid();
+            var taskDto = new TaskDto
+            {
+                Id              = tempId,
+                LessonId        = dto.LessonId,
+                Title           = dto.Title,
+                Note            = dto.Note,
+                Status          = dto.Status,
+                StartDate       = dto.StartDate,
+                EndDate         = dto.EndDate,
+                PlannedDuration = dto.PlannedDurationMinutes.HasValue
+                    ? TimeSpan.FromMinutes(dto.PlannedDurationMinutes.Value)
+                    : null
+            };
+            await cache.UpsertAllAsync(new[] { taskDto });
+            await outbox.EnqueueAsync("Task", "Create", new TaskCreateOutboxPayload
+            {
+                ClientTempId = tempId,
+                Dto          = dto
+            });
         }
 
         /// <summary>
@@ -150,8 +177,21 @@ namespace StudyTime.DesktopClient.Offline
         /// </summary>
         public async Task UpdateTaskStatusAsync(Guid id, StudyTime.Domain.Enums.TaskStatus newStatus)
         {
-            if (!connectivity.IsOnline) return;
-            await remote.UpdateTaskStatusAsync(id, newStatus);
+            // Lokal cache: buluşan kaydı güncelle (optimistik UI)
+            await cache.UpdateStatusAsync(id, newStatus);
+
+            if (connectivity.IsOnline)
+            {
+                await remote.UpdateTaskStatusAsync(id, newStatus);
+                return;
+            }
+
+            // Fallback for offline if necessary (we use Toggle in outbox since UpdateTaskStatusAsync doesn't have a specific Outbox Payload in this system, 
+            // but the original didn't queue anything so we should at least enqueue the Toggle if changing state)
+            if (newStatus == StudyTime.Domain.Enums.TaskStatus.Completed || newStatus == StudyTime.Domain.Enums.TaskStatus.Pending)
+            {
+                await outbox.EnqueueAsync("Task", "Toggle", id);
+            }
         }
     }
 }

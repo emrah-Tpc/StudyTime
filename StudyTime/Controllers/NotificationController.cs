@@ -9,6 +9,7 @@ namespace StudyTime.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
     public class NotificationController : ControllerBase
     {
         private readonly INotificationRepository _repository;
@@ -37,12 +38,15 @@ namespace StudyTime.Controllers
         }
 
         [HttpPut("{id}/read")]
-        public async Task<IActionResult> MarkAsRead(Guid id)
+        public async Task<IActionResult> MarkAsRead(Guid id, [FromQuery] DateTime? updatedAt = null)
         {
             var notification = await _repository.GetByIdAsync(id);
             if (notification == null) return NotFound();
 
+            if (updatedAt.HasValue && notification.UpdatedAt.HasValue && updatedAt < notification.UpdatedAt) return NoContent();
+
             notification.IsRead = true;
+            notification.UpdatedAt = updatedAt ?? DateTime.UtcNow;
             await _repository.UpdateAsync(notification);
             return NoContent();
         }

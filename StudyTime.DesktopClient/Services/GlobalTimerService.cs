@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using StudyTime.DesktopClient.Offline;
 using Timer = System.Timers.Timer;
@@ -23,6 +23,7 @@ namespace StudyTime.DesktopClient.Services
         public Guid? ActiveTaskId     { get; private set; }
         public Guid CurrentSessionId  { get; private set; }
         public string? ActiveTaskTitle { get; private set; }
+        public string? ActiveModeName  { get; private set; }
 
         // Çalışma sırasındaki orijinal renk; mola sırasında yeşile döner
         private string _workColor = "#ff4b4b";
@@ -99,6 +100,13 @@ namespace StudyTime.DesktopClient.Services
                 InitialDuration = countdown ?? TimeSpan.Zero;
                 BreakDuration   = breakDuration ?? TimeSpan.Zero;
                 IsBreak         = false;
+
+                // Mod adını belirle
+                ActiveModeName = countdown.HasValue
+                    ? (countdown.Value.TotalMinutes <= 25 ? "Klasik"
+                        : countdown.Value.TotalMinutes <= 50 ? "Derin Odak"
+                        : "Özel")
+                    : "Serbest";
 
                 // Timestamp sıfırla
                 _accumulatedBeforePause = TimeSpan.Zero;
@@ -180,6 +188,7 @@ namespace StudyTime.DesktopClient.Services
             ActiveLessonId  = null;
             ActiveTaskId    = null;
             ActiveTaskTitle = null;
+            ActiveModeName  = null;
             ActiveColor     = _workColor;
 
             if (sessionId != Guid.Empty)
@@ -196,6 +205,34 @@ namespace StudyTime.DesktopClient.Services
         {
             IsFocusModeActive = active;
             OnFocusModeChanged?.Invoke();
+        }
+
+        public void ForceReset()
+        {
+            _timer?.Stop();
+            _timer?.Dispose();
+            _timer = null;
+
+            _accumulatedBeforePause = TimeSpan.Zero;
+            _sessionStartedAt       = null;
+
+            IsRunning         = false;
+            IsPaused          = false;
+            IsFocusModeActive = false;
+            IsCountdown       = false;
+            IsBreak           = false;
+            InitialDuration   = TimeSpan.Zero;
+            BreakDuration     = TimeSpan.Zero;
+
+            CurrentSessionId  = Guid.Empty;
+            ActiveLessonId  = null;
+            ActiveTaskId    = null;
+            ActiveTaskTitle = null;
+            ActiveModeName  = null;
+            ActiveColor     = _workColor;
+
+            OnFocusModeChanged?.Invoke();
+            OnTick?.Invoke();
         }
 
         /// <summary>

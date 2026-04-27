@@ -1,16 +1,32 @@
 ﻿@using StudyTime.DesktopClient.Components.Layout
 
-<Router AppAssembly="@typeof(MauiProgram).Assembly">
-    <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
-        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
-    </Found>
-    <NotFound>
-        <LayoutView Layout="@typeof(MainLayout)">
-            <div class="p-4 text-center">
-                <h1 class="text-danger">Sayfa Bulunamadı</h1>
-                <p>Aradığınız sayfa bu adreste yok.</p>
-            </div>
-        </LayoutView>
-    </NotFound>
-</Router>
+<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(MauiProgram).Assembly">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                <NotAuthorized>
+                    @if (context.User.Identity?.IsAuthenticated == false)
+                    {
+                        <RedirectToLogin />
+                    }
+                    else
+                    {
+                        <div class="p-4 text-center">
+                            <h1 class="text-danger">Erişim Reddedildi</h1>
+                            <p>Bu sayfayı görüntüleme yetkiniz yok.</p>
+                        </div>
+                    }
+                </NotAuthorized>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <div class="p-4 text-center">
+                    <h1 class="text-danger">Sayfa Bulunamadı</h1>
+                    <p>Aradığınız sayfa bu adreste yok.</p>
+                </div>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>

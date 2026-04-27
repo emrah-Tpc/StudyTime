@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using StudyTime.Application.DTOs.Tasks;
 using StudyTime.Application.Services;
 
@@ -6,12 +6,20 @@ namespace StudyTime.Controllers
 {
     [ApiController]
     [Route("api/tasks")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
     public class TaskController(TaskService taskService) : ControllerBase
     {
         // CREATE
         [HttpPost]
         public async Task<IActionResult> CreateTask([FromBody] CreateTaskDto dto)
         {
+            if (!ModelState.IsValid)
+            {
+                var errors = string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
+                Console.WriteLine($"[API VALIDATION ERROR] {errors}");
+                return BadRequest(errors);
+            }
+
             if (dto == null) return BadRequest("Veri boş geldi.");
 
             if (dto.PlannedDurationMinutes.HasValue && dto.PlannedDurationMinutes.Value > 1440)
@@ -54,11 +62,11 @@ namespace StudyTime.Controllers
 
         // COMPLETE
         [HttpPost("{id:guid}/complete")]
-        public async Task<IActionResult> Complete(Guid id)
+        public async Task<IActionResult> Complete(Guid id, [FromQuery] DateTime? updatedAt = null)
         {
             try
             {
-                await taskService.CompleteTaskAsync(id);
+                await taskService.CompleteTaskAsync(id, updatedAt);
                 return NoContent();
             }
             catch (Exception ex) { return BadRequest(ex.Message); }
@@ -66,11 +74,11 @@ namespace StudyTime.Controllers
 
         // CANCEL
         [HttpPost("{id:guid}/cancel")]
-        public async Task<IActionResult> Cancel(Guid id)
+        public async Task<IActionResult> Cancel(Guid id, [FromQuery] DateTime? updatedAt = null)
         {
             try
             {
-                await taskService.CancelTaskAsync(id);
+                await taskService.CancelTaskAsync(id, updatedAt);
                 return NoContent();
             }
             catch (Exception ex) { return BadRequest(ex.Message); }
@@ -78,11 +86,11 @@ namespace StudyTime.Controllers
 
         // DELETE (Artık Soft Delete çalışacak)
         [HttpDelete("{id:guid}")]
-        public async Task<IActionResult> Delete(Guid id)
+        public async Task<IActionResult> Delete(Guid id, [FromQuery] DateTime? updatedAt = null)
         {
             try
             {
-                await taskService.DeleteTaskAsync(id);
+                await taskService.DeleteTaskAsync(id, updatedAt);
                 return NoContent();
             }
             catch (Exception ex) { return BadRequest(ex.Message); }
@@ -90,11 +98,11 @@ namespace StudyTime.Controllers
 
         // REOPEN
         [HttpPost("{id:guid}/reopen")]
-        public async Task<IActionResult> Reopen(Guid id)
+        public async Task<IActionResult> Reopen(Guid id, [FromQuery] DateTime? updatedAt = null)
         {
             try
             {
-                await taskService.ReopenTaskAsync(id);
+                await taskService.ReopenTaskAsync(id, updatedAt);
                 return NoContent();
             }
             catch (Exception ex) { return BadRequest(ex.Message); }

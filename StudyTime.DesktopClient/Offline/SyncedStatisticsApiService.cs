@@ -1,4 +1,5 @@
 using StudyTime.Application.DTOs.Statistics;
+using StudyTime.DesktopClient;
 using StudyTime.DesktopClient.Services;
 
 namespace StudyTime.DesktopClient.Offline
@@ -6,21 +7,26 @@ namespace StudyTime.DesktopClient.Offline
     /// <summary>
     /// <see cref="StatisticsApiService"/> için Cache-First dekoratörü.
     /// Her "range" değeri için ayrı snapshot key'i kullanılır:
-    /// "Statistics_week" | "Statistics_month" | "Statistics_year"
+    /// "Statistics_7days" | "Statistics_30days" | "Statistics_3months"
     /// </summary>
     public class SyncedStatisticsApiService(
         StatisticsApiService remote,
         LocalSnapshotCache   cache,
-        ConnectivityService  connectivity)
+        ConnectivityService  connectivity,
+        LocalDb              db,
+        LocalLessonCache     lessonCache,
+        LocalTaskCache       taskCache,
+        LocalUserContext     userContext,
+        StudyTimeAppOptions  appOptions)
     {
         // ── İstatistik Verileri ───────────────────────────────────────────────
 
         /// <summary>
         /// İstatistik özetini getirir.
         /// Online → API'den alır, range bazlı key ile snapshot'a yazar.
-        /// Offline → SnapshotCache'ten okur.
+        /// Offline veya snapshot kullanılmıyorsa → yerel outbox + StudySessionCache ile özet; veri yoksa sıfırlar.
         /// </summary>
-        public async Task<StatisticsSummaryDto?> GetStatisticsAsync(string range)
+        public async Task<StatisticsSummaryDto> GetStatisticsAsync(string range)
         {
             var key = $"Statistics_{range}";
 
@@ -30,16 +36,54 @@ namespace StudyTime.DesktopClient.Offline
                 {
                     var fresh = await remote.GetStatisticsAsync(range);
                     if (fresh != null)
+                    {
                         await cache.SetAsync(key, fresh);
-                    return fresh;
+                        return fresh;
+                    }
                 }
                 catch
                 {
-                    // API erişilemez → cache'e düş
+                    // API erişilemez → cache / boş
                 }
             }
 
-            return await cache.GetAsync<StatisticsSummaryDto>(key);
+            var skipStaleSnapshot = MauiProgram.IsOfflineBeta || appOptions.LocalOnlyMode;
+            if (!skipStaleSnapshot)
+            {
+                var cached = await cache.GetAsync<StatisticsSummaryDto>(key);
+                if (cached != null)
+                    return cached;
+            }
+
+            try
+            {
+                return await LocalSessionAnalytics.BuildStatisticsSummaryAsync(range, db, lessonCache, taskCache, userContext);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SyncedStatisticsApiService] Yerel istatistik üretilemedi: {ex.Message}");
+                return CreateEmptyStatisticsSummary();
+            }
+        }
+
+        private static StatisticsSummaryDto CreateEmptyStatisticsSummary()
+        {
+            return new StatisticsSummaryDto
+            {
+                TotalStudyTime              = TimeSpan.Zero,
+                TotalBreakTime              = TimeSpan.Zero,
+                AverageDailyStudyMinutes    = 0,
+                TotalTasksCompleted         = 0,
+                ProductivityScore           = 0,
+                LessonStatistics            = new List<LessonStatisticDto>(),
+                TaskStatistics              = new List<TaskStatisticDto>(),
+                StudyTrends                 = new List<TimeTrendDto>(),
+                PeakProductivity            = new List<ProductivityDto>(),
+                MostProductiveDay           = "-",
+                AverageSessionDuration      = 0,
+                TotalSessions               = 0,
+                DailySessionCounts          = new List<DailySessionDto>()
+            };
         }
 
         /// <summary>

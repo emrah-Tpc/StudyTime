@@ -1,4 +1,4 @@
-namespace StudyTime.Application.DTOs.Statistics
+﻿namespace StudyTime.Application.DTOs.Statistics
 {
     public class StatisticsSummaryDto
     {
@@ -54,7 +54,9 @@ namespace StudyTime.Application.DTOs.Statistics
 
     public class ProductivityDto
     {
-        public int Hour { get; set; } // 0-23
-        public double Score { get; set; } // Minutes studied in this hour
+        public int Hour { get; set; } // 0-23 (Start of the block)
+        public double Score { get; set; } // Total minutes studied in this 3-hour block
+        public string Label { get; set; } = string.Empty; // e.g. "14:00-17:00"
+        public bool IsPeakRange { get; set; } // True if this is the highest block
     }
 }

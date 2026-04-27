@@ -1,10 +1,13 @@
-@page "/statistics"
+﻿@page "/statistics"
 @using StudyTime.Application.DTOs.Statistics
 @using StudyTime.DesktopClient.Services
 @using StudyTime.DesktopClient.Offline
 @using StudyTime.DesktopClient.Components.Charts
 @using ApexCharts
 @inject SyncedStatisticsApiService StatisticsService
+@inject GlobalTimerService GlobalTimerService
+@inject SyncStatusService SyncStatusService
+@implements IDisposable
 
 <div class="statistics-container fade-in">
     <div class="header-section mb-4">
@@ -105,11 +108,11 @@
         <!-- ROW 2: Lesson Distribution & Peak Productivity -->
         <div class="row g-3 mb-4">
             <div class="col-12 col-md-6">
-                 <div class="st-card h-100">
+                 <div class="st-card h-100" style="overflow: visible;">
                     <div class="card-header">
                         <span class="card-title text-white small text-uppercase fw-bold ls-1">Ders Dağılımı</span>
                     </div>
-                    <div style="height: 300px;">
+                    <div style="height: 300px; overflow: visible;">
                         @if(summary.LessonStatistics.Any())
                         {
                             <ApexChart TItem="LessonStatisticDto"
@@ -126,39 +129,82 @@
                         }
                         else
                         {
-                            <div class="d-flex align-items-center justify-content-center h-100 text-white opacity-50">
+                            <div class="d-flex align-items-center justify-content-center h-100 st-muted-text opacity-50">
                                 Veri yok
                             </div>
                         }
                     </div>
                  </div>
             </div>
-            <div class="col-12 col-md-6">
-                 <div class="st-card h-100">
-                    <div class="card-header">
-                        <span class="card-title text-white small text-uppercase fw-bold ls-1">En Verimli Saatler</span>
-                    </div>
-                    <div style="height: 300px;">
-                         @if(summary.PeakProductivity.Any())
+             <div class="col-12 col-md-6">
+                 <div class="st-card h-100 peak-card">
+                    @{
+                        var peakWindow     = summary.PeakProductivity.FirstOrDefault(p => p.IsPeakRange);
+                        var totalPeakMins  = (int)Math.Round(peakWindow?.Score ?? 0);
+                        var totalMinsAll   = (int)Math.Round(summary.TotalStudyTime.TotalMinutes);
+                        var peakScore      = totalMinsAll > 0 ? (int)Math.Round((double)totalPeakMins / totalMinsAll * 100) : 0;
+                        // timeline: 24 cells (one per hour). Peak block spans hours h, h+1, h+2
+                        var peakStartHour  = peakWindow?.Hour ?? -1;
+                        var peakEndHour    = peakStartHour >= 0 ? peakStartHour + 3 : -1;
+                    }
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span class="card-title text-white small text-uppercase fw-bold ls-1">En Verimli Aralık</span>
+                        @if (peakWindow != null && peakWindow.Score > 0)
                         {
-                            <!-- Improved Bar Chart with Color Scale logic in Options or just better basic styling -->
-                            <ApexChart TItem="ProductivityDto"
-                                   Title=""
-                                   Height="280"
-                                   Options="barOptions">
-                                <ApexPointSeries TItem="ProductivityDto"
-                                                 Items="summary.PeakProductivity"
-                                                 Name="Verimlilik (dk)"
-                                                 SeriesType="SeriesType.Bar"
-                                                 XValue="@(e => $"{e.Hour:00}:00")"
-                                                 YValue="@(e => (decimal)Math.Round(e.Score))"
-                                                 Color="#10b981"/> <!-- Static color for now, advanced color scale requires complex JS/Options -->
-                            </ApexChart>
+                            <span class="peak-badge">
+                                <i class="bi bi-lightning-fill me-1"></i>@peakWindow.Label
+                            </span>
+                        }
+                    </div>
+
+                    <div class="peak-body">
+                        @if (peakWindow != null && peakWindow.Score > 0)
+                        {
+                            <!-- KPI Rozet -->
+                            <div class="peak-kpi-row">
+                                <div class="peak-kpi-card peak-kpi-card--gold">
+                                    <div class="peak-kpi-label">⚡ Altın Saatler</div>
+                                    <div class="peak-kpi-value">@peakWindow.Label</div>
+                                </div>
+                                <div class="peak-kpi-card">
+                                    <div class="peak-kpi-label">Toplam Odak</div>
+                                    <div class="peak-kpi-value">@totalPeakMins <span class="peak-kpi-unit">dk</span></div>
+                                </div>
+                                <div class="peak-kpi-card">
+                                    <div class="peak-kpi-label">Yoğunluk</div>
+                                    <div class="peak-kpi-value">%@peakScore</div>
+                                </div>
+                            </div>
+
+                            <!-- Horizontal Timeline -->
+                            <div class="peak-timeline-wrap">
+                                <div class="peak-timeline">
+                                    @for (int h = 0; h < 24; h++)
+                                    {
+                                        bool isPeak = h >= peakStartHour && h < peakEndHour;
+                                        var hourData = summary.PeakProductivity.FirstOrDefault(p => p.Hour <= h && p.Hour + 3 > h);
+                                        <div class="peak-segment @(isPeak ? "peak-segment--active" : "")"
+                                             title="@(isPeak ? $"{peakWindow.Label} — {totalPeakMins} dk odak" : $"{h:D2}:00")">
+                                            @if (isPeak && h == peakStartHour)
+                                            {
+                                                <div class="peak-glow-label">@peakWindow.Label</div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                                <!-- Hour labels: show every 3 hours -->
+                                <div class="peak-timeline-labels">
+                                    @for (int h = 0; h <= 24; h += 3)
+                                    {
+                                        <span>@($"{h:D2}:00")</span>
+                                    }
+                                </div>
+                            </div>
                         }
                         else
                         {
-                             <div class="d-flex align-items-center justify-content-center h-100 text-white opacity-50">
-                                Veri yok
+                            <div class="d-flex align-items-center justify-content-center h-100 st-muted-text opacity-50">
+                                <i class="bi bi-clock me-2"></i> Henüz yeterli veri yok
                             </div>
                         }
                     </div>
@@ -295,8 +341,42 @@
 
     protected override async Task OnInitializedAsync()
     {
+        GlobalTimerService.OnTimerFinished += OnSessionOrSyncRefresh;
+        GlobalTimerService.OnBreakFinished += OnSessionOrSyncRefresh;
+        SyncStatusService.OnChange += OnSessionOrSyncRefresh;
+
         ConfigureCharts();
         await LoadData();
+    }
+
+    private void BuildBarColors()
+    {
+        if (summary == null) return;
+        var colors = summary.PeakProductivity.Select(p =>
+            p.IsPeakRange ? "#3b82f6" : "rgba(100,116,139,0.25)"
+        ).ToArray();
+        // ApexCharts accepts per-bar colors via Fill.Colors (not Colors directly for bar)
+        barOptions.Colors = colors.ToList();
+        barOptions.Fill = new Fill { Colors = colors.ToList() };
+    }
+
+    private DateTime _lastStatsReloadUtc = DateTime.UtcNow;
+
+    private void OnSessionOrSyncRefresh()
+    {
+        InvokeAsync(async () =>
+        {
+            await LoadData();
+        });
+    }
+
+
+
+    public void Dispose()
+    {
+        GlobalTimerService.OnTimerFinished -= OnSessionOrSyncRefresh;
+        GlobalTimerService.OnBreakFinished -= OnSessionOrSyncRefresh;
+        SyncStatusService.OnChange -= OnSessionOrSyncRefresh;
     }
 
     private async Task SetRange(string range)
@@ -311,6 +391,7 @@
         try
         {
             summary = await StatisticsService.GetStatisticsAsync(selectedRange);
+            BuildBarColors();
         }
         catch(Exception ex)
         {
@@ -333,7 +414,8 @@
         trendOptions.Xaxis = new XAxis { 
             AxisBorder = new AxisBorder { Show = false }, 
             AxisTicks = new AxisTicks { Show = false },
-            Labels = new XAxisLabels { Style = new AxisLabelStyle { Colors = "#94a3b8" } }
+            Labels = new XAxisLabels { Style = new AxisLabelStyle { Colors = "#94a3b8" } },
+            TickAmount = 6
         };
         trendOptions.Fill = new Fill { Type = FillType.Gradient, Gradient = new FillGradient { ShadeIntensity = 1, OpacityFrom = 0.5, OpacityTo = 0.1, Stops = new List<double> { 0, 100 } } };
 
@@ -343,19 +425,29 @@
         pieOptions.Stroke = new Stroke { Show = false };
         pieOptions.Legend = new Legend { Position = LegendPosition.Bottom, HorizontalAlign = Align.Center };
         pieOptions.PlotOptions = new PlotOptions { Pie = new PlotOptionsPie { Donut = new PlotOptionsDonut { Size = "70%" } } };
+        pieOptions.Tooltip = new Tooltip { Theme = Mode.Dark, Y = new TooltipY { Formatter = @"function(val) { return Math.round(val) + ' dk' }" } };
 
-        // BAR CHART (Peak Productivity)
+        // BAR CHART (En Verimli Aralık — Sliding Window)
         barOptions.Chart = new Chart { Toolbar = new Toolbar { Show = false }, Background = "transparent", ForeColor = "#94a3b8" };
         barOptions.Theme = new Theme { Mode = Mode.Dark };
-        barOptions.Grid = new Grid { Show = false };
-        barOptions.Xaxis = new XAxis { 
-            AxisBorder = new AxisBorder { Show = false }, 
-            AxisTicks = new AxisTicks { Show = false },
-            Labels = new XAxisLabels {  Rotate = -45, Style = new AxisLabelStyle { Colors = "#94a3b8", FontSize = "10px" } }
+        barOptions.Grid = new Grid { Show = true, BorderColor = "rgba(148,163,184,0.1)", StrokeDashArray = 4 };
+        barOptions.Xaxis = new XAxis
+        {
+            AxisBorder = new AxisBorder { Show = false },
+            AxisTicks  = new AxisTicks  { Show = false },
+            Labels     = new XAxisLabels { Rotate = -45, Style = new AxisLabelStyle { Colors = "#94a3b8", FontSize = "9px" } }
         };
-        barOptions.PlotOptions = new PlotOptions { Bar = new PlotOptionsBar { BorderRadius = 2, ColumnWidth = "70%" } };
-        // Improve tooltip
-        barOptions.Tooltip = new Tooltip { Theme = Mode.Dark, Y = new TooltipY { Formatter = @"function(val) { return Math.round(val) + ' dk' }" } };
+
+        barOptions.PlotOptions = new PlotOptions { Bar = new PlotOptionsBar { BorderRadius = 4, ColumnWidth = "70%" } };
+        barOptions.Tooltip = new Tooltip
+        {
+            Theme = Mode.Dark,
+            Y = new TooltipY { Formatter = @"function(val, opts) {
+                var isPeak = opts.w.config.series[0].data[opts.dataPointIndex] && opts.w.globals.initialSeries[0].data[opts.dataPointIndex].isPeak;
+                var base = Math.round(val) + ' dk toplam (3 saatlik aralık)';
+                return base;
+            }" }
+        };
         
         // Responsive Options for Statistics Charts
         var responsiveOptions = new List<Responsive<object>> // Generic object due to different types
@@ -413,3 +505,212 @@
         };
     }
 }
+
+<style>
+    /* Peak badge — works in both light and dark mode */
+    .peak-badge {
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        padding: 3px 10px;
+        border-radius: 999px;
+        background: rgba(59, 130, 246, 0.15);
+        border: 1px solid rgba(59, 130, 246, 0.4);
+        color: #3b82f6;
+        text-transform: uppercase;
+    }
+
+    /* Light-mode override */
+    :root[data-theme="light"] .peak-badge,
+    .light-mode .peak-badge {
+        background: rgba(59, 130, 246, 0.12);
+        border-color: rgba(59, 130, 246, 0.5);
+        color: #1d4ed8;
+    }
+
+    /* Muted text that adapts to theme */
+    .st-muted-text {
+        color: var(--st-text-secondary, #94a3b8);
+    }
+    :root[data-theme="light"] .st-muted-text,
+    .light-mode .st-muted-text {
+        color: #64748b;
+    }
+
+    /* ── Peak Card ────────────────────────────────────────── */
+    .peak-card {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .peak-body {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 16px 20px 20px;
+        gap: 18px;
+        justify-content: space-between;
+    }
+
+    /* ── KPI Row ──────────────────────────────────────────── */
+    .peak-kpi-row {
+        display: flex;
+        gap: 10px;
+    }
+
+    .peak-kpi-card {
+        flex: 1;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+    }
+    /* Light mode */
+    :root[data-theme="light"] .peak-kpi-card,
+    .light-mode .peak-kpi-card {
+        background: rgba(0,0,0,0.04);
+        border-color: rgba(0,0,0,0.08);
+    }
+
+    .peak-kpi-card--gold {
+        background: rgba(59,130,246,0.1);
+        border-color: rgba(59,130,246,0.35);
+    }
+    :root[data-theme="light"] .peak-kpi-card--gold,
+    .light-mode .peak-kpi-card--gold {
+        background: rgba(59,130,246,0.08);
+        border-color: rgba(59,130,246,0.4);
+    }
+
+    .peak-kpi-label {
+        font-size: 0.65rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #64748b;
+        margin-bottom: 4px;
+    }
+    :root[data-theme="light"] .peak-kpi-label,
+    .light-mode .peak-kpi-label {
+        color: #475569;
+    }
+
+    .peak-kpi-card--gold .peak-kpi-label {
+        color: #60a5fa;
+    }
+    :root[data-theme="light"] .peak-kpi-card--gold .peak-kpi-label,
+    .light-mode .peak-kpi-card--gold .peak-kpi-label {
+        color: #2563eb;
+    }
+
+    .peak-kpi-value {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #f1f5f9;
+        line-height: 1.1;
+    }
+    :root[data-theme="light"] .peak-kpi-value,
+    .light-mode .peak-kpi-value {
+        color: #0f172a;
+    }
+
+    .peak-kpi-card--gold .peak-kpi-value {
+        color: #93c5fd;
+    }
+    :root[data-theme="light"] .peak-kpi-card--gold .peak-kpi-value,
+    .light-mode .peak-kpi-card--gold .peak-kpi-value {
+        color: #1d4ed8;
+    }
+
+    .peak-kpi-unit {
+        font-size: 0.7rem;
+        font-weight: 400;
+        color: #64748b;
+    }
+
+    /* ── Horizontal Timeline ──────────────────────────────── */
+    .peak-timeline-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .peak-timeline {
+        display: grid;
+        grid-template-columns: repeat(24, 1fr);
+        height: 52px;
+        border-radius: 8px;
+        overflow: hidden;
+        gap: 2px;
+        background: transparent;
+    }
+
+    .peak-segment {
+        background: rgba(148,163,184,0.08);
+        border-radius: 3px;
+        position: relative;
+        transition: background 0.2s ease;
+        cursor: default;
+    }
+    :root[data-theme="light"] .peak-segment,
+    .light-mode .peak-segment {
+        background: rgba(0,0,0,0.06);
+    }
+
+    .peak-segment--active {
+        background: rgba(59, 130, 246, 0.75);
+        box-shadow: 0 0 18px rgba(59, 130, 246, 0.55), 0 0 6px rgba(59, 130, 246, 0.9);
+        border-radius: 3px;
+        z-index: 2;
+    }
+    :root[data-theme="light"] .peak-segment--active,
+    .light-mode .peak-segment--active {
+        background: rgba(37, 99, 235, 0.7);
+        box-shadow: 0 0 14px rgba(37,99,235,0.4), 0 0 4px rgba(37,99,235,0.8);
+    }
+
+    /* Hover glow on any segment */
+    .peak-segment:hover {
+        background: rgba(148,163,184,0.2);
+        z-index: 3;
+    }
+    .peak-segment--active:hover {
+        background: rgba(59, 130, 246, 0.92);
+    }
+
+    /* Label floating inside the peak block */
+    .peak-glow-label {
+        position: absolute;
+        bottom: -26px;
+        left: 0;
+        white-space: nowrap;
+        font-size: 0.65rem;
+        font-weight: 700;
+        color: #60a5fa;
+        letter-spacing: 0.05em;
+        pointer-events: none;
+    }
+    :root[data-theme="light"] .peak-glow-label,
+    .light-mode .peak-glow-label {
+        color: #1d4ed8;
+    }
+
+    /* Hour tick labels */
+    .peak-timeline-labels {
+        display: flex;
+        justify-content: space-between;
+        padding: 0 1px;
+        margin-top: 8px;
+    }
+    .peak-timeline-labels span {
+        font-size: 0.6rem;
+        color: #64748b;
+        font-variant-numeric: tabular-nums;
+    }
+    :root[data-theme="light"] .peak-timeline-labels span,
+    .light-mode .peak-timeline-labels span {
+        color: #94a3b8;
+    }
+</style>

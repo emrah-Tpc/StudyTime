@@ -1,8 +1,10 @@
+@using StudyTime.DesktopClient
 @using StudyTime.DesktopClient.Offline
 @inject ConnectivityService Connectivity
+@inject StudyTimeAppOptions AppOptions
 @implements IDisposable
 
-@if (!isOnline)
+@if (!isOnline && !AppOptions.LocalOnlyMode)
 {
     <div class="offline-banner fade-in">
         <i class="bi bi-wifi-off me-2"></i>
@@ -19,9 +21,9 @@
         Connectivity.OnChanged += OnConnectivityChanged;
     }
 
-    private void OnConnectivityChanged(bool online)
+    private void OnConnectivityChanged(bool _)
     {
-        isOnline = online;
+        isOnline = Connectivity.IsOnline;
         InvokeAsync(StateHasChanged);
     }
 

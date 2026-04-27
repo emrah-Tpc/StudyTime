@@ -1,19 +1,25 @@
-﻿using StudyTime.Application.DTOs.Lessons;
+using StudyTime.Application.DTOs.Lessons;
 using StudyTime.Application.DTOs.Tasks;
 using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace StudyTime.DesktopClient.Services
 {
-    public class LessonApiService(HttpClient http)
+    public class LessonApiService
     {
-        // Tüm dersleri getir (LessonListItemDto döner)
+        private readonly HttpClient http;
+
+        public LessonApiService(IHttpClientFactory factory)
+        {
+            this.http = factory.CreateClient("StudyTimeApi");
+        }
+
         public async Task<List<LessonListItemDto>> GetAllAsync()
         {
             var result = await http.GetFromJsonAsync<List<LessonListItemDto>>("/api/lessons");
             return result ?? new List<LessonListItemDto>();
         }
 
-        // 👇 EKLENEN METOT: Workspace Sayfası için Detay Getir
         public async Task<WorkspaceDetailDto?> GetWorkspaceDetailAsync(Guid id)
         {
             try
@@ -27,36 +33,62 @@ namespace StudyTime.DesktopClient.Services
             }
         }
 
-        // Yeni ders oluştur
+        /// <summary>Hata mesajı veya null (başarı).</summary>
         public async Task<string?> CreateAsync(CreateLessonDto lesson)
         {
-            var response = await http.PostAsJsonAsync("/api/lessons", lesson);
-
-            if (response.IsSuccessStatusCode)
+            try
             {
-                return null; // Başarılı, hata yok
+                await CreateReturningIdAsync(lesson);
+                return null;
             }
-
-            var errorContent = await response.Content.ReadAsStringAsync();
-            return !string.IsNullOrWhiteSpace(errorContent) ? errorContent : response.ReasonPhrase;
+            catch (Exception ex)
+            {
+                return ex.Message;
+            }
         }
 
-        // Ders Sil
-        public async Task<bool> DeleteAsync(Guid id)
+        /// <summary>Sunucunun oluşturduğu ders Id'si (outbox reconcilation).</summary>
+        public async Task<Guid> CreateReturningIdAsync(CreateLessonDto lesson)
         {
-            var response = await http.DeleteAsync($"/api/lessons/{id}");
+            var response = await http.PostAsJsonAsync("/api/lessons", lesson);
+            var body = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode)
+                throw new Exception(string.IsNullOrWhiteSpace(body) ? response.ReasonPhrase ?? "Hata" : body);
+
+            using var doc = JsonDocument.Parse(body);
+            if (!doc.RootElement.TryGetProperty("lessonId", out var idEl))
+                throw new Exception("Yanıtta lessonId yok.");
+            return idEl.GetGuid();
+        }
+
+        public async Task<bool> DeleteAsync(Guid id, DateTime? updatedAt = null)
+        {
+            string q = updatedAt.HasValue ? $"?updatedAt={updatedAt.Value:O}" : "";
+            var response = await http.DeleteAsync($"/api/lessons/{id}{q}");
             return response.IsSuccessStatusCode;
         }
-        // 1. Notları Güncelle
-        public async Task<bool> UpdateNotesAsync(Guid lessonId, string notes)
+
+        public async Task<bool> UpdateNotesAsync(Guid lessonId, string notes, DateTime? updatedAt = null)
         {
-            // Backend'de LessonController'da UpdateNotes endpoint'i olduğunu varsayıyoruz
-            // Eğer yoksa basitçe bir PUT isteği atacağız
-            var response = await http.PutAsJsonAsync($"/api/lessons/{lessonId}/notes", notes);
+            string q = updatedAt.HasValue ? $"?updatedAt={updatedAt.Value:O}" : "";
+            var response = await http.PutAsJsonAsync($"/api/lessons/{lessonId}/notes{q}", notes);
             return response.IsSuccessStatusCode;
         }
 
-        // 2. Hızlı Task Ekle
+        public async Task<bool> ArchiveAsync(Guid id, DateTime? updatedAt = null)
+        {
+            string q = updatedAt.HasValue ? "?updatedAt=" + updatedAt.Value.ToString("O") : "";
+            var response = await http.PutAsync($"/api/lessons/{id}/archive{q}", null);
+            return response.IsSuccessStatusCode;
+        }
+
+        public async Task<bool> RestoreAsync(Guid id, DateTime? updatedAt = null)
+        {
+            string q = updatedAt.HasValue ? "?updatedAt=" + updatedAt.Value.ToString("O") : "";
+            var response = await http.PutAsync($"/api/lessons/{id}/restore{q}", null);
+            return response.IsSuccessStatusCode;
+        }
+
         public async Task<bool> CreateTaskAsync(CreateTaskDto taskDto)
         {
             var response = await http.PostAsJsonAsync("/api/tasks", taskDto);

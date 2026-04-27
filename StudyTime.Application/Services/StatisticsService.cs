@@ -33,7 +33,7 @@ namespace StudyTime.Application.Services
             if (totalDays > 0)
                 summary.AverageDailyStudyMinutes = Math.Round(summary.TotalStudyTime.TotalMinutes / totalDays);
 
-            // 2. Verimlilik Skoru — Domain Service (DashboardService ile aynı formül)
+            // 2. Verimlilik Skoru — Domain Service
             summary.ProductivityScore = productivityCalculator.CalculateScore(
                 workSessions, tasks, startDate, endDate);
 
@@ -60,18 +60,23 @@ namespace StudyTime.Application.Services
                 .OrderByDescending(l => l.TotalDurationMinutes)
                 .ToList();
 
-            // 4. Görev İstatistikleri (Top 5)
+            // 4. Görev İstatistikleri (Top 5) — gerçek oturum süresi
+            var taskDurations = workSessions
+                .Where(s => s.TaskId.HasValue)
+                .GroupBy(s => s.TaskId!.Value)
+                .ToDictionary(g => g.Key, g => g.Sum(s => s.CurrentDuration.TotalMinutes));
+
             summary.TaskStatistics = tasks
-                .Where(t => t.Status == TaskStatus.Completed)
-                .OrderByDescending(t => t.PlannedDuration.GetValueOrDefault().TotalMinutes)
-                .Take(5)
+                .Where(t => t.Status == TaskStatus.Completed && taskDurations.ContainsKey(t.Id))
                 .Select(t => new TaskStatisticDto
                 {
                     Title           = t.Title,
                     LessonName      = t.Lesson?.Name ?? "-",
-                    DurationMinutes = t.PlannedDuration.GetValueOrDefault().TotalMinutes,
+                    DurationMinutes = taskDurations.GetValueOrDefault(t.Id, 0),
                     IsCompleted     = true
                 })
+                .OrderByDescending(t => t.DurationMinutes)
+                .Take(5)
                 .ToList();
 
             // 5. Günlük Çalışma Trendi (mola hariç, sıfır doldurma)
@@ -90,16 +95,30 @@ namespace StudyTime.Application.Services
             }
             summary.StudyTrends = trendData;
 
-            // 6. Günün Saatlerine Göre Verimlilik (mola hariç)
-            summary.PeakProductivity = workSessions
-                .GroupBy(s => s.StartedAt.Hour)
-                .Select(g => new ProductivityDto
+            // 6. Sliding Window (3-hour blocks) Peak Productivity
+            var minutesByHour = new double[24];
+            foreach (var s in workSessions)
+                minutesByHour[s.StartedAt.Hour] += s.CurrentDuration.TotalMinutes;
+
+            var windows = new List<ProductivityDto>();
+            for (var h = 0; h <= 21; h++)
+            {
+                var blockScore = minutesByHour[h] + minutesByHour[h + 1] + minutesByHour[h + 2];
+                windows.Add(new ProductivityDto
                 {
-                    Hour  = g.Key,
-                    Score = g.Sum(s => s.CurrentDuration.TotalMinutes)
-                })
-                .OrderBy(p => p.Hour)
-                .ToList();
+                    Hour  = h,
+                    Score = Math.Round(blockScore, 1),
+                    Label = $"{h:D2}:00-{h + 3:D2}:00"
+                });
+            }
+
+            var maxWindowScore = windows.Max(w => w.Score);
+            if (maxWindowScore > 0)
+            {
+                var peak = windows.First(w => w.Score == maxWindowScore);
+                peak.IsPeakRange = true;
+            }
+            summary.PeakProductivity = windows;
 
             // 7. Yeni Metrikler (mola hariç)
             summary.TotalSessions = workSessions.Count;

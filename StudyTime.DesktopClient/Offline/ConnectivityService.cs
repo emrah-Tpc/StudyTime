@@ -1,4 +1,5 @@
 using Microsoft.Maui.Networking;
+using StudyTime.DesktopClient;
 
 namespace StudyTime.DesktopClient.Offline
 {
@@ -9,20 +10,24 @@ namespace StudyTime.DesktopClient.Offline
     public class ConnectivityService : IDisposable
     {
         private readonly IConnectivity _connectivity;
+        private readonly StudyTimeAppOptions _appOptions;
 
         /// <summary>Ağ durumu değiştiğinde tetiklenir (true = online).</summary>
         public event Action<bool>? OnChanged;
 
-        public ConnectivityService(IConnectivity connectivity)
+        public ConnectivityService(IConnectivity connectivity, StudyTimeAppOptions appOptions)
         {
             _connectivity = connectivity;
+            _appOptions   = appOptions;
             _connectivity.ConnectivityChanged += HandleChanged;
         }
 
-        /// <summary>Şu an internet erişimi var mı?</summary>
+        /// <summary>Şu an internet erişimi var mı? Yerel-only modda API denenmez (her zaman çevrimdışı sayılır).</summary>
         public bool IsOnline =>
-            _connectivity.NetworkAccess == NetworkAccess.Internet ||
-            _connectivity.NetworkAccess == NetworkAccess.ConstrainedInternet;
+            !MauiProgram.IsOfflineBeta &&
+            !_appOptions.LocalOnlyMode &&
+            (_connectivity.NetworkAccess == NetworkAccess.Internet ||
+             _connectivity.NetworkAccess == NetworkAccess.ConstrainedInternet);
 
         private void HandleChanged(object? sender, ConnectivityChangedEventArgs e)
         {
