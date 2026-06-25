@@ -16,7 +16,9 @@ namespace StudyTime.Domain.Services
                     var localStart = s.StartedAt.Kind == DateTimeKind.Utc ? s.StartedAt.ToLocalTime() : s.StartedAt;
                     return localStart.Date >= from.Date && localStart.Date <= to.Date;
                 })
-                .Sum(s => s.TotalActiveDuration.TotalMinutes);
+                // F02: Tek doğruluk kaynağı CurrentDuration (pause hariç + aktif oturumda canlı segment).
+                // Diğer servisler de CurrentDuration kullanıyor; tutarlılık için hizalandı.
+                .Sum(s => s.CurrentDuration.TotalMinutes);
 
             var completedTasks = tasks.Count(t => t.Status == DomainTaskStatus.Completed);
             var totalTasks = tasks.Count(t => t.Status != DomainTaskStatus.Cancelled);

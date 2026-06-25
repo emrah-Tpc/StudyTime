@@ -27,9 +27,15 @@ namespace StudyTime.Controllers
                 var result = await _authService.RegisterAsync(request);
                 return Ok(result);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return BadRequest(new { message = ex.Message });
+                // Güvenlik (F30): Identity hata detaylarını/ex.Message'ı sızdırma.
+                // "E-posta zaten kayıtlı" gibi mesajlar kullanıcı enumerasyonuna yol açar.
+                // Tüm kayıt hataları için tek, ayırt edilemez mesaj döndürülür.
+                return BadRequest(new
+                {
+                    message = "Kayıt işlemi tamamlanamadı. Bilgilerinizi kontrol edin; zaten bir hesabınız varsa giriş yapmayı deneyin."
+                });
             }
         }
 

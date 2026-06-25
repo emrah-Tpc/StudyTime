@@ -56,4 +56,18 @@ public class JwtTokenServiceTests
         Assert.NotEqual(a, b);
         Assert.Equal(64, Convert.FromBase64String(a).Length);
     }
+
+    [Fact]
+    public void HashToken_IsDeterministicAndNotEqualToRawToken_F31()
+    {
+        var svc = Create();
+        var raw = svc.CreateRefreshToken();
+
+        var hash1 = JwtTokenService.HashToken(raw);
+        var hash2 = JwtTokenService.HashToken(raw);
+
+        Assert.Equal(hash1, hash2);            // deterministik → karşılaştırma çalışır
+        Assert.NotEqual(raw, hash1);           // DB'de ham token saklanmaz
+        Assert.NotEqual(JwtTokenService.HashToken("baska"), hash1);
+    }
 }

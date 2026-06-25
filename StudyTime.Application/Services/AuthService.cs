@@ -129,12 +129,15 @@ namespace StudyTime.Application.Services
             string? clientType = null;
             string? hwid = null;
 
-            if (user.DesktopRefreshToken == request.RefreshToken && user.DesktopRefreshTokenExpiryTime > DateTime.UtcNow)
+            // F31: DB'de hash saklanıyor; gelen token'ı hash'leyip karşılaştır.
+            var hashedIncoming = JwtTokenService.HashToken(request.RefreshToken);
+
+            if (user.DesktopRefreshToken == hashedIncoming && user.DesktopRefreshTokenExpiryTime > DateTime.UtcNow)
             {
                 clientType = "Desktop";
                 hwid = user.DesktopHwid;
             }
-            else if (user.MobileRefreshToken == request.RefreshToken && user.MobileRefreshTokenExpiryTime > DateTime.UtcNow)
+            else if (user.MobileRefreshToken == hashedIncoming && user.MobileRefreshTokenExpiryTime > DateTime.UtcNow)
             {
                 clientType = "Mobile";
                 hwid = user.MobileHwid;
@@ -182,16 +185,19 @@ namespace StudyTime.Application.Services
             var (token, expiration) = _jwtTokenService.CreateAccessToken(user);
             var refreshToken = _jwtTokenService.CreateRefreshToken();
 
+            // F31: İstemciye ham token döner; DB'ye yalnızca hash'i yazılır.
+            var hashedRefreshToken = JwtTokenService.HashToken(refreshToken);
+
             if (clientType == "Desktop")
             {
                 user.DesktopHwid = hwid;
-                user.DesktopRefreshToken = refreshToken;
+                user.DesktopRefreshToken = hashedRefreshToken;
                 user.DesktopRefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
             }
             else if (clientType == "Mobile" || clientType == "Mac")
             {
                 user.MobileHwid = hwid;
-                user.MobileRefreshToken = refreshToken;
+                user.MobileRefreshToken = hashedRefreshToken;
                 user.MobileRefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
             }
 

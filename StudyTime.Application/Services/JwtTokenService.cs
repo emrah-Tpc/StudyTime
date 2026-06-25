@@ -62,6 +62,17 @@ namespace StudyTime.Application.Services
             return Convert.ToBase64String(bytes);
         }
 
+        /// <summary>
+        /// Refresh token'ı DB'de düz metin yerine saklamak için SHA-256 hash'i.
+        /// Token yüksek entropili (64 rastgele bayt) olduğundan tuzsuz SHA-256 yeterlidir.
+        /// DB sızsa bile saklanan değer doğrudan kullanılamaz.
+        /// </summary>
+        public static string HashToken(string token)
+        {
+            var hash = SHA256.HashData(Encoding.UTF8.GetBytes(token));
+            return Convert.ToHexString(hash);
+        }
+
         public ClaimsPrincipal GetPrincipalFromExpiredToken(string token)
         {
             var parameters = new TokenValidationParameters
