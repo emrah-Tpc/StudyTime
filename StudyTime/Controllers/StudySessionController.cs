@@ -39,40 +39,26 @@ namespace StudyTime.Controllers
             }
         }
 
+        // Pause/Resume/Stop hata eşlemesi: GlobalExceptionHandler (DataConflict→409)
         [HttpPost("{id:guid}/pause")]
         public async Task<IActionResult> Pause(Guid id, [FromQuery] DateTime? updatedAt = null)
         {
-            try
-            {
-                await _service.PauseAsync(id, updatedAt);
-                return NoContent();
-            }
-            catch (StudyTime.Application.Exceptions.DataConflictException ex) { return Conflict(new { message = ex.Message }); }
-            catch (Exception ex) { return BadRequest(ex.Message); }
+            await _service.PauseAsync(id, updatedAt);
+            return NoContent();
         }
 
         [HttpPost("{id:guid}/resume")]
         public async Task<IActionResult> Resume(Guid id, [FromQuery] DateTime? updatedAt = null)
         {
-            try
-            {
-                await _service.ResumeAsync(id, updatedAt);
-                return NoContent();
-            }
-            catch (StudyTime.Application.Exceptions.DataConflictException ex) { return Conflict(new { message = ex.Message }); }
-            catch (Exception ex) { return BadRequest(ex.Message); }
+            await _service.ResumeAsync(id, updatedAt);
+            return NoContent();
         }
 
         [HttpPost("{id:guid}/stop")]
         public async Task<IActionResult> Stop(Guid id, [FromQuery] DateTime? updatedAt = null)
         {
-            try
-            {
-                await _service.StopAsync(id, updatedAt);
-                return NoContent();
-            }
-            catch (StudyTime.Application.Exceptions.DataConflictException ex) { return Conflict(new { message = ex.Message }); }
-            catch (Exception ex) { return BadRequest(ex.Message); }
+            await _service.StopAsync(id, updatedAt);
+            return NoContent();
         }
 
         [HttpGet("active")]

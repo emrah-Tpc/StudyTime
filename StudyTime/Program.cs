@@ -15,6 +15,7 @@ using StudyTime.Infrastructure.Repositories;
 using StudyTime.Infrastructure.Services;
 using StudyTime.Services;
 using System.Text;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -80,22 +81,34 @@ builder.Services.AddIdentity<AppUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<StudyTimeDbContext>()
 .AddDefaultTokenProviders();
 
-var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-var secret = builder.Configuration["JwtSettings:Secret"] ?? Environment.GetEnvironmentVariable("JWT_SECRET");
+// JWT Settings — tek doğruluk kaynağı (hardcoded dev secret yalnızca BURADA).
+const string DevJwtSecret = "DevelopmentSuperSecretKeyWhichNeedsToBeAtLeast32BytesLong!";
+var jwtSection = builder.Configuration.GetSection("JwtSettings");
+var secret = jwtSection["Secret"];
+if (string.IsNullOrEmpty(secret))
+    secret = Environment.GetEnvironmentVariable("JWT_SECRET");
 
 if (string.IsNullOrEmpty(secret))
 {
     if (builder.Environment.IsDevelopment())
-    {
-        secret = "DevelopmentSuperSecretKeyWhichNeedsToBeAtLeast32BytesLong!";
-    }
+        secret = DevJwtSecret;
     else
-    {
         throw new InvalidOperationException("JWT Secret is not configured. Please set 'JwtSettings:Secret' or 'JWT_SECRET' environment variable in Production.");
-    }
 }
 
-var key = Encoding.UTF8.GetBytes(secret);
+var jwtSettings = new StudyTime.Application.Auth.JwtSettings
+{
+    Secret   = secret,
+    Issuer   = jwtSection["Issuer"] ?? string.Empty,
+    Audience = jwtSection["Audience"] ?? string.Empty,
+    ExpiryMinutes = int.TryParse(jwtSection["ExpiryMinutes"],
+        System.Globalization.NumberStyles.Integer,
+        System.Globalization.CultureInfo.InvariantCulture, out var expMin) ? expMin : 60
+};
+builder.Services.AddSingleton(jwtSettings);
+builder.Services.AddSingleton<JwtTokenService>();
+
+var key = Encoding.UTF8.GetBytes(jwtSettings.Secret);
 
 builder.Services.AddAuthentication(options =>
 {
@@ -111,9 +124,9 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new SymmetricSecurityKey(key),
         ValidateIssuer = true,
-        ValidIssuer = jwtSettings["Issuer"],
+        ValidIssuer = jwtSettings.Issuer,
         ValidateAudience = true,
-        ValidAudience = jwtSettings["Audience"],
+        ValidAudience = jwtSettings.Audience,
         ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero
     };
@@ -143,6 +156,27 @@ builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<DevelopmentMssqlSeeder>();
 
+// ---------------- Global Exception Handling (F18) ----------------
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<StudyTime.GlobalExceptionHandler>();
+
+// ---------------- Rate Limiting (F19) ----------------
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // "auth" policy: brute-force'a açık uç noktalar için IP başına dakikada 10 istek.
+    options.AddPolicy("auth", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+});
+
 // ---------------- Swagger ----------------
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -150,6 +184,9 @@ builder.Services.AddSwaggerGen();
 var app = builder.Build();
 
 // ---------------- HTTP pipeline ----------------
+// Merkezi hata yönetimi en başta (tüm istisnaları JSON ProblemDetails'e indirger).
+app.UseExceptionHandler();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -177,6 +214,8 @@ else
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseRateLimiter();
 
 app.MapControllers();
 

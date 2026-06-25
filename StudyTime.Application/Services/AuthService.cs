@@ -1,27 +1,22 @@
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Configuration;
-using Microsoft.IdentityModel.Tokens;
 using StudyTime.Application.DTOs.Auth;
 using StudyTime.Application.Interfaces;
 using StudyTime.Domain.Entities;
 using StudyTime.Domain.Enums;
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace StudyTime.Application.Services
 {
     public class AuthService
     {
         private readonly UserManager<AppUser> _userManager;
-        private readonly IConfiguration _configuration;
+        private readonly JwtTokenService _jwtTokenService;
         private readonly ISubscriptionAccessService _subscriptionAccessService;
 
-        public AuthService(UserManager<AppUser> userManager, IConfiguration configuration, ISubscriptionAccessService subscriptionAccessService)
+        public AuthService(UserManager<AppUser> userManager, JwtTokenService jwtTokenService, ISubscriptionAccessService subscriptionAccessService)
         {
             _userManager = userManager;
-            _configuration = configuration;
+            _jwtTokenService = jwtTokenService;
             _subscriptionAccessService = subscriptionAccessService;
         }
 
@@ -113,7 +108,7 @@ namespace StudyTime.Application.Services
 
         public async Task<AuthResponseDto> RefreshTokenAsync(TokenRequestDto request)
         {
-            var principal = GetPrincipalFromExpiredToken(request.AccessToken);
+            var principal = _jwtTokenService.GetPrincipalFromExpiredToken(request.AccessToken);
             if (principal == null)
             {
                 throw new Exception("Geçersiz access token.");
@@ -182,90 +177,11 @@ namespace StudyTime.Application.Services
             }
         }
 
-        private ClaimsPrincipal? GetPrincipalFromExpiredToken(string token)
-        {
-            var jwtSettings = _configuration.GetSection("JwtSettings");
-            var secret = jwtSettings["Secret"] ?? Environment.GetEnvironmentVariable("JWT_SECRET");
-            if (string.IsNullOrEmpty(secret)) secret = "DevelopmentSuperSecretKeyWhichNeedsToBeAtLeast32BytesLong!";
-
-            var tokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateAudience = true,
-                ValidAudience = jwtSettings["Audience"],
-                ValidateIssuer = true,
-                ValidIssuer = jwtSettings["Issuer"],
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
-                ValidateLifetime = false // Süresi geçmiş token kabul edilsin
-            };
-
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var principal = tokenHandler.ValidateToken(token, tokenValidationParameters, out SecurityToken securityToken);
-            
-            if (securityToken is not JwtSecurityToken jwtSecurityToken)
-            {
-                throw new SecurityTokenException("Invalid token");
-            }
-
-            var alg = jwtSecurityToken.Header.Alg;
-            var isAllowedAlg =
-                string.Equals(alg, SecurityAlgorithms.HmacSha256, StringComparison.InvariantCultureIgnoreCase) ||
-                string.Equals(alg, SecurityAlgorithms.HmacSha256Signature, StringComparison.InvariantCultureIgnoreCase) ||
-                string.Equals(alg, "HS256", StringComparison.InvariantCultureIgnoreCase);
-
-            if (!isAllowedAlg)
-                throw new SecurityTokenException("Invalid token");
-
-            return principal;
-        }
-
-        private static string GenerateRefreshToken()
-        {
-            var randomNumber = new byte[64];
-            using var rng = RandomNumberGenerator.Create();
-            rng.GetBytes(randomNumber);
-            return Convert.ToBase64String(randomNumber);
-        }
-
         private async Task<AuthResponseDto> GenerateTokensAsync(AppUser user, string? clientType, string? hwid)
         {
-            var jwtSettings = _configuration.GetSection("JwtSettings");
-            var secret = jwtSettings["Secret"] ?? Environment.GetEnvironmentVariable("JWT_SECRET");
-            
-            if (string.IsNullOrEmpty(secret))
-            {
-                secret = "DevelopmentSuperSecretKeyWhichNeedsToBeAtLeast32BytesLong!";
-            }
+            var (token, expiration) = _jwtTokenService.CreateAccessToken(user);
+            var refreshToken = _jwtTokenService.CreateRefreshToken();
 
-            var key = Encoding.UTF8.GetBytes(secret);
-
-            var claims = new List<Claim>
-            {
-                new Claim(JwtRegisteredClaimNames.Sub, user.Id),
-                new Claim(ClaimTypes.NameIdentifier, user.Id),
-                new Claim(JwtRegisteredClaimNames.Email, user.Email!),
-                new Claim(ClaimTypes.Email, user.Email!),
-                new Claim("FullName", user.FullName ?? ""),
-                new Claim("IsPremium", user.IsPremium.ToString()),
-                new Claim("PremiumUntil", user.PremiumUntil?.ToString("O") ?? "")
-            };
-
-            var expiration = DateTime.UtcNow.AddMinutes(double.Parse(jwtSettings["ExpiryMinutes"]!));
-
-            var tokenDescriptor = new SecurityTokenDescriptor
-            {
-                Subject = new ClaimsIdentity(claims),
-                Expires = expiration,
-                Issuer = jwtSettings["Issuer"],
-                Audience = jwtSettings["Audience"],
-                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-            };
-
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var token = tokenHandler.CreateToken(tokenDescriptor);
-
-            var refreshToken = GenerateRefreshToken();
-            
             if (clientType == "Desktop")
             {
                 user.DesktopHwid = hwid;
@@ -283,7 +199,7 @@ namespace StudyTime.Application.Services
 
             return new AuthResponseDto
             {
-                Token = tokenHandler.WriteToken(token),
+                Token = token,
                 RefreshToken = refreshToken,
                 Email = user.Email!,
                 FullName = user.FullName,

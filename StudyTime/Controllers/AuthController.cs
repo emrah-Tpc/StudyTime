@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using StudyTime.Application.DTOs.Auth;
 using StudyTime.Application.Services;
 using System.Security.Claims;
@@ -7,6 +8,7 @@ namespace StudyTime.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [EnableRateLimiting("auth")]
     public class AuthController : ControllerBase
     {
         private readonly AuthService _authService;

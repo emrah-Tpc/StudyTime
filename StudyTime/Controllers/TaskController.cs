@@ -60,69 +60,44 @@ namespace StudyTime.Controllers
             return Ok(task);
         }
 
-        // COMPLETE
+        // COMPLETE  (hata eşleme: GlobalExceptionHandler — DataConflict→409, InvalidOperation→400)
         [HttpPost("{id:guid}/complete")]
         public async Task<IActionResult> Complete(Guid id, [FromQuery] DateTime? updatedAt = null)
         {
-            try
-            {
-                await taskService.CompleteTaskAsync(id, updatedAt);
-                return NoContent();
-            }
-            catch (StudyTime.Application.Exceptions.DataConflictException ex) { return Conflict(new { message = ex.Message }); }
-            catch (Exception ex) { return BadRequest(ex.Message); }
+            await taskService.CompleteTaskAsync(id, updatedAt);
+            return NoContent();
         }
 
         // CANCEL
         [HttpPost("{id:guid}/cancel")]
         public async Task<IActionResult> Cancel(Guid id, [FromQuery] DateTime? updatedAt = null)
         {
-            try
-            {
-                await taskService.CancelTaskAsync(id, updatedAt);
-                return NoContent();
-            }
-            catch (StudyTime.Application.Exceptions.DataConflictException ex) { return Conflict(new { message = ex.Message }); }
-            catch (Exception ex) { return BadRequest(ex.Message); }
+            await taskService.CancelTaskAsync(id, updatedAt);
+            return NoContent();
         }
 
-        // DELETE (Artık Soft Delete çalışacak)
+        // DELETE (Soft Delete)
         [HttpDelete("{id:guid}")]
         public async Task<IActionResult> Delete(Guid id, [FromQuery] DateTime? updatedAt = null)
         {
-            try
-            {
-                await taskService.DeleteTaskAsync(id, updatedAt);
-                return NoContent();
-            }
-            catch (StudyTime.Application.Exceptions.DataConflictException ex) { return Conflict(new { message = ex.Message }); }
-            catch (Exception ex) { return BadRequest(ex.Message); }
+            await taskService.DeleteTaskAsync(id, updatedAt);
+            return NoContent();
         }
 
         // REOPEN
         [HttpPost("{id:guid}/reopen")]
         public async Task<IActionResult> Reopen(Guid id, [FromQuery] DateTime? updatedAt = null)
         {
-            try
-            {
-                await taskService.ReopenTaskAsync(id, updatedAt);
-                return NoContent();
-            }
-            catch (StudyTime.Application.Exceptions.DataConflictException ex) { return Conflict(new { message = ex.Message }); }
-            catch (Exception ex) { return BadRequest(ex.Message); }
+            await taskService.ReopenTaskAsync(id, updatedAt);
+            return NoContent();
         }
 
         // UPDATE
         [HttpPut("{id:guid}")]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdateTaskDto dto)
         {
-            try
-            {
-                await taskService.UpdateTaskAsync(id, dto);
-                return NoContent();
-            }
-            catch (StudyTime.Application.Exceptions.DataConflictException ex) { return Conflict(new { message = ex.Message }); }
-            catch (Exception ex) { return BadRequest(ex.Message); }
+            await taskService.UpdateTaskAsync(id, dto);
+            return NoContent();
         }
         // GET BY DATE RANGE
         [HttpGet("range")]
