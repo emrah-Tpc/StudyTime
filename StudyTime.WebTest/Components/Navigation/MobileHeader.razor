@@ -1,0 +1,153 @@
+@using StudyTime.DesktopClient.Services
+@inject NavigationManager Nav
+@inject AuthService AuthService
+@inject ThemeService ThemeService
+@inject IJSRuntime JS
+@implements IDisposable
+
+<div class="mobile-header-bar">
+    <div class="mobile-brand" @onclick='() => Nav.NavigateTo("")'>
+        <i class="bi bi-stopwatch-fill text-primary"></i>
+        <span>StudyTime</span>
+    </div>
+    
+    <div class="mobile-actions">
+        <button class="header-icon-btn theme-toggle-btn" @onclick="ToggleTheme" title="@(isDark ? "Açık Tema" : "Koyu Tema")">
+            <i class="bi @(isDark ? "bi-sun-fill" : "bi-moon-fill")"></i>
+        </button>
+        <NavLink class="header-icon-btn" href="settings" title="Ayarlar">
+            <i class="bi bi-gear-fill"></i>
+        </NavLink>
+        <button class="header-icon-btn" @onclick="Logout" title="Çıkış Yap">
+            <i class="bi bi-box-arrow-right text-danger"></i>
+        </button>
+    </div>
+</div>
+
+@code {
+    private bool isDark = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // localStorage'dan mevcut temayı oku
+            try
+            {
+                var saved = await JS.InvokeAsync<string>("StudyTimeTheme.getTheme");
+                var isCurrentlyDark = saved != "light";
+                if (isCurrentlyDark != ThemeService.IsDarkMode)
+                {
+                    ThemeService.SetTheme(isCurrentlyDark);
+                }
+                isDark = ThemeService.IsDarkMode;
+                StateHasChanged();
+            }
+            catch { }
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        isDark = ThemeService.IsDarkMode;
+        ThemeService.OnThemeChanged += OnThemeUpdated;
+    }
+
+    private void OnThemeUpdated()
+    {
+        isDark = ThemeService.IsDarkMode;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ToggleTheme()
+    {
+        var newDark = !ThemeService.IsDarkMode;
+        ThemeService.SetTheme(newDark);
+        // DOM'u ve localStorage'ı güncelle
+        await JS.InvokeVoidAsync("StudyTimeTheme.setTheme", newDark);
+    }
+
+    private async Task Logout()
+    {
+        await AuthService.LogoutAsync();
+        Nav.NavigateTo("/login");
+    }
+
+    public void Dispose()
+    {
+        ThemeService.OnThemeChanged -= OnThemeUpdated;
+    }
+}
+
+<style>
+    .mobile-header-bar {
+        height: 56px;
+        background: rgba(9, 9, 11, 0.92);
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 16px;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+    }
+
+    [data-theme="light"] .mobile-header-bar {
+        background: rgba(255, 255, 255, 0.92);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    }
+
+    .mobile-brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 700;
+        font-size: 1.1rem;
+        cursor: pointer;
+        color: var(--text-main);
+        text-decoration: none;
+        transition: opacity 0.2s;
+    }
+    .mobile-brand:active { opacity: 0.7; }
+
+    .mobile-actions {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .header-icon-btn {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        font-size: 1.15rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px;
+        border-radius: 10px;
+        transition: background 0.15s, color 0.15s;
+        cursor: pointer;
+        text-decoration: none;
+        min-width: 36px;
+        min-height: 36px;
+    }
+
+    .header-icon-btn:active,
+    .header-icon-btn:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--text-main);
+    }
+
+    [data-theme="light"] .header-icon-btn:active,
+    [data-theme="light"] .header-icon-btn:hover {
+        background: rgba(0, 0, 0, 0.06);
+    }
+
+    /* Tema butonu biraz özel — aktifken renk tonu */
+    .theme-toggle-btn .bi-sun-fill { color: #f59e0b; }
+    .theme-toggle-btn .bi-moon-fill { color: #818cf8; }
+</style>

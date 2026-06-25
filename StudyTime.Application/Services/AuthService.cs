@@ -202,10 +202,19 @@ namespace StudyTime.Application.Services
             var tokenHandler = new JwtSecurityTokenHandler();
             var principal = tokenHandler.ValidateToken(token, tokenValidationParameters, out SecurityToken securityToken);
             
-            if (securityToken is not JwtSecurityToken jwtSecurityToken || !jwtSecurityToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256Signature, StringComparison.InvariantCultureIgnoreCase))
+            if (securityToken is not JwtSecurityToken jwtSecurityToken)
             {
                 throw new SecurityTokenException("Invalid token");
             }
+
+            var alg = jwtSecurityToken.Header.Alg;
+            var isAllowedAlg =
+                string.Equals(alg, SecurityAlgorithms.HmacSha256, StringComparison.InvariantCultureIgnoreCase) ||
+                string.Equals(alg, SecurityAlgorithms.HmacSha256Signature, StringComparison.InvariantCultureIgnoreCase) ||
+                string.Equals(alg, "HS256", StringComparison.InvariantCultureIgnoreCase);
+
+            if (!isAllowedAlg)
+                throw new SecurityTokenException("Invalid token");
 
             return principal;
         }

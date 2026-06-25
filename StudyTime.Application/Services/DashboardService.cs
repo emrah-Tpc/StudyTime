@@ -1,3 +1,4 @@
+using StudyTime.Application;
 using StudyTime.Application.DTOs.Dashboard;
 using StudyTime.Application.Interfaces;
 using StudyTime.Domain.Enums;
@@ -18,11 +19,20 @@ namespace StudyTime.Application.Services
         {
             var today     = DateTime.Today;
 
-            // ── 1. VIEW: Ders bazlı özetler (tek SQL sorgusu) ─────────────────
+            // ── Sequential Repository Calls (Thread-safe for DbContext) ─────────────────
             var viewRows = await dashboardRepository.GetDashboardSummariesAsync();
-
-            // Renk + durum için lessons (sadece Id, Color, Status projection'ı)
             var lessons = await lessonRepository.GetAllAsync() ?? new();
+            
+
+
+            // Optimization: Fetch only relevant tasks
+            var todayTasksRaw = await taskRepository.GetByDateRangeAsync(today, today);
+            var pendingTasksRaw = await taskRepository.GetPendingTasksAsync();
+
+            // Combine today and pending tasks for internal logic
+            var combinedTasks = todayTasksRaw.Concat(pendingTasksRaw).DistinctBy(t => t.Id).ToList();
+
+            // Renk + durum için lessons
             var activeLessons = lessons
                 .Where(l => l.Status == LessonStatus.Active && !l.IsDeleted)
                 .ToList();
@@ -67,31 +77,35 @@ namespace StudyTime.Application.Services
                 .ToList();
 
             // ── 4. DİNAMİK VERİLER ───────────────────────────────────────────
-            // FIX [Kritik]: GetAllAsync() yerine son 14 günlük veri çek
-            // Haftalık (7 gün) + önceki hafta karşılaştırması (7 gün) = 14 gün yeterli
-            var rangeStart     = today.AddDays(-13); // 14 gün (bugün dahil)
-            var recentSessions = await studySessionRepository.GetByDateRangeAsync(rangeStart, today);
+            // UTC offset kaymasını önlemek için today+1 gün çekip C#'ta local-time filtrele
+            var rangeStart = today.AddDays(-14);
+            var recentSessions = await studySessionRepository.GetByDateRangeAsync(rangeStart, today.AddDays(1));
 
             // FIX [Orta]: IsBreak filtresi tek noktada; tüm grafik hesapları workSessions'dan
             var workSessions = recentSessions.Where(s => !s.IsBreak).ToList();
 
-            // FIX [Kritik]: Bugün dakikasını SQL view yerine C# LINQ'dan hesapla
-            // → Bugün kartı + grafikler aynı kaynaktan, tutarlı
-            // FIX: C# LINQ'dan günlük takibi hassas hesapla
-            int todayMinutes = (int)Math.Round(workSessions
-                .Where(s => s.StartedAt.Date == today)
-                .Sum(s => s.CurrentDuration.TotalMinutes));
+            // FIX [Kritik]: Bugün dakikasını C# LINQ'dan ToLocalTime ile hesapla
+            // GetByDateRangeAsync UTC filtresi timezone offset'i nedeniyle bugünü kaçırabilir;
+            // burada local-time karşılaştırması ile kesin filtreleme yapılır.
+            int todayMinutes = StudyDurationMetrics.SumChartMinutes(
+                workSessions
+                    .Where(s => s.StartedAt.ToLocalTime().Date == today)
+                    .Select(s => s.CurrentDuration));
 
             // Geçen haftanın aynı günü vs bugün çalışma farkı
             var lastWeekSameDay        = today.AddDays(-7);
-            var lastWeekSameDayMinutes = (int)Math.Round(workSessions
-                .Where(s => s.StartedAt.Date == lastWeekSameDay)
-                .Sum(s => s.CurrentDuration.TotalMinutes));
+            var lastWeekSameDayUtcStart = lastWeekSameDay.Kind == DateTimeKind.Utc ? lastWeekSameDay : lastWeekSameDay.ToUniversalTime();
+            var lastWeekSameDayUtcEnd = lastWeekSameDay.AddDays(1).AddTicks(-1).Kind == DateTimeKind.Utc ? lastWeekSameDay.AddDays(1).AddTicks(-1) : lastWeekSameDay.AddDays(1).AddTicks(-1).ToUniversalTime();
+            
+            var lastWeekSameDayMinutes = StudyDurationMetrics.SumChartMinutes(
+                workSessions
+                    .Where(s => s.StartedAt >= lastWeekSameDayUtcStart && s.StartedAt <= lastWeekSameDayUtcEnd)
+                    .Select(s => s.CurrentDuration));
             int timeChange = todayMinutes - lastWeekSameDayMinutes;
 
             // Haftalık grafik (son 7 gün, mola hariç — workSessions'dan)
             var sessionByDate = workSessions
-                .GroupBy(s => s.StartedAt.Date)
+                .GroupBy(s => s.StartedAt.ToLocalTime().Date)
                 .ToDictionary(g => g.Key, g => g.Sum(s => s.CurrentDuration.TotalMinutes));
 
             // FIX [Minör]: Label'a gün adı + tarih numarası eklendi ("Pzt 28")
@@ -103,15 +117,16 @@ namespace StudyTime.Application.Services
                     return new ChartDataDto
                     {
                         Label = $"{dayName} {date.Day}",
-                        Value = (int)Math.Round(sessionByDate.GetValueOrDefault(date, 0))
+                        Value = StudyDurationMetrics.ToChartMinutesFromTotalSeconds(
+                            sessionByDate.GetValueOrDefault(date, 0) * 60)
                     };
                 })
                 .ToList();
 
             // Saatlik grafik (bugün, mola hariç — workSessions'dan)
             var sessionByHour = workSessions
-                .Where(s => s.StartedAt.Date == today)
-                .GroupBy(s => s.StartedAt.Hour)
+                .Where(s => s.StartedAt.ToLocalTime().Date == today)
+                .GroupBy(s => s.StartedAt.ToLocalTime().Hour)
                 .ToDictionary(g => g.Key, g => g.Sum(s => s.CurrentDuration.TotalMinutes));
 
             // FIX [Minör]: Anlamlı saat aralığı — hiç çalışılmadıysa 08-20, çalışıldıysa ±1 saat pad
@@ -130,7 +145,8 @@ namespace StudyTime.Application.Services
                 .Select(h => new ChartDataDto
                 {
                     Label = $"{h:D2}:00",
-                    Value = (int)Math.Round(sessionByHour.GetValueOrDefault(h, 0))
+                    Value = StudyDurationMetrics.ToChartMinutesFromTotalSeconds(
+                        sessionByHour.GetValueOrDefault(h, 0) * 60)
                 })
                 .ToList();
 
@@ -155,7 +171,7 @@ namespace StudyTime.Application.Services
                     return new ChartDataDto
                     {
                         Label = typeName,
-                        Value = (int)Math.Round(g.Sum(s => s.CurrentDuration.TotalMinutes)),
+                        Value = StudyDurationMetrics.SumChartMinutes(g.Select(s => s.CurrentDuration)),
                         Color = dominantLesson?.Color ?? "#6b7280"
                     };
                 })
@@ -164,13 +180,15 @@ namespace StudyTime.Application.Services
                 .ToList();
 
             // ── 5. SON AKTİVİTELER + GÖREV İSTATİSTİKLERİ ───────────────────
-            var tasks = await taskRepository.GetAllAsync() ?? new();
-
-            // FIX [Kritik]: Yamayı kaldırdık. Yalnızca bugünün görevlerini kullanarak doğru tutarlılığı sağlıyoruz.
-            var todayTasks   = tasks.Where(t => t.StartDate?.Date == today).ToList();
+            // Sadece bugünle alakalı olan görevleri al (Bugün oluşturulan, bugün biten veya bugün tamamlanan)
+            var todayTasks = combinedTasks.Where(t => 
+                (t.StartDate.HasValue && t.StartDate.Value.ToLocalTime().Date == today) || 
+                (t.EndDate.HasValue && t.EndDate.Value.ToLocalTime().Date == today) ||
+                (t.Status == AppTaskStatus.Completed && t.UpdatedAt.HasValue && t.UpdatedAt.Value.ToLocalTime().Date == today)
+            ).ToList();
 
             int productivityScore = productivityCalculator.CalculateScore(
-                workSessions.Where(s => s.StartedAt.Date == today),
+                workSessions.Where(s => s.StartedAt.ToLocalTime().Date == today),
                 todayTasks,
                 today,
                 today.AddDays(1).AddTicks(-1));
@@ -179,11 +197,12 @@ namespace StudyTime.Application.Services
             var startOfWeek  = today.AddDays(-diff).Date;
             var startOfMonth = new DateTime(today.Year, today.Month, 1);
 
-            int tasksCreatedThisWeek = tasks.Count(t => (t.StartDate ?? DateTime.MinValue).Date >= startOfWeek);
-            int completedThisWeek    = tasks.Count(t => t.Status == AppTaskStatus.Completed && (t.StartDate ?? DateTime.MinValue).Date >= startOfWeek);
-            int completedThisMonth   = tasks.Count(t => t.Status == AppTaskStatus.Completed && (t.StartDate ?? DateTime.MinValue).Date >= startOfMonth);
+            int tasksCreatedThisWeek = combinedTasks.Count(t => (t.StartDate ?? DateTime.MinValue).ToLocalTime().Date >= startOfWeek);
+            int completedThisWeek    = combinedTasks.Count(t => t.Status == AppTaskStatus.Completed && (t.StartDate ?? DateTime.MinValue).ToLocalTime().Date >= startOfWeek);
+            int completedThisMonth   = combinedTasks.Count(t => t.Status == AppTaskStatus.Completed && (t.StartDate ?? DateTime.MinValue).ToLocalTime().Date >= startOfMonth);
+            int cancelledTasks       = combinedTasks.Count(t => t.Status == AppTaskStatus.Cancelled);
 
-            var recentActivities = tasks
+            var recentActivities = combinedTasks
                 .Where(t => t.StartDate.HasValue)
                 .OrderByDescending(t => t.StartDate)
                 .Take(4)
@@ -216,6 +235,7 @@ namespace StudyTime.Application.Services
                 TotalTasks           = totalTasks,
                 TasksCreatedThisWeek = tasksCreatedThisWeek,
                 PendingTasks         = pendingTasks,
+                CancelledTasks       = cancelledTasks,
                 CompletedTasks       = completedTasks,
                 CompletionRate       = completionRate,
                 TodayStudiedMinutes  = todayMinutes,

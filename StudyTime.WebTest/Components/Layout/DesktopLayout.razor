@@ -1,0 +1,23 @@
+<div class="app-layout-container">
+    <StudyTime.WebTest.Components.Layout.OfflineBanner />
+
+    <div class="desktop-nav">
+         <StudyTime.WebTest.Components.Navigation.TopBar /> 
+    </div>
+
+    <main class="main-content-scrollable">
+        <div class="content-wrapper">
+            @ChildContent
+        </div>
+    </main>
+</div>
+
+<!-- Global Modals & Overlays -->
+<StudyTime.WebTest.Components.Layout.SyncIndicator />
+<StudyTime.WebTest.Components.Layout.FocusMode />
+<StudyTime.WebTest.Components.Navigation.NotificationCenter />
+
+@code {
+    [Parameter]
+    public RenderFragment ChildContent { get; set; } = default!;
+}

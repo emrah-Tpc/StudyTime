@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyTime | GBYF Pitch Deck</title>
+    <style>
+        :root {
+            --background: #09090b;
+            --surface: #18181b;
+            --primary: #3b82f6;
+            --primary-glow: rgba(59, 130, 246, 0.4);
+            --text-main: #fafafa;
+            --text-muted: #a1a1aa;
+            --accent: #8b5cf6;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--background);
+            color: var(--text-main);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Glassmorphism Classes (KORUNDU) */
+        .glass-card {
+            background: rgba(24, 24, 27, 0.6);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            padding: 2.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(255, 255, 255, 0.15);
+            background: rgba(30, 30, 35, 0.7);
+        }
+
+        .glow {
+            box-shadow: 0 0 35px var(--primary-glow);
+            border-color: rgba(59, 130, 246, 0.4);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        section {
+            padding: 6rem 0;
+        }
+
+        h1, h2, h3, h4 {
+            color: var(--text-main);
+            font-weight: 700;
+        }
+
+        h2 {
+            font-size: 2.8rem;
+            margin-bottom: 3.5rem;
+            text-align: center;
+            background: linear-gradient(135deg, #fff, #a1a1aa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        /* Navbar */
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 0;
+        }
+        
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            border-radius: 8px;
+        }
+
+        .lang-switch {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 0.5rem 1.2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .lang-switch:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        /* 1. Hero Section */
+        .hero {
+            text-align: center;
+            padding: 8rem 0 4rem;
+        }
+
+        .hero h1 {
+            font-size: 4.5rem;
+            letter-spacing: -1px;
+            margin-bottom: 1.5rem;
+            line-height: 1.1;
+            background: linear-gradient(135deg, #fff 30%, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            font-size: 1.6rem;
+            max-width: 700px;
+            margin: 0 auto 2.5rem;
+        }
+
+        .badge {
+            display: inline-block;
+            background: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+            padding: 0.6rem 1.2rem;
+            border-radius: 30px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 2rem;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        /* 2. Problem & Çözüm */
+        .problem-solution {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+        
+        .ps-card h3 {
+            font-size: 1.6rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .ps-card.problem h3 { color: #f87171; }
+        .ps-card.solution h3 { color: #4ade80; }
+
+        /* 3. Teknik Mimari */
+        .architecture {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 2rem;
+        }
+
+        .arch-card .icon {
+            font-size: 2.8rem;
+            margin-bottom: 1.5rem;
+            display: inline-block;
+            background: rgba(255,255,255,0.05);
+            padding: 1rem;
+            border-radius: 16px;
+        }
+
+        .arch-card h3 {
+            margin-bottom: 1rem;
+            font-size: 1.4rem;
+        }
+
+        /* 4. Altın Saatler Algoritması */
+        .golden-hours {
+            text-align: center;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .golden-hours h3 {
+            font-size: 2.2rem;
+            margin-bottom: 1.5rem;
+            color: #fbbf24;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        /* 5. Prototip & Görseller */
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .gallery-item {
+            width: 100%;
+            height: 250px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            transition: transform 0.3s ease;
+        }
+        
+        .gallery-item:hover {
+            transform: scale(1.02);
+            border-color: rgba(255,255,255,0.2);
+        }
+
+        /* 6. Ekip & Footer */
+        .team {
+            text-align: center;
+        }
+
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .team-member h4 {
+            font-size: 1.3rem;
+            color: #fff;
+        }
+        
+        .team-member p {
+            font-size: 1rem;
+            color: var(--primary);
+            margin-top: 0.5rem;
+        }
+
+        footer {
+            text-align: center;
+            padding: 3rem 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            margin-top: 4rem;
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 2.8rem; }
+            .hero p { font-size: 1.2rem; }
+            .problem-solution { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Navbar -->
+        <nav>
+            <div class="logo">
+                <div class="logo-icon"></div>
+                StudyTime
+            </div>
+            <button class="lang-switch" id="lang-btn" onclick="toggleLanguage()">EN</button>
+        </nav>
+
+        <!-- 1. Hero Section -->
+        <section class="hero">
+            <div class="badge" id="hero_badge">GBYF Yarışma Projesi</div>
+            <h1 id="hero_title">StudyTime</h1>
+            <p id="hero_subtitle">Çevrimdışı Öncelikli Akıllı Odaklanma Asistanı</p>
+        </section>
+
+        <!-- 2. Problem & Çözüm -->
+        <section>
+            <h2 id="ps_header">Problem & Çözüm</h2>
+            <div class="problem-solution">
+                <div class="glass-card ps-card problem">
+                    <h3 id="problem_title">⚠️ Problem</h3>
+                    <p id="problem_desc">Dijital dikkat dağınıklığı, odaklanma sorunları ve internet kesintilerinde yaşanan veri kaybı. Mevcut asistanların sürekli ağ bağlantısı gerektirmesi verimliliği düşürmektedir.</p>
+                </div>
+                <div class="glass-card ps-card solution glow">
+                    <h3 id="solution_title">💡 Çözüm</h3>
+                    <p id="solution_desc">StudyTime'ın kesintisiz ve bağlama duyarlı (Context-aware) yaklaşımı. Ağ olmasa bile çalışan asenkron mimarisi ile kişiselleştirilmiş, akıllı bir odaklanma ekosistemi.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Teknik Mimari & Altyapı -->
+        <section>
+            <h2 id="tech_header">Teknik Mimari & Altyapı</h2>
+            <div class="architecture">
+                <!-- Kart 1 -->
+                <div class="glass-card arch-card">
+                    <div class="icon">💻</div>
+                    <h3 id="card1_title">.NET MAUI Blazor Hybrid</h3>
+                    <p id="card1_desc">Tek bir kod tabanıyla Masaüstü ve Mobil (Cross-platform) ortamlarında çalışan, modern ve yüksek performanslı hibrit uygulama mimarisi.</p>
+                </div>
+                <!-- Kart 2 (Glow Effect) -->
+                <div class="glass-card arch-card glow">
+                    <div class="icon">🔄</div>
+                    <h3 id="card2_title">Offline-First & Outbox Pattern</h3>
+                    <p id="card2_desc">SQLite ile yerel veritabanı yönetimi ve internet bağlantısı sağlandığında sunucuya veri aktarımını asenkron olarak yürüten Background Sync (Outbox) altyapısı.</p>
+                </div>
+                <!-- Kart 3 -->
+                <div class="glass-card arch-card">
+                    <div class="icon">📊</div>
+                    <h3 id="card3_title">Gözlemlenebilirlik</h3>
+                    <p id="card3_desc">Sistem hareketlerini ve asenkron görevleri anlık takip edebilmek için Serilog ile entegre edilmiş yapılandırılmış loglama (Structured Logging).</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. Altın Saatler Algoritması -->
+        <section>
+            <div class="glass-card golden-hours glow">
+                <h3 id="golden_title">✨ 'Altın Saatler' Algoritması</h3>
+                <p id="golden_desc">Kullanıcının çalışma alışkanlıklarını, odaklanma sürelerini ve görev geçmişini analiz ederek en verimli saatlerini (Golden Hours) tespit eden ve bağlama duyarlı bildirimlerle verimliliği artıran akıllı asistan yeteneği.</p>
+            </div>
+        </section>
+
+        <!-- 5. Görseller (Prototip ve Arayüz) -->
+        <section>
+            <h2 id="ui_header">Prototip ve Arayüz</h2>
+            <div class="gallery">
+                <!-- Resim Yolları Klasörünüze Göre Ayarlandı -->
+                <div class="glass-card gallery-item" style="background-image: url('screenshotss/dashboard.png');"></div>
+                <div class="glass-card gallery-item" style="background-image: url('screenshotss/focus.png');"></div>
+                <div class="glass-card gallery-item" style="background-image: url('screenshotss/stats.png');"></div>
+            </div>
+        </section>
+
+        <!-- 6. Ekip ve Proje Bilgileri -->
+        <section class="team">
+            <h2 id="team_header">Proje Ekibi</h2>
+            <p id="team_uni" style="font-size: 1.2rem; color: #fff; margin-bottom: 2rem; font-weight: 600;">Doğu Akdeniz Üniversitesi (DAÜ) GBYF Yarışma Projesi</p>
+            
+            <div class="team-grid">
+                <div class="glass-card team-member">
+                    <h4 id="team_devs">Geliştiriciler</h4>
+                    <p>Emrah Topçu</p>
+                </div>
+                <div class="glass-card team-member">
+                    <h4 id="team_mentor">Danışman</h4>
+                    <p>[Danışman Hoca Adı]</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer>
+            <p id="footer_text">&copy; 2026 StudyTime. Tüm hakları saklıdır. GBYF için hazırlanmıştır.</p>
+        </footer>
+    </div>
+
+    <!-- Language Switcher Script & Dictionary (KORUNDU VE GÜNCELLENDİ) -->
+    <script>
+        const dict = {
+            tr: {
+                hero_badge: "GBYF Yarışma Projesi",
+                hero_title: "StudyTime",
+                hero_subtitle: "Çevrimdışı Öncelikli Akıllı Odaklanma Asistanı",
+                ps_header: "Problem & Çözüm",
+                problem_title: "⚠️ Problem",
+                problem_desc: "Dijital dikkat dağınıklığı, odaklanma sorunları ve internet kesintilerinde yaşanan veri kaybı. Mevcut asistanların sürekli ağ bağlantısı gerektirmesi verimliliği düşürmektedir.",
+                solution_title: "💡 Çözüm",
+                solution_desc: "StudyTime'ın kesintisiz ve bağlama duyarlı (Context-aware) yaklaşımı. Ağ olmasa bile çalışan asenkron mimarisi ile kişiselleştirilmiş, akıllı bir odaklanma ekosistemi.",
+                tech_header: "Teknik Mimari & Altyapı",
+                card1_title: ".NET MAUI Blazor Hybrid",
+                card1_desc: "Tek bir kod tabanıyla Masaüstü ve Mobil (Cross-platform) ortamlarında çalışan, modern ve yüksek performanslı hibrit uygulama mimarisi.",
+                card2_title: "Offline-First & Outbox Pattern",
+                card2_desc: "SQLite ile yerel veritabanı yönetimi ve internet bağlantısı sağlandığında sunucuya veri aktarımını asenkron olarak yürüten Background Sync (Outbox) altyapısı.",
+                card3_title: "Gözlemlenebilirlik",
+                card3_desc: "Sistem hareketlerini ve asenkron görevleri anlık takip edebilmek için Serilog ile entegre edilmiş yapılandırılmış loglama (Structured Logging).",
+                golden_title: "✨ 'Altın Saatler' Algoritması",
+                golden_desc: "Kullanıcının çalışma alışkanlıklarını, odaklanma sürelerini ve görev geçmişini analiz ederek en verimli saatlerini (Golden Hours) tespit eden ve bağlama duyarlı bildirimlerle verimliliği artıran akıllı asistan yeteneği.",
+                ui_header: "Prototip ve Arayüz",
+                team_header: "Proje Ekibi",
+                team_uni: "Doğu Akdeniz Üniversitesi (DAÜ) GBYF Yarışma Projesi",
+                team_devs: "Geliştiriciler",
+                team_mentor: "Danışman",
+                footer_text: "© 2026 StudyTime. Tüm hakları saklıdır. GBYF için hazırlanmıştır."
+            },
+            en: {
+                hero_badge: "GBYF Competition Project",
+                hero_title: "StudyTime",
+                hero_subtitle: "Offline-First Smart Focus Assistant",
+                ps_header: "Problem & Solution",
+                problem_title: "⚠️ Problem",
+                problem_desc: "Digital distraction, focus issues, and data loss during internet outages. Existing assistants requiring constant network connections reduce productivity.",
+                solution_title: "💡 Solution",
+                solution_desc: "StudyTime's continuous and context-aware approach. A personalized, smart focus ecosystem with an asynchronous architecture that works even offline.",
+                tech_header: "Technical Architecture & Infrastructure",
+                card1_title: ".NET MAUI Blazor Hybrid",
+                card1_desc: "Modern and high-performance hybrid application architecture running on Desktop and Mobile (Cross-platform) environments with a single codebase.",
+                card2_title: "Offline-First & Outbox Pattern",
+                card2_desc: "Local database management with SQLite and Background Sync (Outbox) infrastructure that asynchronously transfers data to the server when internet connection is available.",
+                card3_title: "Observability",
+                card3_desc: "Structured Logging integrated with Serilog to instantly track system movements and asynchronous tasks.",
+                golden_title: "✨ 'Golden Hours' Algorithm",
+                golden_desc: "A smart assistant capability that analyzes the user's work habits, focus durations, and task history to determine the most productive hours (Golden Hours) and increases efficiency with context-aware notifications.",
+                ui_header: "Prototype and Interface",
+                team_header: "Project Team",
+                team_uni: "Eastern Mediterranean University (EMU) GBYF Competition Project",
+                team_devs: "Developers",
+                team_mentor: "Mentor",
+                footer_text: "© 2026 StudyTime. All rights reserved. Prepared for GBYF."
+            }
+        };
+
+        let currentLang = 'tr';
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'tr' ? 'en' : 'tr';
+            document.getElementById('lang-btn').innerText = currentLang === 'tr' ? 'EN' : 'TR';
+            document.documentElement.lang = currentLang;
+            
+            for (const key in dict[currentLang]) {
+                const element = document.getElementById(key);
+                if (element) {
+                    element.textContent = dict[currentLang][key];
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+

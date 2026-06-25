@@ -70,22 +70,34 @@ namespace StudyTime.Controllers
         [HttpPut("{id}/archive")]
         public async Task<IActionResult> Archive(Guid id, [FromQuery] DateTime? updatedAt = null)
         {
-            await _lessonService.ArchiveAsync(id, updatedAt);
-            return Ok(new { message = "Workspace archived" });
+            try
+            {
+                await _lessonService.ArchiveAsync(id, updatedAt);
+                return Ok(new { message = "Workspace archived" });
+            }
+            catch (StudyTime.Application.Exceptions.DataConflictException ex) { return Conflict(new { message = ex.Message }); }
         }
 
         [HttpPut("{id}/restore")]
         public async Task<IActionResult> Restore(Guid id, [FromQuery] DateTime? updatedAt = null)
         {
-            await _lessonService.RestoreAsync(id, updatedAt);
-            return Ok(new { message = "Workspace restored" });
+            try
+            {
+                await _lessonService.RestoreAsync(id, updatedAt);
+                return Ok(new { message = "Workspace restored" });
+            }
+            catch (StudyTime.Application.Exceptions.DataConflictException ex) { return Conflict(new { message = ex.Message }); }
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(Guid id, [FromQuery] DateTime? updatedAt = null)
         {
-            await _lessonService.DeleteAsync(id, updatedAt);
-            return Ok(new { message = "Workspace deleted" });
+            try
+            {
+                await _lessonService.DeleteAsync(id, updatedAt);
+                return Ok(new { message = "Workspace deleted" });
+            }
+            catch (StudyTime.Application.Exceptions.DataConflictException ex) { return Conflict(new { message = ex.Message }); }
         }
 
         // 👇 BU METOT EKSİKTİ, BUNU EKLE:
@@ -105,8 +117,12 @@ namespace StudyTime.Controllers
         [HttpPut("{id}/notes")]
         public async Task<IActionResult> UpdateNotes(Guid id, [FromBody] string notes, [FromQuery] DateTime? updatedAt = null)
         {
-            await _lessonService.UpdateNotesAsync(id, notes, updatedAt);
-            return Ok(new { message = "Notes updated" });
+            try
+            {
+                await _lessonService.UpdateNotesAsync(id, notes, updatedAt);
+                return Ok(new { message = "Notes updated" });
+            }
+            catch (StudyTime.Application.Exceptions.DataConflictException ex) { return Conflict(new { message = ex.Message }); }
         }
     }
 }

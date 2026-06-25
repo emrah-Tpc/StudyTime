@@ -122,7 +122,7 @@ public sealed class StudyTimeAppOptions
         if (string.IsNullOrWhiteSpace(url))
         {
             return isAndroid
-                ? "https://gjdz7mbz-7288.euw.devtunnels.ms/"
+                ? "https://10.0.2.2:7288/"
                 : "https://localhost:7288/";
         }
 
@@ -132,8 +132,8 @@ public sealed class StudyTimeAppOptions
         if (isAndroid && t.Contains("localhost", StringComparison.OrdinalIgnoreCase))
         {
             // Android'de ayar dosyalarından (appsettings) gelen URL localhost ise, 
-            // direkt olarak Dev Tunnels adresine yönlendirilir.
-            return "https://gjdz7mbz-7288.euw.devtunnels.ms/";
+            // direkt olarak Android emülatör IP adresine yönlendirilir.
+            return "https://10.0.2.2:7288/";
         }
 
         return t;

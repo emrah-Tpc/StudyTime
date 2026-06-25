@@ -156,8 +156,9 @@ namespace StudyTime.DesktopClient.Offline
                         lesson.Status = LessonStatus.Archived;
                         await cache.UpsertAllAsync(new[] { lesson });
                     }
+                    return true;
                 }
-                return result;
+                // If API failed (e.g., 401, 500), fallback to offline behavior
             }
             
             // Offline
@@ -182,8 +183,9 @@ namespace StudyTime.DesktopClient.Offline
                         lesson.Status = LessonStatus.Active;
                         await cache.UpsertAllAsync(new[] { lesson });
                     }
+                    return true;
                 }
-                return result;
+                // If API failed (e.g., 401, 500), fallback to offline behavior
             }
 
             // Offline
@@ -202,7 +204,11 @@ namespace StudyTime.DesktopClient.Offline
             await cache.DeleteAsync(id);
 
             if (connectivity.IsOnline)
-                return await remote.DeleteAsync(id);
+            {
+                var success = await remote.DeleteAsync(id);
+                if (success) return true;
+                // If API failed, enqueue to outbox so it doesn't get lost
+            }
 
             await outbox.EnqueueAsync("Lesson", "Delete", id);
             return true; // Optimistik başarı
@@ -215,7 +221,11 @@ namespace StudyTime.DesktopClient.Offline
         public async Task<bool> UpdateNotesAsync(Guid lessonId, string notes)
         {
             if (connectivity.IsOnline)
-                return await remote.UpdateNotesAsync(lessonId, notes);
+            {
+                var success = await remote.UpdateNotesAsync(lessonId, notes);
+                if (success) return true;
+                // If API failed, enqueue to outbox
+            }
 
             await cache.UpdateNotesLocalAsync(lessonId, notes);
             await outbox.EnqueueAsync("Lesson", "UpdateNotes",

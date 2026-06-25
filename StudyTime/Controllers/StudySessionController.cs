@@ -33,27 +33,46 @@ namespace StudyTime.Controllers
             {
                 return Conflict(new { message = "ACTIVE_SESSION_EXISTS" });
             }
+            catch (KeyNotFoundException ex) when (ex.Message == "LESSON_NOT_FOUND")
+            {
+                return BadRequest(new { message = "LESSON_NOT_FOUND" });
+            }
         }
 
         [HttpPost("{id:guid}/pause")]
         public async Task<IActionResult> Pause(Guid id, [FromQuery] DateTime? updatedAt = null)
         {
-            await _service.PauseAsync(id, updatedAt);
-            return NoContent();
+            try
+            {
+                await _service.PauseAsync(id, updatedAt);
+                return NoContent();
+            }
+            catch (StudyTime.Application.Exceptions.DataConflictException ex) { return Conflict(new { message = ex.Message }); }
+            catch (Exception ex) { return BadRequest(ex.Message); }
         }
 
         [HttpPost("{id:guid}/resume")]
         public async Task<IActionResult> Resume(Guid id, [FromQuery] DateTime? updatedAt = null)
         {
-            await _service.ResumeAsync(id, updatedAt);
-            return NoContent();
+            try
+            {
+                await _service.ResumeAsync(id, updatedAt);
+                return NoContent();
+            }
+            catch (StudyTime.Application.Exceptions.DataConflictException ex) { return Conflict(new { message = ex.Message }); }
+            catch (Exception ex) { return BadRequest(ex.Message); }
         }
 
         [HttpPost("{id:guid}/stop")]
         public async Task<IActionResult> Stop(Guid id, [FromQuery] DateTime? updatedAt = null)
         {
-            await _service.StopAsync(id, updatedAt);
-            return NoContent();
+            try
+            {
+                await _service.StopAsync(id, updatedAt);
+                return NoContent();
+            }
+            catch (StudyTime.Application.Exceptions.DataConflictException ex) { return Conflict(new { message = ex.Message }); }
+            catch (Exception ex) { return BadRequest(ex.Message); }
         }
 
         [HttpGet("active")]

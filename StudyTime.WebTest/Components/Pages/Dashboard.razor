@@ -1,0 +1,11 @@
+@page "/"
+@inject StudyTime.DesktopClient.Services.IPlatformDetector PlatformDetector
+
+@if (PlatformDetector.IsMobile)
+{
+    <DashboardMobile />
+}
+else
+{
+    <DashboardDesktop />
+}

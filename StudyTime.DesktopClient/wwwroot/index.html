@@ -13,13 +13,12 @@
     <link href="css/bootstrap.min.css" rel="stylesheet" />
     <link href="css/bootstrap-icons.min.css" rel="stylesheet" />
 
-    <!-- Fonts (Google Fonts still CDN for Inter, hard to download manually without tool support) -->
-    <!-- Ideally we should download Inter too, but let's stick to Bootstrap mostly -->
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="css/app.css?v=5" />
+    <link rel="stylesheet" href="css/app.css?v=6" />
     <link rel="stylesheet" href="StudyTime.DesktopClient.styles.css" />
 
     <link rel="icon" href="data:,">
@@ -31,7 +30,6 @@
 
     <div id="app">
         <style>
-            /* Loading ekranı değişkenleri app.css yüklenene kadar manuel tanımlıyoruz */
             :root {
                 --bg-app-loading: #09090b;
                 --accent-loading: #3B82F6;
@@ -77,15 +75,8 @@
             }
 
             @keyframes pulse {
-
-                0%,
-                100% {
-                    opacity: 1;
-                }
-
-                50% {
-                    opacity: 0.5;
-                }
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.5; }
             }
         </style>
 
@@ -98,27 +89,26 @@
 
     <script src="_framework/blazor.webview.js" autostart="false"></script>
     <script src="js/bootstrap.bundle.min.js"></script>
+    <script src="js/theme.js"></script>
     <script src="_content/Blazor-ApexCharts/js/apexcharts.js"></script>
 
-    <!-- Tema: localStorage'dan geri yükle (Blazor render öncesi flash önleme) -->
     <script>
+        // Tema: localStorage'dan geri yükle (Blazor render öncesi flash önleme)
         (function () {
             var saved = localStorage.getItem('studytime-theme') || 'dark';
             document.documentElement.setAttribute('data-theme', saved);
         })();
 
-                window.scrollToSlide = function (elementId) {
+        window.scrollToSlide = function (elementId) {
             const el = document.getElementById(elementId);
             if (el) {
                 el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
             }
         };
 
-        // Desktop Zoom Engelleme (CTRL + MouseWheel / CTRL + Keyboard)
+        // Desktop Zoom Engelleme
         document.addEventListener('wheel', function (e) {
-            if (e.ctrlKey) {
-                e.preventDefault();
-            }
+            if (e.ctrlKey) { e.preventDefault(); }
         }, { passive: false });
 
         document.addEventListener('keydown', function (e) {

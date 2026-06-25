@@ -1,28 +1,103 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using StudyTime.DesktopClient.Interfaces;
 using StudyTime.DesktopClient.Offline;
 using StudyTime.Domain.Entities;
 
 namespace StudyTime.DesktopClient.Services
 {
-    public class AppNotificationCenterService
+    /// <summary>
+    /// Merkezi bildirim kontrol servisi. Context-Aware UX ve Offline-First prensiplerini uygular.
+    /// 
+    /// - Uygulama Foreground (ön planda) ise: OS bildirimi EZİLİR, sadece UI Toast/zil tetiklenir.
+    /// - Uygulama Background/kapalı ise: IPlatformNotificationHandler üzerinden OS bildirimi fırlatılır.
+    /// - Single Source of Truth: Tüm bildirimler SQLite + API üzerinden yaşar.
+    /// </summary>
+    public class AppNotificationCenterService : IAppNotificationService
     {
-        private readonly StudyTime.DesktopClient.Offline.SyncedNotificationApiService _syncedApi;
+        private readonly SyncedNotificationApiService  _syncedApi;
+        private readonly IPlatformNotificationHandler  _platformHandler;
+
         private List<AppNotification> _notifications = new();
-        public IReadOnlyList<AppNotification> Notifications => _notifications.AsReadOnly();
+        public  IReadOnlyList<AppNotification> Notifications => _notifications.AsReadOnly();
 
         public event Action? OnNotificationsChanged;
         public event Action<AppNotification>? OnNewNotification;
         public event Action? OnCenterStateChanged;
 
-        public bool IsCenterOpen { get; private set; }
-        public int UnreadCount => _notifications.Count(n => !n.IsRead);
+        public bool IsCenterOpen  { get; private set; }
+        public int  UnreadCount   => _notifications.Count(n => !n.IsRead);
 
-        public AppNotificationCenterService(StudyTime.DesktopClient.Offline.SyncedNotificationApiService syncedApi)
+        public AppNotificationCenterService(
+            SyncedNotificationApiService syncedApi,
+            IPlatformNotificationHandler platformHandler)
         {
-            _syncedApi = syncedApi;
+            _syncedApi       = syncedApi;
+            _platformHandler = platformHandler;
+
+            // Uygulama acilir acilmaz local/remote bildirimleri cek.
+            _ = LoadNotificationsAsync();
         }
+
+        // ── IAppNotificationService ───────────────────────────────────────────
+
+        /// <summary>
+        /// Ana bildirim gönderme metodudur. Context-Aware UX uygular.
+        /// 1. Offline-First: SQLite'a kaydeder.
+        /// 2. Foreground ise: Sadece UI bildirim kutusunu günceller.
+        ///    Background ise: OS (Windows Tray/Mobile Push) bildirimini fırlatır.
+        /// </summary>
+        public async Task SendNotificationAsync(NotificationCategory category, string title, string message)
+        {
+            // 1. Single Source of Truth: Önce lokale kaydet (Offline-First)
+            var notificationId = await _syncedApi.CreateAndSaveOfflineAsync(
+                category.ToString(), title, message);
+
+            // 2. UI listesine de ekle (anlık yansıma için)
+            var appNotification = new AppNotification
+            {
+                Id        = notificationId,
+                Title     = title,
+                Message   = message,
+                Category  = category,
+                CreatedAt = DateTime.Now,
+                IsRead    = false
+            };
+            _notifications.Insert(0, appNotification);
+            OnNotificationsChanged?.Invoke();
+
+            // 3. Context-Aware UX: Uygulama ekranda mı?
+            if (IsAppInForeground())
+            {
+                // Kullanıcı uygulamanın içinde: Sadece UI event'ini tetikle (zil kırmızısın)
+                // OS bildirimi (tray balonu/push) ATILMAZ — notification fatigue önlenir.
+                OnNewNotification?.Invoke(appNotification);
+            }
+            else
+            {
+                // Uygulama arka planda veya kapalı: OS bildirimini fırlat
+                _platformHandler.ShowOSNotification(title, message, notificationId);
+            }
+        }
+
+        /// <summary>
+        /// MAUI lifecycle üzerinden uygulamanın ön planda olup olmadığını döner.
+        /// </summary>
+        public bool IsAppInForeground()
+        {
+#if WINDOWS
+            // Windows'ta uygulama penceresi aktif mi?
+            return Microsoft.Maui.ApplicationModel.WindowStateManager.Default.GetActiveWindow() != null;
+#else
+            // iOS/Android: ApplicationState üzerinden kontrol
+            return Microsoft.Maui.ApplicationModel.AppInfo.Current != null
+                   && Microsoft.Maui.Controls.Application.Current?.Windows.Count > 0;
+#endif
+        }
+
+        // ── Bildirim Merkezi UI Yönetimi ──────────────────────────────────────
 
         public async Task LoadNotificationsAsync()
         {
@@ -31,26 +106,21 @@ namespace StudyTime.DesktopClient.Services
                 var notes = await _syncedApi.GetNotificationsAsync();
                 _notifications = notes.Select(n => new AppNotification
                 {
-                    Id = n.Id,
-                    Title = n.Title,
-                    Message = n.Message,
-                    Category = Enum.TryParse<NotificationCategory>(n.Category, out var cat) ? cat : NotificationCategory.System,
+                    Id        = n.Id,
+                    Title     = n.Title,
+                    Message   = n.Message,
+                    Category  = Enum.TryParse<NotificationCategory>(n.Category, out var cat)
+                                    ? cat : NotificationCategory.System,
                     CreatedAt = n.CreatedAt,
-                    IsRead = n.IsRead,
+                    IsRead    = n.IsRead,
                     ActionUrl = n.ActionUrl
                 }).ToList();
                 OnNotificationsChanged?.Invoke();
             }
-            catch { }
+            catch { /* Sessiz hata — önbellek zaten UI'da */ }
         }
 
-        public void AddNotification(string title, string message, NotificationCategory category, string? actionUrl = null)
-        {
-            // Bu metod artık sadece UI-only bildirimler için (anlık) veya API'ye gönderilmeli
-            // Şimdilik API entegrasyonu Loading üzerinden yürüyecek.
-        }
-
-        public async void MarkAsRead(Guid id)
+        public async Task MarkAsReadAsync(Guid id)
         {
             await _syncedApi.MarkAsReadAsync(id);
             var notification = _notifications.FirstOrDefault(n => n.Id == id);
@@ -61,7 +131,7 @@ namespace StudyTime.DesktopClient.Services
             }
         }
 
-        public async void MarkAllAsReadAsync()
+        public async Task MarkAllAsReadAsync()
         {
             await _syncedApi.MarkAllAsReadAsync();
             foreach (var n in _notifications) n.IsRead = true;
@@ -71,7 +141,7 @@ namespace StudyTime.DesktopClient.Services
         public void ToggleCenter()
         {
             IsCenterOpen = !IsCenterOpen;
-            if (IsCenterOpen) LoadNotificationsAsync(); // Açılınca yenile
+            if (IsCenterOpen) _ = LoadNotificationsAsync();
             OnCenterStateChanged?.Invoke();
         }
 
@@ -89,44 +159,47 @@ namespace StudyTime.DesktopClient.Services
             if (!IsCenterOpen)
             {
                 IsCenterOpen = true;
-                LoadNotificationsAsync();
+                _ = LoadNotificationsAsync();
                 OnCenterStateChanged?.Invoke();
             }
         }
 
-        public void ClearAll()
+        public async Task ClearAllAsync()
         {
+            await _syncedApi.ClearAllAsync();
             _notifications.Clear();
             OnNotificationsChanged?.Invoke();
         }
     }
 
+    // ── AppNotification Model ─────────────────────────────────────────────────
+
     public class AppNotification
     {
-        public Guid Id { get; set; }
-        public string Title { get; set; } = string.Empty;
-        public string Message { get; set; } = string.Empty;
-        public DateTime CreatedAt { get; set; }
-        public bool IsRead { get; set; }
+        public Guid               Id        { get; set; }
+        public string             Title     { get; set; } = string.Empty;
+        public string             Message   { get; set; } = string.Empty;
+        public DateTime           CreatedAt { get; set; }
+        public bool               IsRead    { get; set; }
         public NotificationCategory Category { get; set; }
-        public string? ActionUrl { get; set; }
+        public string?            ActionUrl { get; set; }
 
         public string Icon => Category switch
         {
             NotificationCategory.Discipline => "bi-stopwatch",
             NotificationCategory.Motivation => "bi-trophy",
-            NotificationCategory.Awareness => "bi-lightbulb",
-            NotificationCategory.System => "bi-gear",
-            _ => "bi-bell"
+            NotificationCategory.Awareness  => "bi-lightbulb",
+            NotificationCategory.System     => "bi-gear",
+            _                               => "bi-bell"
         };
 
         public string Color => Category switch
         {
-            NotificationCategory.Discipline => "#f59e0b", // Amber
-            NotificationCategory.Motivation => "#ec4899", // Pink
-            NotificationCategory.Awareness => "#3b82f6",  // Blue
-            NotificationCategory.System => "#10b981",     // Green
-            _ => "#fff"
+            NotificationCategory.Discipline => "#f59e0b",
+            NotificationCategory.Motivation => "#ec4899",
+            NotificationCategory.Awareness  => "#3b82f6",
+            NotificationCategory.System     => "#10b981",
+            _                               => "#fff"
         };
     }
 

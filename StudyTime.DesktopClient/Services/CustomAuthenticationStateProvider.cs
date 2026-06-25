@@ -5,11 +5,13 @@ using StudyTime.DesktopClient.Offline;
 using System.Collections.Generic;
 using System.Security.Claims;
 using System.Text.Json;
+using System.Diagnostics;
 
 namespace StudyTime.DesktopClient.Services
 {
     public class CustomAuthenticationStateProvider : AuthenticationStateProvider
     {
+        private static readonly TimeSpan StorageTimeout = TimeSpan.FromSeconds(2);
         private const string TokenKey = "jwt_token";
         private const string RefreshTokenKey = "jwt_refresh_token";
         private const string LocalOwnerSubKey = "studytime_local_owner_sub";
@@ -17,16 +19,16 @@ namespace StudyTime.DesktopClient.Services
 
         private readonly StudyTimeAppOptions _appOptions;
         private readonly LocalUserContext _localUserContext;
-        private readonly LocalDataWipeService _localDataWipe;
+        private readonly IServiceProvider _services;
 
         public CustomAuthenticationStateProvider(
             StudyTimeAppOptions appOptions,
             LocalUserContext localUserContext,
-            LocalDataWipeService localDataWipe)
+            IServiceProvider services)
         {
             _appOptions       = appOptions;
             _localUserContext = localUserContext;
-            _localDataWipe    = localDataWipe;
+            _services         = services;
         }
 
         public override async Task<AuthenticationState> GetAuthenticationStateAsync()
@@ -37,11 +39,16 @@ namespace StudyTime.DesktopClient.Services
             if (_appOptions.LocalOnlyMode)
                 return await GetLocalOnlyAuthenticationStateAsync();
 
-            var token = await SecureStorage.Default.GetAsync(TokenKey);
+            var token = await SafeGetAsync(TokenKey);
 
             if (string.IsNullOrWhiteSpace(token))
             {
-                _localUserContext.Clear();
+                // Otomatik oturum dusmelerinde (token yok) local cache gorunurlugunu koru.
+                var ownerSub = await SafeGetAsync(LocalOwnerSubKey);
+                if (!string.IsNullOrWhiteSpace(ownerSub))
+                    _localUserContext.SetUserId(ownerSub);
+                else
+                    _localUserContext.Clear();
                 return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
             }
 
@@ -59,25 +66,25 @@ namespace StudyTime.DesktopClient.Services
 
         public async Task MarkUserAsAuthenticated(string token, string refreshToken)
         {
-            SecureStorage.Default.Remove(LocalProfileSubKey);
+            SafeRemove(LocalProfileSubKey);
 
             var claims = ParseClaimsFromJwt(token);
             var sub    = claims.FirstOrDefault(c => c.Type == "sub")?.Value;
 
             if (!string.IsNullOrEmpty(sub))
             {
-                var previous = await SecureStorage.Default.GetAsync(LocalOwnerSubKey);
+                var previous = await SafeGetAsync(LocalOwnerSubKey);
                 if (!string.IsNullOrEmpty(previous) && previous != sub)
-                    await _localDataWipe.WipeAllUserLocalDataAsync();
+                    await GetLocalDataWipeService().WipeAllUserLocalDataAsync();
 
-                await SecureStorage.Default.SetAsync(LocalOwnerSubKey, sub);
+                await SafeSetAsync(LocalOwnerSubKey, sub);
                 _localUserContext.SetUserId(sub);
             }
 
-            await SecureStorage.Default.SetAsync(TokenKey, token);
+            await SafeSetAsync(TokenKey, token);
             if (!string.IsNullOrEmpty(refreshToken))
             {
-                await SecureStorage.Default.SetAsync(RefreshTokenKey, refreshToken);
+                await SafeSetAsync(RefreshTokenKey, refreshToken);
             }
 
             var identity = new ClaimsIdentity(claims, "jwt");
@@ -86,14 +93,19 @@ namespace StudyTime.DesktopClient.Services
             NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(user)));
         }
 
-        public async Task MarkUserAsLoggedOut()
+        public async Task MarkUserAsLoggedOut(bool wipeLocalData = true)
         {
-            await _localDataWipe.WipeAllUserLocalDataAsync();
-            SecureStorage.Default.Remove(TokenKey);
-            SecureStorage.Default.Remove(RefreshTokenKey);
-            SecureStorage.Default.Remove(LocalOwnerSubKey);
-            SecureStorage.Default.Remove(LocalProfileSubKey);
-            _localUserContext.Clear();
+            if (wipeLocalData)
+                await GetLocalDataWipeService().WipeAllUserLocalDataAsync();
+            SafeRemove(TokenKey);
+            SafeRemove(RefreshTokenKey);
+            if (wipeLocalData)
+            {
+                SafeRemove(LocalOwnerSubKey);
+                SafeRemove(LocalProfileSubKey);
+            }
+            if (wipeLocalData)
+                _localUserContext.Clear();
 
             if (MauiProgram.IsOfflineBeta)
             {
@@ -113,7 +125,7 @@ namespace StudyTime.DesktopClient.Services
             if (_appOptions.LocalOnlyMode)
                 return null;
 
-            return await SecureStorage.Default.GetAsync(TokenKey);
+            return await SafeGetAsync(TokenKey);
         }
 
         public async Task<string?> GetRefreshTokenAsync()
@@ -124,7 +136,7 @@ namespace StudyTime.DesktopClient.Services
             if (_appOptions.LocalOnlyMode)
                 return null;
 
-            return await SecureStorage.Default.GetAsync(RefreshTokenKey);
+            return await SafeGetAsync(RefreshTokenKey);
         }
 
         private AuthenticationState CreateOfflineBetaAuthenticationState()
@@ -171,14 +183,93 @@ namespace StudyTime.DesktopClient.Services
 
         private static async Task<string> GetOrCreateLocalProfileSubAsync()
         {
-            var existing = await SecureStorage.Default.GetAsync(LocalProfileSubKey);
+            var existing = await SafeGetAsync(LocalProfileSubKey);
             if (!string.IsNullOrEmpty(existing))
                 return existing;
 
             var id = Guid.NewGuid().ToString("N");
-            await SecureStorage.Default.SetAsync(LocalProfileSubKey, id);
+            await SafeSetAsync(LocalProfileSubKey, id);
             return id;
         }
+
+        private static string? _cachedToken;
+        private static string? _cachedRefreshToken;
+
+        private static async Task<string?> SafeGetAsync(string key)
+        {
+            if (key == TokenKey && _cachedToken != null) return _cachedToken;
+            if (key == RefreshTokenKey && _cachedRefreshToken != null) return _cachedRefreshToken;
+
+            try
+            {
+                var getTask = SecureStorage.Default.GetAsync(key);
+                var completed = await Task.WhenAny(getTask, Task.Delay(StorageTimeout));
+                if (completed == getTask)
+                {
+                    var val = await getTask;
+                    if (key == TokenKey) _cachedToken = val;
+                    if (key == RefreshTokenKey) _cachedRefreshToken = val;
+                    return val;
+                }
+
+                Debug.WriteLine($"SecureStorage timeout on get: {key}, falling back to Preferences.");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"SecureStorage get failed for {key}: {ex.Message}");
+            }
+
+            var pref = Preferences.Default.Get<string?>(key, null);
+            if (key == TokenKey) _cachedToken = pref;
+            if (key == RefreshTokenKey) _cachedRefreshToken = pref;
+            return pref;
+        }
+
+        private static async Task SafeSetAsync(string key, string value)
+        {
+            if (key == TokenKey) _cachedToken = value;
+            if (key == RefreshTokenKey) _cachedRefreshToken = value;
+
+            try
+            {
+                var setTask = SecureStorage.Default.SetAsync(key, value);
+                var completed = await Task.WhenAny(setTask, Task.Delay(StorageTimeout));
+                if (completed == setTask)
+                {
+                    await setTask;
+                    Preferences.Default.Remove(key);
+                    return;
+                }
+
+                Debug.WriteLine($"SecureStorage timeout on set: {key}, falling back to Preferences.");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"SecureStorage set failed for {key}: {ex.Message}");
+            }
+
+            Preferences.Default.Set(key, value);
+        }
+
+        private static void SafeRemove(string key)
+        {
+            if (key == TokenKey) _cachedToken = null;
+            if (key == RefreshTokenKey) _cachedRefreshToken = null;
+
+            try
+            {
+                SecureStorage.Default.Remove(key);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"SecureStorage remove failed for {key}: {ex.Message}");
+            }
+
+            Preferences.Default.Remove(key);
+        }
+
+        private LocalDataWipeService GetLocalDataWipeService()
+            => _services.GetRequiredService<LocalDataWipeService>();
 
         private IEnumerable<Claim> ParseClaimsFromJwt(string jwt)
         {

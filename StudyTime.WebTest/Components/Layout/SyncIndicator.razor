@@ -1,0 +1,60 @@
+@using StudyTime.DesktopClient
+@using StudyTime.DesktopClient.Services
+@using StudyTime.DesktopClient.Offline
+@implements IDisposable
+@inject SyncStatusService SyncStatus
+@inject ConnectivityService Connectivity
+@inject StudyTimeAppOptions AppOptions
+
+<div class="sync-indicator @GetVisibilityClass()">
+    @if (!AppOptions.LocalOnlyMode && !IsOnline)
+    {
+        <i class="fas fa-cloud text-gray-400"></i>
+        <i class="fas fa-exclamation-circle text-warning overlay-icon"></i>
+    }
+    else if (SyncStatus.IsSyncing)
+    {
+        <i class="fas fa-sync fa-spin text-primary"></i>
+    }
+    else if (SyncStatus.HasPendingItems)
+    {
+        <i class="fas fa-cloud-upload-alt text-info"></i>
+    }
+    else if (SyncStatus.SyncError != null)
+    {
+        <i class="fas fa-exclamation-triangle text-danger" title="@SyncStatus.SyncError"></i>
+    }
+    else
+    {
+        <i class="fas fa-cloud-check text-success"></i>
+    }
+</div>
+
+@code {
+    private bool IsOnline => Connectivity.IsOnline;
+
+    protected override void OnInitialized()
+    {
+        SyncStatus.OnChange += StateHasChanged;
+        Connectivity.OnChanged += HandleConnectivityChange;
+    }
+
+    private void HandleConnectivityChange(bool isOnline)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private string GetVisibilityClass()
+    {
+        // Yalnızca çevrimdışı, eşitleniyor, bekleyen öğe var veya hata varsa göster.
+        // Tamamen eşitlendiğinde yeşil bulut kısa bir süre görünebilir ama genelde gizlenebilir.
+        // Eğer her zaman sağ üstte bulut görünsün isteniyorsa burayı değiştireceğiz.
+        return "";
+    }
+
+    public void Dispose()
+    {
+        SyncStatus.OnChange -= StateHasChanged;
+        Connectivity.OnChanged -= HandleConnectivityChange;
+    }
+}

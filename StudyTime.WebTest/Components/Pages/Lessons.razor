@@ -1,0 +1,412 @@
+@page "/lessons"
+@using StudyTime.Application.DTOs.Lessons
+@using StudyTime.Domain.Enums
+@using StudyTime.DesktopClient.Services
+@using StudyTime.DesktopClient.Offline
+@inject SyncedLessonApiService LessonService
+@inject NavigationManager NavManager
+
+<div class="lessons-container fade-in">
+    @if (!string.IsNullOrWhiteSpace(actionError))
+    {
+        <div class="alert alert-warning mb-3" role="alert">
+            @actionError
+        </div>
+    }
+
+    <div class="lessons-header-section">
+        <div class="lessons-header-text">
+            <h1 class="lessons-page-title">Dersler & Alanlar</h1>
+            <p class="lessons-page-subtitle">Okul, iş ve kişisel gelişim süreçlerin</p>
+        </div>
+        <button class="lessons-add-btn" @onclick="OpenCreateModal">
+            <i class="bi bi-plus-lg"></i>
+            <span>Yeni Ekle</span>
+        </button>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center align-items-center" style="height: 60vh;">
+            <div class="spinner-border text-primary"></div>
+        </div>
+    }
+    else if (lessons.Any())
+    {
+        <div class="lessons-grid">
+            @foreach (var lesson in lessons)
+            {
+                <div class="lesson-card @(lesson.Status == LessonStatus.Archived ? "opacity-50" : "")"
+                     @onclick="() => GoToWorkspace(lesson.Id)"
+                     style="cursor: pointer;">
+
+                    <div class="lesson-color-bar"
+                         style="background: linear-gradient(90deg, @lesson.Color, @(lesson.Color)88);">
+                    </div>
+
+                    <div class="lesson-card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div class="lesson-icon" style="background-color: @(lesson.Color)20; color: @lesson.Color;">
+                                @switch (lesson.Type)
+                                {
+                                    case LessonType.Academic:
+                                        <i class="bi bi-book"></i>
+                                        break;
+                                    case LessonType.Personal:
+                                        <i class="bi bi-person-heart"></i>
+                                        break;
+                                    case LessonType.Work:
+                                        <i class="bi bi-briefcase"></i>
+                                        break;
+                                    default:
+                                        <i class="bi bi-circle"></i>
+                                        break;
+                                }
+                            </div>
+
+                            <div class="dropdown" @onclick:stopPropagation="true">
+                                <button class="btn-icon-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-three-dots"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-dark shadow-lg border-0">
+                                    @if (lesson.Status == LessonStatus.Active)
+                                    {
+                                        <li>
+                                            <a class="dropdown-item text-warning d-flex align-items-center gap-2" href="#"
+                                               @onclick="() => ArchiveLesson(lesson.Id)"
+                                               @onclick:preventDefault>
+                                                <i class="bi bi-archive"></i> Arşive Al
+                                            </a>
+                                        </li>
+                                    }
+                                    else
+                                    {
+                                        <li>
+                                            <a class="dropdown-item text-success d-flex align-items-center gap-2" href="#"
+                                               @onclick="() => RestoreLesson(lesson.Id)"
+                                               @onclick:preventDefault>
+                                                <i class="bi bi-box-arrow-up"></i> Arşivden Çıkar
+                                            </a>
+                                        </li>
+                                    }
+                                    <li>
+                                        <a class="dropdown-item text-danger d-flex align-items-center gap-2" href="#"
+                                           @onclick="() => ConfirmDelete(lesson.Id)"
+                                           @onclick:preventDefault>
+                                            <i class="bi bi-trash"></i> Sil
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <h3 class="lesson-title">@lesson.Name</h3>
+
+                        <div class="d-flex align-items-center gap-2 mt-2">
+                            <span class="badge-soft">
+                                @switch (lesson.Type)
+                                {
+                                    case LessonType.Academic:
+                                        <span>Akademik</span>
+                                        break;
+                                    case LessonType.Personal:
+                                        <span>Kişisel</span>
+                                        break;
+                                    case LessonType.Work:
+                                        <span>İş</span>
+                                        break;
+                                }
+                            </span>
+                            @if (lesson.Status == LessonStatus.Active)
+                            {
+                                <span class="badge-active">Aktif</span>
+                            }
+                            else if (lesson.Status == LessonStatus.Archived)
+                            {
+                                <span class="badge-soft">Arşivlendi</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="empty-state">
+            <div class="empty-icon"><i class="bi bi-collection"></i></div>
+            <h3>Henüz alan eklenmemiş</h3>
+            <button class="btn-outline mt-3" @onclick="OpenCreateModal">Yeni Oluştur</button>
+        </div>
+    }
+</div>
+
+@if (showCreateModal)
+{
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal fade show d-block" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content custom-modal">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title fw-bold text-white">Yeni Alan Oluştur</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseCreateModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-4">
+                        <label class="form-label text-muted small">ALAN ADI</label>
+                        <input type="text" class="form-control custom-input" @bind="newLesson.Name" placeholder="Örn: Matematik, Spor..." />
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label text-muted small">KATEGORİ</label>
+                        <div class="d-flex gap-2">
+                            <button class="category-select-btn @(newLesson.Type == LessonType.Academic ? "active" : "")" @onclick="() => newLesson.Type = LessonType.Academic"><i class="bi bi-book me-2"></i> Okul</button>
+                            <button class="category-select-btn @(newLesson.Type == LessonType.Personal ? "active" : "")" @onclick="() => newLesson.Type = LessonType.Personal"><i class="bi bi-person-heart me-2"></i> Kişisel</button>
+                            <button class="category-select-btn @(newLesson.Type == LessonType.Work ? "active" : "")" @onclick="() => newLesson.Type = LessonType.Work"><i class="bi bi-briefcase me-2"></i> İş</button>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label text-muted small">RENK SEÇİMİ</label>
+                        <div class="color-palette">
+                            @foreach (var color in colorPalette)
+                            {
+                                <div class="color-circle @(newLesson.Color == color ? "selected" : "")" style="background-color: @color;" @onclick="() => newLesson.Color = color">
+                                    @if (newLesson.Color == color)
+                                    {
+                                        <i class="bi bi-check text-white"></i>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-link text-muted text-decoration-none" @onclick="CloseCreateModal">İptal</button>
+                    <button type="button" class="btn-primary px-4" @onclick="SaveLesson">Oluştur</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showDeleteConfirm)
+{
+    <div class="blur-backdrop">
+        <div class="delete-modal-content fade-in-up">
+            <div class="delete-icon-circle">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+            </div>
+
+            <h4 class="text-white fw-bold mb-2">Emin misin?</h4>
+            <p class="text-muted small mb-4">
+                Bu çalışma alanını ve içindeki tüm görevleri kalıcı olarak silmek üzeresin. Bu işlem geri alınamaz.
+            </p>
+
+            <div class="d-flex gap-3 justify-content-center">
+                <button class="btn-delete-cancel" @onclick="CancelDelete">Kalsın</button>
+                <button class="btn-delete-confirm" @onclick="ProceedDelete">Evet, Sil</button>
+            </div>
+        </div>
+    </div>
+}
+
+
+@code {
+    private List<LessonListItemDto> lessons = new();
+    private CreateLessonDto newLesson = new();
+    private bool isLoading = true;
+    private bool showCreateModal = false;
+    private bool showDeleteConfirm = false;
+    private Guid? lessonIdToDelete = null;
+    private string? actionError;
+
+    private List<string> colorPalette = new() { "#3b82f6", "#10b981", "#ec4899", "#f59e0b", "#8b5cf6", "#ef4444", "#06b6d4", "#6366f1" };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLessons();
+        
+        if (NavManager.Uri.Contains("showAdd=true", StringComparison.OrdinalIgnoreCase))
+        {
+            OpenCreateModal();
+        }
+    }
+
+    private async Task LoadLessons()
+    {
+        isLoading = true;
+        try
+        {
+            lessons = await LessonService.GetAllAsync();
+            actionError = null;
+        }
+        catch (Exception)
+        {
+            actionError = "Dersler yüklenemedi. API çalışıyor mu ve giriş token'ı geçerli mi kontrol edin.";
+            lessons = new();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void GoToWorkspace(Guid id)
+    {
+        NavManager.NavigateTo($"/workspace/{id}");
+    }
+
+    private void OpenCreateModal()
+    {
+        newLesson = new CreateLessonDto { Color = colorPalette[0], Type = LessonType.Academic, Name = "" };
+        showCreateModal = true;
+    }
+    private void CloseCreateModal() => showCreateModal = false;
+
+    private async Task SaveLesson()
+    {
+        if (string.IsNullOrWhiteSpace(newLesson.Name))
+        {
+            actionError = "Lütfen ders adı giriniz.";
+            return;
+        }
+        try
+        {
+            var error = await LessonService.CreateAsync(newLesson);
+            if (error == null)
+            {
+                actionError = null;
+                await LoadLessons();
+                CloseCreateModal();
+            }
+            else
+            {
+                actionError = $"Ders oluşturulamadı: {error}";
+            }
+        }
+        catch (Exception ex)
+        {
+            actionError = $"Ders oluşturulamadı: {ex.Message}";
+        }
+    }
+
+    private void ConfirmDelete(Guid id)
+    {
+        lessonIdToDelete = id;
+        showDeleteConfirm = true;
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteConfirm = false;
+        lessonIdToDelete = null;
+    }
+
+    private async Task ProceedDelete()
+    {
+        if (lessonIdToDelete.HasValue)
+        {
+            var success = await LessonService.DeleteAsync(lessonIdToDelete.Value);
+            if (success) await LoadLessons();
+        }
+        showDeleteConfirm = false;
+        lessonIdToDelete = null;
+    }
+
+    private async Task ArchiveLesson(Guid id)
+    {
+        var success = await LessonService.ArchiveAsync(id);
+        if (success) await LoadLessons();
+    }
+
+    private async Task RestoreLesson(Guid id)
+    {
+        var success = await LessonService.RestoreAsync(id);
+        if (success) await LoadLessons();
+    }
+}
+
+<style>
+    /* ── Lessons Header ────────────────────────────────── */
+    .lessons-header-section {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 8px;
+    }
+
+    .lessons-header-text {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .lessons-page-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-main);
+        margin: 0;
+        line-height: 1.2;
+    }
+
+    .lessons-page-subtitle {
+        font-size: 0.8rem;
+        color: var(--text-dim);
+        margin: 4px 0 0;
+        opacity: 0.85;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .lessons-add-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--accent-blue);
+        color: white;
+        border: none;
+        padding: 10px 18px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        cursor: pointer;
+        transition: background 0.2s, transform 0.15s;
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+
+    .lessons-add-btn:hover {
+        background: #2563eb;
+    }
+
+    .lessons-add-btn:active {
+        transform: scale(0.96);
+    }
+
+    /* ── Mobilde son kart BottomBar'ın altına girmesin ── */
+    .lessons-container {
+        padding-bottom: calc(var(--bottom-bar-height, 70px) + 24px);
+    }
+
+    /* ── Mobilde header dikey düzen ─────────────────────── */
+    @@media (max-width: 480px) {
+        .lessons-header-section {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 14px;
+        }
+
+        .lessons-add-btn {
+            width: 100%;
+            justify-content: center;
+            padding: 12px;
+            border-radius: 14px;
+            font-size: 0.95rem;
+        }
+
+        .lessons-page-title {
+            font-size: 1.35rem;
+        }
+    }
+</style>

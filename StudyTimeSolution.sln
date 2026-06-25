@@ -15,6 +15,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StudyTime.DesktopClient", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StudyTime.Infrastructure.Tests", "StudyTime.Infrastructure.Tests\StudyTime.Infrastructure.Tests.csproj", "{926C7189-075F-4E1E-B2C7-94B6419B3B0B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StudyTime.WebTest", "StudyTime.WebTest\StudyTime.WebTest.csproj", "{6FE0A2B9-8CEC-4538-BA38-210EDBD68CF6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -98,6 +100,18 @@ Global
 		{926C7189-075F-4E1E-B2C7-94B6419B3B0B}.Release|x64.Build.0 = Release|Any CPU
 		{926C7189-075F-4E1E-B2C7-94B6419B3B0B}.Release|x86.ActiveCfg = Release|Any CPU
 		{926C7189-075F-4E1E-B2C7-94B6419B3B0B}.Release|x86.Build.0 = Release|Any CPU
+		{6FE0A2B9-8CEC-4538-BA38-210EDBD68CF6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6FE0A2B9-8CEC-4538-BA38-210EDBD68CF6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6FE0A2B9-8CEC-4538-BA38-210EDBD68CF6}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6FE0A2B9-8CEC-4538-BA38-210EDBD68CF6}.Debug|x64.Build.0 = Debug|Any CPU
+		{6FE0A2B9-8CEC-4538-BA38-210EDBD68CF6}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6FE0A2B9-8CEC-4538-BA38-210EDBD68CF6}.Debug|x86.Build.0 = Debug|Any CPU
+		{6FE0A2B9-8CEC-4538-BA38-210EDBD68CF6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6FE0A2B9-8CEC-4538-BA38-210EDBD68CF6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6FE0A2B9-8CEC-4538-BA38-210EDBD68CF6}.Release|x64.ActiveCfg = Release|Any CPU
+		{6FE0A2B9-8CEC-4538-BA38-210EDBD68CF6}.Release|x64.Build.0 = Release|Any CPU
+		{6FE0A2B9-8CEC-4538-BA38-210EDBD68CF6}.Release|x86.ActiveCfg = Release|Any CPU
+		{6FE0A2B9-8CEC-4538-BA38-210EDBD68CF6}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

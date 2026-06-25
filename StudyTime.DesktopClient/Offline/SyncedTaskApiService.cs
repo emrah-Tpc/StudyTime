@@ -56,7 +56,8 @@ namespace StudyTime.DesktopClient.Offline
                 try
                 {
                     var fresh = await remote.GetTasksByDateRangeAsync(start, end);
-                    await cache.ReplaceAllAsync(fresh);
+                    // Date-range endpoint kismi sonuc doner; tum cache'i replace etmek veri kaybi algisi uretir.
+                    await cache.UpsertAllAsync(fresh);
                     return fresh;
                 }
                 catch

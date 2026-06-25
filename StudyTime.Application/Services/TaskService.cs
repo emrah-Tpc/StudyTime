@@ -31,8 +31,7 @@ namespace StudyTime.Application.Services
             // LAST-WRITE-WINS Conflict Resolution
             if (dto.UpdatedAt.HasValue && task.UpdatedAt.HasValue && dto.UpdatedAt < task.UpdatedAt)
             {
-                // Gelen veri veritabanındakinden eskiyse güncellemeyi yoksay, ancak hata fırlatma (kuyruktan silinsin diye)
-                return;
+                throw new StudyTime.Application.Exceptions.DataConflictException("Task has been modified by another client.");
             }
 
             task.ChangeTitle(dto.Title);
@@ -53,7 +52,8 @@ namespace StudyTime.Application.Services
             var task = await _taskRepository.GetByIdAsync(taskId);
             if (task is null) throw new InvalidOperationException("Task not found.");
 
-            if (updatedAt.HasValue && task.UpdatedAt.HasValue && updatedAt < task.UpdatedAt) return;
+            if (updatedAt.HasValue && task.UpdatedAt.HasValue && updatedAt < task.UpdatedAt) 
+                throw new StudyTime.Application.Exceptions.DataConflictException("Task has been modified by another client.");
 
             task.Complete();
             task.UpdatedAt = updatedAt ?? DateTime.UtcNow;
@@ -66,7 +66,8 @@ namespace StudyTime.Application.Services
             var task = await _taskRepository.GetByIdAsync(taskId);
             if (task is null) throw new InvalidOperationException("Task not found.");
 
-            if (updatedAt.HasValue && task.UpdatedAt.HasValue && updatedAt < task.UpdatedAt) return;
+            if (updatedAt.HasValue && task.UpdatedAt.HasValue && updatedAt < task.UpdatedAt) 
+                throw new StudyTime.Application.Exceptions.DataConflictException("Task has been modified by another client.");
 
             task.Cancel();
             task.UpdatedAt = updatedAt ?? DateTime.UtcNow;
@@ -79,7 +80,8 @@ namespace StudyTime.Application.Services
             var task = await _taskRepository.GetByIdAsync(taskId);
             if (task is null) throw new InvalidOperationException("Task not found.");
 
-            if (updatedAt.HasValue && task.UpdatedAt.HasValue && updatedAt < task.UpdatedAt) return;
+            if (updatedAt.HasValue && task.UpdatedAt.HasValue && updatedAt < task.UpdatedAt) 
+                throw new StudyTime.Application.Exceptions.DataConflictException("Task has been modified by another client.");
 
             task.Reopen();
             task.UpdatedAt = updatedAt ?? DateTime.UtcNow;
@@ -92,7 +94,8 @@ namespace StudyTime.Application.Services
             var task = await _taskRepository.GetByIdAsync(id);
             if (task is null) throw new InvalidOperationException("Task not found.");
 
-            if (updatedAt.HasValue && task.UpdatedAt.HasValue && updatedAt < task.UpdatedAt) return;
+            if (updatedAt.HasValue && task.UpdatedAt.HasValue && updatedAt < task.UpdatedAt) 
+                throw new StudyTime.Application.Exceptions.DataConflictException("Task has been modified by another client.");
 
             // 1. TaskItem içindeki Delete metodunu çağır (IsDeleted = true yapar)
             task.Delete();

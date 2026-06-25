@@ -1,4 +1,4 @@
-﻿@using StudyTime.DesktopClient.Services
+@using StudyTime.DesktopClient.Services
 @using Microsoft.AspNetCore.Components.Routing
 @implements IDisposable
 
@@ -94,21 +94,12 @@
         Nav.LocationChanged += OnLocationChanged;
         NotificationService.OnNotificationsChanged += OnNotificationsChanged;
         NotificationService.OnCenterStateChanged += OnNotificationsChanged;
-
-        // MOCK BİLDİRİMLER (Demostrasyon için)
-        if (!NotificationService.Notifications.Any())
-        {
-            NotificationService.AddNotification("Bulut Yedekleme", "Çalışma verilerin başarıyla yedeklendi.", NotificationCategory.System);
-            NotificationService.AddNotification("Haftalık Hedef", "Haftalık 20 saatlik hedefine ulaşmak üzeresin! 🚀", NotificationCategory.Motivation);
-            NotificationService.AddNotification("İpucu", "2 saattir aralıksız çalışıyorsan bir mola vermeyi unutma.", NotificationCategory.Awareness);
-        }
     }
 
     private void ToggleNotifications() => isNotificationOpen = !isNotificationOpen;
 
     private async Task ShowProfileInfo()
     {
-        // "Kullanıcı kısmı daha yapılmadığı için es geçebilirsin" talebine istinaden şimdilik alert
         if (Shell.Current != null) await Shell.Current.DisplayAlert("Profil", "Kullanıcı sistemi yakında eklenecek!", "Tamam");
     }
 

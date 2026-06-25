@@ -19,7 +19,9 @@ namespace StudyTime.DesktopClient.Offline
         LocalDb              localDb,
         OutboxProcessor      outbox,
         ConnectivityService  connectivity,
-        LocalSnapshotCache   snapshotCache)
+        LocalSnapshotCache   snapshotCache,
+        LocalStudySessionCache sessionCache,
+        LocalUserContext     userContext)
     {
         private async Task<Guid> ResolveToServerSessionIdAsync(Guid sessionId)
         {
@@ -36,6 +38,12 @@ namespace StudyTime.DesktopClient.Offline
                 await conn.DeleteAsync(row);
         }
 
+        // ── Aktif Seans Belleği ────────────────────────────────────────────────
+        // Start anında oturum bilgilerini hafızada tutarız; Stop anında LocalStudySessionCache'e yazmak için kullanırız.
+        // LocalSessionAnalytics bu cache'e bakarak "Bugün çalışılan süre" yi hesaplar.
+        private readonly Dictionary<Guid, (Guid LessonId, Guid? TaskId, bool IsBreak, DateTime StartedAt)>
+            _activeSessions = new();
+
         // ── START ─────────────────────────────────────────────────────────────
 
         /// <summary>
@@ -46,15 +54,20 @@ namespace StudyTime.DesktopClient.Offline
         /// </summary>
         public async Task<Guid> StartSessionAsync(Guid lessonId, Guid? taskId, bool isBreak = false)
         {
+            Guid sessionId;
+
             if (connectivity.IsOnline)
             {
                 try
                 {
-                    using var scope     = scopeFactory.CreateScope();
+                    using var scope = scopeFactory.CreateScope();
                     var remote = scope.ServiceProvider.GetRequiredService<StudySessionApiService>();
-                    var sessionId = await remote.StartSessionAsync(lessonId, taskId, isBreak);
+                    sessionId = await remote.StartSessionAsync(lessonId, taskId, isBreak);
                     if (sessionId != Guid.Empty)
+                    {
+                        _activeSessions[sessionId] = (lessonId, taskId, isBreak, DateTime.UtcNow);
                         return sessionId;
+                    }
                 }
                 catch
                 {
@@ -72,6 +85,7 @@ namespace StudyTime.DesktopClient.Offline
                 IsBreak        = isBreak,
                 StartedAt      = DateTime.UtcNow
             });
+            _activeSessions[localId] = (lessonId, taskId, isBreak, DateTime.UtcNow);
             return localId;
         }
 
@@ -80,10 +94,13 @@ namespace StudyTime.DesktopClient.Offline
         /// <summary>
         /// Oturumu bitirir.
         /// Online → uzak API. Offline → outbox'a ekle.
+        /// Her iki durumda da LocalStudySessionCache'e tamamlanmış oturum kaydı yazılır.
+        /// Bu sayede LocalSessionAnalytics her zaman veriyi bulur (0dk sorununun kök nedeni).
         /// </summary>
         public async Task StopSessionAsync(Guid sessionId)
         {
-            var resolved = await ResolveToServerSessionIdAsync(sessionId);
+            var stoppedAt = DateTime.UtcNow;
+            var resolved  = await ResolveToServerSessionIdAsync(sessionId);
 
             if (connectivity.IsOnline)
             {
@@ -94,6 +111,8 @@ namespace StudyTime.DesktopClient.Offline
                     await remote.StopSessionAsync(resolved);
                     await RemoveLocalMappingAsync(sessionId);
                     await snapshotCache.InvalidateDashboardAndStatisticsAsync();
+                    await WriteSessionToCacheAsync(sessionId, stoppedAt);  // ← KRİTİK FIX
+                    _activeSessions.Remove(sessionId);
                     return;
                 }
                 catch
@@ -105,10 +124,53 @@ namespace StudyTime.DesktopClient.Offline
             await outbox.EnqueueAsync("StudySession", "Stop", new StudySessionStopPayload
             {
                 LocalSessionId = sessionId,
-                StoppedAt      = DateTime.UtcNow
+                StoppedAt      = stoppedAt
             });
 
             await snapshotCache.InvalidateDashboardAndStatisticsAsync();
+            await WriteSessionToCacheAsync(sessionId, stoppedAt);  // ← KRİTİK FIX (offline da)
+            _activeSessions.Remove(sessionId);
+        }
+
+        /// <summary>
+        /// Tamamlanan oturumu LocalStudySessionCache'e yazar.
+        /// LocalSessionAnalytics bu cache'den okuyarak Dashboard ve İstatistikler için süre hesaplar.
+        /// </summary>
+        private async Task WriteSessionToCacheAsync(Guid sessionId, DateTime stoppedAt)
+        {
+            try
+            {
+                if (!_activeSessions.TryGetValue(sessionId, out var info))
+                    return;
+
+                var uid = userContext.UserId;
+                if (string.IsNullOrEmpty(uid))
+                    return;
+
+                var duration = stoppedAt > info.StartedAt
+                    ? (long)(stoppedAt - info.StartedAt).TotalSeconds
+                    : 0;
+
+                if (duration <= 0) return;
+
+                var entry = new StudySessionCacheEntry
+                {
+                    Id              = sessionId,
+                    LessonId        = info.LessonId,
+                    TaskId          = info.TaskId,
+                    IsBreak         = info.IsBreak,
+                    StartedAt       = info.StartedAt,
+                    EndedAt         = stoppedAt,
+                    DurationSeconds = duration,
+                    LessonName      = string.Empty,   // analitik için gerekmiyor
+                    LessonColor     = string.Empty,
+                    CachedAt        = DateTime.UtcNow,
+                    UserId          = uid
+                };
+
+                await sessionCache.UpsertAllAsync(new[] { entry });
+            }
+            catch { /* yoksay — veri kaybı önlenemez ama crash olmamalı */ }
         }
 
         // ── PAUSE / RESUME ────────────────────────────────────────────────────

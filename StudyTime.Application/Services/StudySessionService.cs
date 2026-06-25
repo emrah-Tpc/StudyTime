@@ -7,10 +7,12 @@ namespace StudyTime.Application.Services
     public class StudySessionService
     {
         private readonly IStudySessionRepository _studySessionRepository;
+        private readonly ILessonRepository _lessonRepository;
 
-        public StudySessionService(IStudySessionRepository studySessionRepository)
+        public StudySessionService(IStudySessionRepository studySessionRepository, ILessonRepository lessonRepository)
         {
             _studySessionRepository = studySessionRepository;
+            _lessonRepository = lessonRepository;
         }
 
         // ▶ START
@@ -20,6 +22,13 @@ namespace StudyTime.Application.Services
             if (activeSession != null)
             {
                 throw new InvalidOperationException("ACTIVE_SESSION_EXISTS");
+            }
+
+            // Ders var mı kontrolü
+            var lessonExists = await _lessonRepository.ExistsAsync(dto.LessonId);
+            if (!lessonExists)
+            {
+                throw new KeyNotFoundException("LESSON_NOT_FOUND");
             }
 
             var session = new StudySession(dto.LessonId, dto.TaskId, dto.IsBreak);
@@ -39,9 +48,10 @@ namespace StudyTime.Application.Services
         {
             var session = await _studySessionRepository.GetByIdAsync(sessionId);
             if (session is null)
-                throw new InvalidOperationException("Study session not found.");
+                return; // Idempotent stop: istemci tarafinda stale/local id gelebilir.
 
-            if (updatedAt.HasValue && session.UpdatedAt.HasValue && updatedAt < session.UpdatedAt) return;
+            if (updatedAt.HasValue && session.UpdatedAt.HasValue && updatedAt < session.UpdatedAt) 
+                throw new StudyTime.Application.Exceptions.DataConflictException("Session has been modified by another client.");
 
             session.Stop();
             session.UpdatedAt = updatedAt ?? DateTime.UtcNow;
@@ -54,9 +64,10 @@ namespace StudyTime.Application.Services
         {
             var session = await _studySessionRepository.GetByIdAsync(sessionId);
             if (session is null)
-                throw new InvalidOperationException("Study session not found.");
+                return;
 
-            if (updatedAt.HasValue && session.UpdatedAt.HasValue && updatedAt < session.UpdatedAt) return;
+            if (updatedAt.HasValue && session.UpdatedAt.HasValue && updatedAt < session.UpdatedAt) 
+                throw new StudyTime.Application.Exceptions.DataConflictException("Session has been modified by another client.");
 
             session.Pause();
             session.UpdatedAt = updatedAt ?? DateTime.UtcNow;
@@ -68,9 +79,10 @@ namespace StudyTime.Application.Services
         {
             var session = await _studySessionRepository.GetByIdAsync(sessionId);
             if (session is null)
-                throw new InvalidOperationException("Study session not found.");
+                return;
 
-            if (updatedAt.HasValue && session.UpdatedAt.HasValue && updatedAt < session.UpdatedAt) return;
+            if (updatedAt.HasValue && session.UpdatedAt.HasValue && updatedAt < session.UpdatedAt) 
+                throw new StudyTime.Application.Exceptions.DataConflictException("Session has been modified by another client.");
 
             session.Resume();
             session.UpdatedAt = updatedAt ?? DateTime.UtcNow;

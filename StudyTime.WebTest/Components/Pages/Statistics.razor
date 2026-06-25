@@ -1,0 +1,763 @@
+@page "/statistics"
+@using StudyTime.Application.DTOs.Statistics
+@using StudyTime.DesktopClient.Services
+@using StudyTime.DesktopClient.Offline
+@using StudyTime.WebTest.Components.Charts
+@using ApexCharts
+@inject SyncedStatisticsApiService StatisticsService
+@inject GlobalTimerService GlobalTimerService
+@inject SyncStatusService SyncStatusService
+@implements IDisposable
+
+<div class="statistics-container fade-in">
+    <div class="statistics-header-section mb-4">
+        <div class="stat-header-text">
+            <h1 class="stat-page-title">İstatistikler</h1>
+            <p class="stat-page-subtitle">Çalışma verilerini analiz et</p>
+        </div>
+
+        <div class="stat-range-filters">
+            @foreach (var r in new[] { "7days", "30days", "3months" })
+            {
+               <button class="stat-range-btn @(selectedRange == r ? "active" : "")" 
+                       @onclick="() => SetRange(r)">
+                   @(r == "7days" ? "7 Gün" : r == "30days" ? "30 Gün" : "3 Ay")
+               </button>
+            }
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center align-items-center" style="height: 60vh;">
+            <div class="spinner-border text-primary"></div>
+        </div>
+    }
+    else if (summary != null)
+    {
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-lg-8">
+                        <div class="st-card h-100">
+                    <div class="card-header py-2">
+                        <span class="card-title text-white small text-uppercase fw-bold ls-1">Çalışma Geçmişi</span>
+                    </div>
+                    <div style="height: 220px; overflow: hidden; max-width: 100%;">
+                        @if(summary.StudyTrends.Any())
+                        {
+                             <ApexChart TItem="TimeTrendDto"
+                                   Title=""
+                                   Height="200" 
+                                   Width="@("100%")"
+                                   Options="trendOptions">
+                                <ApexPointSeries TItem="TimeTrendDto"
+                                                 Items="summary.StudyTrends"
+                                                 Name="Süre (dk)"
+                                                 SeriesType="SeriesType.Area"
+                                                 XValue="@(e => e.Label)"
+                                                 YValue="@(e => (decimal)Math.Round(e.Value))"
+                                                 Color="#3b82f6"/>
+                            </ApexChart>
+                        }
+                        else
+                        {
+                            <div class="d-flex align-items-center justify-content-center h-100 text-white opacity-50">
+                                Veri yok
+                            </div>
+                        }
+                    </div>
+                 </div>
+            </div>
+            <div class="col-12 col-lg-4">
+                <div class="d-flex flex-column gap-3 h-100">
+                    <div class="st-card flex-grow-1 d-flex align-items-center p-3">
+                        <div class="icon-box bg-primary bg-opacity-10 text-primary me-3 rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                            <i class="bi bi-stack fs-4"></i>
+                        </div>
+                        <div>
+                            <div class="fs-3 fw-bold text-white">@summary.TotalSessions</div>
+                            <div class="small opacity-50 text-white">Toplam Oturum</div>
+                        </div>
+                    </div>
+                    
+                     <div class="st-card flex-grow-1 d-flex align-items-center p-3">
+                        <div class="icon-box bg-success bg-opacity-10 text-success me-3 rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                            <i class="bi bi-stopwatch fs-4"></i>
+                        </div>
+                        <div>
+                            <div class="fs-3 fw-bold text-white">@((int)Math.Round(summary.AverageSessionDuration)) <span class="fs-6 opacity-50 fw-normal">dk</span></div>
+                            <div class="small opacity-50 text-white">Ortalama Oturum</div>
+                        </div>
+                    </div>
+
+                     <div class="st-card flex-grow-1 d-flex align-items-center p-3">
+                        <div class="icon-box bg-warning bg-opacity-10 text-warning me-3 rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                            <i class="bi bi-calendar-check fs-4"></i>
+                        </div>
+                        <div>
+                            <div class="fs-3 fw-bold text-white">@summary.MostProductiveDay</div>
+                            <div class="small opacity-50 text-white">En Verimli Gün</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-md-6">
+                 <div class="st-card h-100" style="overflow: visible;">
+                    <div class="card-header">
+                        <span class="card-title text-white small text-uppercase fw-bold ls-1">Ders Dağılımı</span>
+                    </div>
+                    <div style="height: 300px; overflow: visible;">
+                        @if(summary.LessonStatistics.Any())
+                        {
+                            <ApexChart TItem="LessonStatisticDto"
+                                   Title=""
+                                   Height="300" 
+                                   Options="pieOptions">
+                                <ApexPointSeries TItem="LessonStatisticDto"
+                                                 Items="summary.LessonStatistics"
+                                                 Name="Süre"
+                                                 SeriesType="SeriesType.Donut"
+                                                 XValue="@(e => e.LessonName)"
+                                                 YValue="@(e => (decimal)Math.Round(e.TotalDurationMinutes))" />
+                            </ApexChart>
+                        }
+                        else
+                        {
+                            <div class="d-flex align-items-center justify-content-center h-100 st-muted-text opacity-50">
+                                Veri yok
+                            </div>
+                        }
+                    </div>
+                 </div>
+            </div>
+             <div class="col-12 col-md-6">
+                 <div class="st-card h-100 peak-card">
+                    @{
+                        var peakWindow     = summary.PeakProductivity.FirstOrDefault(p => p.IsPeakRange);
+                        var totalPeakMins  = (int)Math.Round(peakWindow?.Score ?? 0);
+                        var totalMinsAll   = (int)Math.Round(summary.TotalStudyTime.TotalMinutes);
+                        var peakScore      = totalMinsAll > 0 ? (int)Math.Round((double)totalPeakMins / totalMinsAll * 100) : 0;
+                        var peakStartHour  = peakWindow?.Hour ?? -1;
+                        var peakEndHour    = peakStartHour >= 0 ? peakStartHour + 3 : -1;
+                    }
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span class="card-title text-white small text-uppercase fw-bold ls-1">En Verimli Aralık</span>
+                        @if (peakWindow != null && peakWindow.Score > 0)
+                        {
+                            <span class="peak-badge">
+                                <i class="bi bi-lightning-fill me-1"></i>@peakWindow.Label
+                            </span>
+                        }
+                    </div>
+
+                    <div class="peak-body">
+                        @if (peakWindow != null && peakWindow.Score > 0)
+                        {
+                            <div class="peak-kpi-row">
+                                <div class="peak-kpi-card peak-kpi-card--gold">
+                                    <div class="peak-kpi-label">⚡ Altın Saatler</div>
+                                    <div class="peak-kpi-value">@peakWindow.Label</div>
+                                </div>
+                                <div class="peak-kpi-card">
+                                    <div class="peak-kpi-label">Toplam Odak</div>
+                                    <div class="peak-kpi-value">@totalPeakMins <span class="peak-kpi-unit">dk</span></div>
+                                </div>
+                                <div class="peak-kpi-card">
+                                    <div class="peak-kpi-label">Yoğunluk</div>
+                                    <div class="peak-kpi-value">%@peakScore</div>
+                                </div>
+                            </div>
+
+                            <div style="height: 220px; width: 100%; margin-top: 20px;">
+                                <ApexChart TItem="ProductivityDto" Title="" Height="200" Width="@("100%")" Options="barOptions">
+                                    <ApexPointSeries TItem="ProductivityDto" Items="summary.PeakProductivity" Name="Odak (dk)" SeriesType="SeriesType.Bar" XValue="@(e => e.Label)" YValue="@(e => (decimal)Math.Round(e.Score))" />
+                                </ApexChart>
+                            </div>
+
+                            <div class="peak-timeline-wrap">
+                                <div class="peak-timeline">
+                                    @for (int h = 0; h < 24; h++)
+                                    {
+                                        bool isPeak = h >= peakStartHour && h < peakEndHour;
+                                        <div class="peak-segment @(isPeak ? "peak-segment--active" : "")"
+                                             title="@(isPeak ? $"{peakWindow.Label} — {totalPeakMins} dk odak" : $"{h:D2}:00")">
+                                            @if (isPeak && h == peakStartHour)
+                                            {
+                                                <div class="peak-glow-label">@peakWindow.Label</div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                                <div class="peak-timeline-labels">
+                                    @for (int h = 0; h <= 24; h += 3)
+                                    {
+                                        <span>@($"{h:D2}:00")</span>
+                                    }
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="d-flex align-items-center justify-content-center h-100 st-muted-text opacity-50">
+                                <i class="bi bi-clock me-2"></i> Henüz yeterli veri yok
+                            </div>
+                        }
+                    </div>
+                 </div>
+            </div>
+        </div>
+
+        <div class="st-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="card-title text-white small text-uppercase fw-bold ls-1">En Uzun Süren Görevler (Top 5)</span>
+                <span class="badge bg-secondary bg-opacity-25 text-white">Tamamlanan</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-dark table-borderless table-hover align-middle mb-0" style="background: transparent;">
+                    <thead class="border-bottom border-secondary border-opacity-25">
+                        <tr>
+                            <th class="text-white opacity-50 fw-normal py-3 ps-4" style="background-color: transparent;">GÖREV</th>
+                            <th class="text-white opacity-50 fw-normal py-3" style="background-color: transparent;">DERS</th>
+                            <th class="text-white opacity-50 fw-normal py-3 text-end pe-4" style="background-color: transparent;">SÜRE</th>
+                        </tr>
+                    </thead>
+                    <tbody style="border-top: none;">
+                        @if(summary.TaskStatistics.Any())
+                        {
+                            @foreach(var task in summary.TaskStatistics)
+                            {
+                                <tr style="background-color: transparent;">
+                                    <td class="ps-4" style="background-color: transparent;">
+                                        <div class="d-flex align-items-center">
+                                            <div class="rounded-circle bg-success bg-opacity-25 p-1 me-3 d-flex justify-content-center align-items-center" style="width: 24px; height: 24px;">
+                                                <i class="bi bi-check text-success small"></i>
+                                            </div>
+                                            <span class="text-white fw-medium">@task.Title</span>
+                                        </div>
+                                    </td>
+                                    <td style="background-color: transparent;">
+                                        <span class="badge bg-dark border border-secondary border-opacity-25 text-white fw-normal px-3 py-2 rounded-pill">
+                                            @task.LessonName
+                                        </span>
+                                    </td>
+                                    <td class="text-end pe-4" style="background-color: transparent;">
+                                        <span class="text-white fw-bold font-monospace">@Math.Round(task.DurationMinutes) dk</span>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="3" class="text-center py-4 text-white opacity-50" style="background-color: transparent;">
+                                    Kayıt bulunamadı
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="st-card mt-0">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="card-title text-white small text-uppercase fw-bold ls-1">Günlük Seans Analizi</span>
+                    <span class="text-white opacity-40 small ms-2">— her kare bir güne ait</span>
+                </div>
+                <div class="heatmap-legend d-flex align-items-center gap-2">
+                    <span class="text-white opacity-40 small">Az</span>
+                    <div class="heatmap-legend-cells">
+                        <div class="heatmap-cell" style="background: rgba(59,130,246,0.1)"></div>
+                        <div class="heatmap-cell" style="background: rgba(59,130,246,0.3)"></div>
+                        <div class="heatmap-cell" style="background: rgba(59,130,246,0.55)"></div>
+                        <div class="heatmap-cell" style="background: rgba(59,130,246,0.8)"></div>
+                        <div class="heatmap-cell" style="background: #3b82f6"></div>
+                    </div>
+                    <span class="text-white opacity-40 small">Çok</span>
+                </div>
+            </div>
+
+            @if (summary.DailySessionCounts.Any())
+            {
+                var maxCount = summary.DailySessionCounts.Max(d => d.SessionCount);
+
+                <div class="heatmap-grid">
+                    @foreach (var day in summary.DailySessionCounts)
+                    {
+                        var intensity = maxCount > 0 && day.SessionCount > 0
+                            ? Math.Max(0.12, (double)day.SessionCount / maxCount)
+                            : 0.0;
+                        var hasData = day.SessionCount > 0;
+                        var bgStyle = hasData
+                            ? $"background: {day.DominantColor}; opacity: {intensity.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)};"
+                            : "background: rgba(255,255,255,0.05);";
+                        var label = $"{day.Date:dd MMM} — {day.SessionCount} seans";
+
+                        <div class="heatmap-cell heatmap-cell--day @(hasData ? "has-data" : "")"
+                             title="@label"
+                             style="@bgStyle; --cell-color: @day.DominantColor">
+                            @if (hasData)
+                            {
+                                <span class="heatmap-count">@day.SessionCount</span>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <div class="heatmap-day-labels mt-2">
+                    @foreach (var day in summary.DailySessionCounts)
+                    {
+                        <div class="heatmap-day-label">@day.Date.ToString("dd")</div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="d-flex align-items-center justify-content-center py-4 text-white opacity-40">
+                    <i class="bi bi-calendar-x me-2"></i> Bu dönemde seans verisi yok
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private StatisticsSummaryDto? summary;
+    private bool isLoading = true;
+    private string selectedRange = "7days";
+
+    private ApexChartOptions<TimeTrendDto> trendOptions = new();
+    private ApexChartOptions<LessonStatisticDto> pieOptions = new();
+    private ApexChartOptions<ProductivityDto> barOptions = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        selectedRange = "7days"; // Default filtre garanti
+        GlobalTimerService.OnTimerFinished += OnSessionOrSyncRefresh;
+        GlobalTimerService.OnBreakFinished += OnSessionOrSyncRefresh;
+        GlobalTimerService.OnTimerStopped += OnSessionOrSyncRefresh;
+        SyncStatusService.OnChange += OnSessionOrSyncRefresh;
+
+        ConfigureCharts();
+        await LoadData();
+    }
+
+    private void BuildBarColors()
+    {
+        if (summary == null) return;
+        var colors = summary.PeakProductivity.Select(p =>
+            p.IsPeakRange ? "#3b82f6" : "rgba(100,116,139,0.25)"
+        ).ToArray();
+        barOptions.Colors = colors.ToList();
+        barOptions.Fill = new Fill { Colors = colors.ToList() };
+    }
+
+    private void OnSessionOrSyncRefresh()
+    {
+        InvokeAsync(async () =>
+        {
+            await LoadData();
+        });
+    }
+
+    public void Dispose()
+    {
+        GlobalTimerService.OnTimerFinished -= OnSessionOrSyncRefresh;
+        GlobalTimerService.OnBreakFinished -= OnSessionOrSyncRefresh;
+        GlobalTimerService.OnTimerStopped -= OnSessionOrSyncRefresh;
+        SyncStatusService.OnChange -= OnSessionOrSyncRefresh;
+    }
+
+    private async Task SetRange(string range)
+    {
+        selectedRange = range;
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        try
+        {
+            summary = await StatisticsService.GetStatisticsAsync(selectedRange);
+            BuildBarColors();
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ConfigureCharts()
+    {
+        // Trend — zoom kapat, tam genişlik, sabit küçük yükseklik
+        trendOptions.Chart = new Chart 
+        { 
+            Toolbar = new Toolbar { Show = false }, 
+            Background = "transparent", 
+            ForeColor = "#94a3b8",
+            Width = "100%",
+            ParentHeightOffset = 0,
+            Zoom = new Zoom { Enabled = false }
+        };
+        trendOptions.Theme = new Theme { Mode = Mode.Dark };
+        trendOptions.Stroke = new Stroke { Curve = Curve.Smooth, Width = 2 };
+        trendOptions.Grid = new Grid { Show = true, BorderColor = "#374151", StrokeDashArray = 4, Padding = new Padding { Left = 0, Right = 0, Bottom = 0 } };
+        trendOptions.Xaxis = new XAxis { 
+            AxisBorder = new AxisBorder { Show = false }, 
+            AxisTicks = new AxisTicks { Show = false },
+            Labels = new XAxisLabels { 
+                Style = new AxisLabelStyle { Colors = "#94a3b8", FontSize = "10px" },
+                Rotate = -30
+            },
+            TickAmount = 5
+        };
+        trendOptions.Fill = new Fill { Type = FillType.Gradient, Gradient = new FillGradient { ShadeIntensity = 1, OpacityFrom = 0.4, OpacityTo = 0.05, Stops = new List<double> { 0, 100 } } };
+        trendOptions.Tooltip = new Tooltip { Theme = Mode.Dark };
+        // Responsive: büyük breakpoint ile MAUI'de her çözünürlükte küçük yükseklik garantile
+        trendOptions.Responsive = new List<Responsive<TimeTrendDto>> 
+        { 
+            new Responsive<TimeTrendDto> 
+            { 
+                Breakpoint = 3000, 
+                Options = new ApexChartOptions<TimeTrendDto> 
+                { 
+                    Chart = new Chart { Height = 180, Width = "100%" },
+                    Xaxis = new XAxis 
+                    { 
+                        Labels = new XAxisLabels 
+                        { 
+                            Show = true,
+                            Rotate = -30,
+                            Style = new AxisLabelStyle { Colors = "#94a3b8", FontSize = "9px" }
+                        },
+                        TickAmount = 5
+                    }
+                } 
+            }
+        };
+
+        pieOptions.Chart = new Chart { Toolbar = new Toolbar { Show = false }, Background = "transparent", ForeColor = "#94a3b8", Width = "100%", ParentHeightOffset = 0, Zoom = new Zoom { Enabled = false } };
+        pieOptions.Theme = new Theme { Mode = Mode.Dark, Palette = PaletteType.Palette1 };
+        pieOptions.Stroke = new Stroke { Show = false };
+        pieOptions.Legend = new Legend { Position = LegendPosition.Bottom, HorizontalAlign = Align.Center };
+        pieOptions.PlotOptions = new PlotOptions { Pie = new PlotOptionsPie { Donut = new PlotOptionsDonut { Size = "70%" } } };
+        pieOptions.Tooltip = new Tooltip { Theme = Mode.Dark, Y = new TooltipY { Formatter = @"function(val) { return Math.round(val) + ' dk' }" } };
+        pieOptions.Responsive = new List<Responsive<LessonStatisticDto>>
+        {
+            new Responsive<LessonStatisticDto>
+            {
+                Breakpoint = 3000,
+                Options = new ApexChartOptions<LessonStatisticDto>
+                {
+                    Chart = new Chart { Height = 260, Width = "100%" },
+                    Legend = new Legend { Position = LegendPosition.Bottom }
+                }
+            }
+        };
+
+        barOptions.Chart = new Chart { Toolbar = new Toolbar { Show = false }, Background = "transparent", ForeColor = "#94a3b8", Width = "100%", ParentHeightOffset = 0, Zoom = new Zoom { Enabled = false } };
+        barOptions.Theme = new Theme { Mode = Mode.Dark };
+        barOptions.Grid = new Grid { Show = true, BorderColor = "rgba(148,163,184,0.1)", StrokeDashArray = 4, Padding = new Padding { Left = 0, Right = 0, Bottom = 0 } };
+        barOptions.Xaxis = new XAxis
+        {
+            AxisBorder = new AxisBorder { Show = false },
+            AxisTicks  = new AxisTicks  { Show = false },
+            Labels     = new XAxisLabels { Rotate = -45, Style = new AxisLabelStyle { Colors = "#94a3b8", FontSize = "9px" } }
+        };
+        barOptions.PlotOptions = new PlotOptions { Bar = new PlotOptionsBar { BorderRadius = 4, ColumnWidth = "70%" } };
+        barOptions.Responsive = new List<Responsive<ProductivityDto>>
+        {
+            new Responsive<ProductivityDto>
+            {
+                Breakpoint = 3000,
+                Options = new ApexChartOptions<ProductivityDto>
+                {
+                    Chart = new Chart { Height = 200, Width = "100%" }
+                }
+            }
+        };
+    }
+}
+
+<style>
+    .peak-badge {
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        padding: 3px 10px;
+        border-radius: 999px;
+        background: rgba(59, 130, 246, 0.15);
+        border: 1px solid rgba(59, 130, 246, 0.4);
+        color: #3b82f6;
+        text-transform: uppercase;
+    }
+
+    :root[data-theme="light"] .peak-badge {
+        background: rgba(59, 130, 246, 0.12);
+        border-color: rgba(59, 130, 246, 0.5);
+        color: #1d4ed8;
+    }
+
+    .st-muted-text {
+        color: var(--st-text-secondary, #94a3b8);
+    }
+    :root[data-theme="light"] .st-muted-text {
+        color: #64748b;
+    }
+
+    .peak-card {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .peak-body {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 16px 20px 20px;
+        gap: 18px;
+        justify-content: space-between;
+    }
+
+    .peak-kpi-row {
+        display: flex;
+        gap: 10px;
+    }
+
+    .peak-kpi-card {
+        flex: 1;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+    }
+    :root[data-theme="light"] .peak-kpi-card {
+        background: rgba(0,0,0,0.04);
+        border-color: rgba(0,0,0,0.08);
+    }
+
+    .peak-kpi-card--gold {
+        background: rgba(59,130,246,0.1);
+        border-color: rgba(59,130,246,0.35);
+    }
+    :root[data-theme="light"] .peak-kpi-card--gold {
+        background: rgba(59,130,246,0.08);
+        border-color: rgba(59,130,246,0.4);
+    }
+
+    .peak-kpi-label {
+        font-size: 0.65rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #64748b;
+        margin-bottom: 4px;
+    }
+
+    .peak-kpi-card--gold .peak-kpi-label {
+        color: #60a5fa;
+    }
+    :root[data-theme="light"] .peak-kpi-card--gold .peak-kpi-label {
+        color: #2563eb;
+    }
+
+    .peak-kpi-value {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #f1f5f9;
+        line-height: 1.1;
+    }
+    :root[data-theme="light"] .peak-kpi-value {
+        color: #0f172a;
+    }
+
+    .peak-kpi-card--gold .peak-kpi-value {
+        color: #93c5fd;
+    }
+    :root[data-theme="light"] .peak-kpi-card--gold .peak-kpi-value {
+        color: #1d4ed8;
+    }
+
+    .peak-kpi-unit {
+        font-size: 0.7rem;
+        font-weight: 400;
+        color: #64748b;
+    }
+
+    .peak-timeline-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .peak-timeline {
+        display: grid;
+        grid-template-columns: repeat(24, 1fr);
+        height: 52px;
+        border-radius: 8px;
+        overflow: hidden;
+        gap: 2px;
+        background: transparent;
+    }
+
+    .peak-segment {
+        background: rgba(148,163,184,0.08);
+        border-radius: 3px;
+        position: relative;
+        transition: background 0.2s ease;
+        cursor: default;
+    }
+    :root[data-theme="light"] .peak-segment {
+        background: rgba(0,0,0,0.06);
+    }
+
+    .peak-segment--active {
+        background: rgba(59, 130, 246, 0.75);
+        box-shadow: 0 0 18px rgba(59, 130, 246, 0.55), 0 0 6px rgba(59, 130, 246, 0.9);
+        border-radius: 3px;
+        z-index: 2;
+    }
+    :root[data-theme="light"] .peak-segment--active {
+        background: rgba(37, 99, 235, 0.7);
+        box-shadow: 0 0 14px rgba(37,99,235,0.4), 0 0 4px rgba(37,99,235,0.8);
+    }
+
+    .peak-glow-label {
+        position: absolute;
+        bottom: -26px;
+        left: 0;
+        white-space: nowrap;
+        font-size: 0.65rem;
+        font-weight: 700;
+        color: #60a5fa;
+        letter-spacing: 0.05em;
+        pointer-events: none;
+    }
+    :root[data-theme="light"] .peak-glow-label {
+        color: #1d4ed8;
+    }
+
+    .peak-timeline-labels {
+        display: flex;
+        justify-content: space-between;
+        padding: 0 1px;
+        margin-top: 8px;
+    }
+    .peak-timeline-labels span {
+        font-size: 0.6rem;
+        color: #64748b;
+        font-variant-numeric: tabular-nums;
+    }
+</style>
+
+<style>
+    /* ── Statistics Page Header ──────────────────────────── */
+    .statistics-container {
+        padding-bottom: calc(var(--bottom-bar-height, 70px) + 24px);
+    }
+
+    .statistics-header-section {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .stat-header-text { flex: 1; min-width: 0; }
+
+    .stat-page-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-main);
+        margin: 0;
+        line-height: 1.2;
+    }
+
+    .stat-page-subtitle {
+        font-size: 0.8rem;
+        color: var(--text-dim);
+        margin: 4px 0 0;
+        opacity: 0.85;
+    }
+
+    .stat-range-filters {
+        display: flex;
+        gap: 6px;
+        flex-shrink: 0;
+    }
+
+    .stat-range-btn {
+        background: rgba(39, 39, 42, 0.5);
+        border: 1px solid var(--border-color);
+        color: var(--text-dim);
+        padding: 6px 14px;
+        border-radius: 99px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: 0.2s;
+        white-space: nowrap;
+    }
+
+    .stat-range-btn:hover {
+        background: var(--bg-card-hover);
+        color: var(--text-main);
+        border-color: var(--border-highlight);
+    }
+
+    .stat-range-btn.active {
+        background: var(--accent-blue);
+        border-color: var(--accent-blue);
+        color: white;
+        font-weight: 600;
+    }
+
+    [data-theme="light"] .stat-range-btn {
+        background: #ffffff;
+        border-color: #e2e8f0;
+        color: #475569;
+    }
+
+    [data-theme="light"] .stat-range-btn:hover {
+        background: #f8fafc;
+        color: #1E293B;
+    }
+
+    [data-theme="light"] .stat-range-btn.active {
+        background: #2563eb;
+        border-color: #2563eb;
+        color: white;
+    }
+
+    /* ── Mobil: header dikey düzen ──────────────────────── */
+    @@media (max-width: 480px) {
+        .statistics-header-section {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .stat-range-filters {
+            width: 100%;
+        }
+
+        .stat-range-btn {
+            flex: 1;
+            text-align: center;
+            padding: 8px 6px;
+            font-size: 0.78rem;
+        }
+    }
+</style>

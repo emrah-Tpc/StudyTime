@@ -53,7 +53,13 @@ namespace StudyTime.DesktopClient.Services
             var response = await http.PostAsJsonAsync("/api/lessons", lesson);
             var body = await response.Content.ReadAsStringAsync();
             if (!response.IsSuccessStatusCode)
+            {
+                if (response.StatusCode == System.Net.HttpStatusCode.Forbidden && body.Contains("PREMIUM_REQUIRED"))
+                {
+                    throw new Exception("Ücretsiz sürüm limitine (Maksimum 5 Çalışma Alanı) ulaştınız. Daha fazla alan eklemek için Premium abonesi olmalısınız.");
+                }
                 throw new Exception(string.IsNullOrWhiteSpace(body) ? response.ReasonPhrase ?? "Hata" : body);
+            }
 
             using var doc = JsonDocument.Parse(body);
             if (!doc.RootElement.TryGetProperty("lessonId", out var idEl))

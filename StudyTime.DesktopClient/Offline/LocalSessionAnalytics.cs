@@ -1,5 +1,6 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Text.Json;
+using StudyTime.Application;
 using StudyTime.Application.DTOs.Dashboard;
 using StudyTime.Application.DTOs.Lessons;
 using StudyTime.Application.DTOs.Statistics;
@@ -32,6 +33,19 @@ namespace StudyTime.DesktopClient.Offline
             var list = new List<Interval>();
             var conn = await db.GetAsync();
 
+            var uid = userContext.UserId;
+            var cachedSessions = new Dictionary<Guid, StudySessionCacheEntry>();
+            if (!string.IsNullOrEmpty(uid))
+            {
+                var rows = await conn.Table<StudySessionCacheEntry>()
+                    .Where(e => e.UserId == uid)
+                    .ToListAsync();
+                foreach (var e in rows)
+                {
+                    cachedSessions[e.Id] = e;
+                }
+            }
+
             var pending = await conn.Table<OutboxEntry>().OrderBy(e => e.CreatedAt).ToListAsync();
             var starts = new Dictionary<Guid, StudySessionStartPayload>();
             foreach (var entry in pending)
@@ -43,34 +57,60 @@ namespace StudyTime.DesktopClient.Offline
                     starts[p.LocalSessionId] = p;
             }
 
+            var processedSessionIds = new HashSet<Guid>();
+
             foreach (var entry in pending)
             {
                 if (entry.EntityType != "StudySession" || entry.Operation != "Stop")
                     continue;
+                
                 var stop = JsonSerializer.Deserialize<StudySessionStopPayload>(entry.Payload);
                 if (stop == null)
                     continue;
-                if (!starts.TryGetValue(stop.LocalSessionId, out var start))
-                    continue;
-                if (stop.StoppedAt <= start.StartedAt)
-                    continue;
-                list.Add(new Interval(start.StartedAt, stop.StoppedAt, start.LessonId, start.TaskId, start.IsBreak));
+
+                DateTime startedAt;
+                Guid lessonId;
+                Guid? taskId;
+                bool isBreak;
+
+                if (starts.TryGetValue(stop.LocalSessionId, out var start))
+                {
+                    startedAt = start.StartedAt;
+                    lessonId = start.LessonId;
+                    taskId = start.TaskId;
+                    isBreak = start.IsBreak;
+                }
+                else if (cachedSessions.TryGetValue(stop.LocalSessionId, out var cached))
+                {
+                    startedAt = cached.StartedAt;
+                    lessonId = cached.LessonId;
+                    taskId = cached.TaskId;
+                    isBreak = cached.IsBreak;
+                }
+                else
+                {
+                    continue; // Unknown start
+                }
+
+                if (stop.StoppedAt > startedAt)
+                {
+                    list.Add(new Interval(startedAt, stop.StoppedAt, lessonId, taskId, isBreak));
+                }
+                processedSessionIds.Add(stop.LocalSessionId);
             }
 
-            var uid = userContext.UserId;
-            if (!string.IsNullOrEmpty(uid))
+            // Artık Outbox'ta Stop'u olmayan ama Cache'de bitmiş (EndedAt) olanları ekleyelim.
+            foreach (var e in cachedSessions.Values)
             {
-                var rows = await conn.Table<StudySessionCacheEntry>()
-                    .Where(e => e.UserId == uid)
-                    .ToListAsync();
-                foreach (var e in rows)
+                if (processedSessionIds.Contains(e.Id))
+                    continue; // Outbox'tan zaten eklendi
+                
+                if (!e.EndedAt.HasValue)
+                    continue; // Hala çalışıyor veya yarım kalmış
+                
+                if (e.EndedAt.Value > e.StartedAt)
                 {
-                    if (!e.EndedAt.HasValue)
-                        continue;
-                    var end = e.EndedAt.Value;
-                    if (end <= e.StartedAt)
-                        continue;
-                    list.Add(new Interval(e.StartedAt, end, e.LessonId, e.TaskId, e.IsBreak));
+                    list.Add(new Interval(e.StartedAt, e.EndedAt.Value, e.LessonId, e.TaskId, e.IsBreak));
                 }
             }
 
@@ -86,6 +126,10 @@ namespace StudyTime.DesktopClient.Offline
         }
 
         private static double Minutes(Interval i) => (i.EndUtc - i.StartUtc).TotalMinutes;
+
+        private static TimeSpan Duration(Interval i) => i.EndUtc - i.StartUtc;
+
+        private static int ChartMinutes(Interval i) => StudyDurationMetrics.ToChartMinutes(Duration(i));
 
         private static bool InStatisticsRange(Interval i, DateTime start, DateTime end)
         {
@@ -153,7 +197,7 @@ namespace StudyTime.DesktopClient.Offline
 
             var taskDurations = workSessions
                 .Where(i => i.TaskId.HasValue)
-                .GroupBy(i => i.TaskId.Value)
+                .GroupBy(i => i.TaskId!.Value)
                 .ToDictionary(g => g.Key, g => g.Sum(Minutes));
 
             summary.TaskStatistics = tasks
@@ -185,7 +229,8 @@ namespace StudyTime.DesktopClient.Offline
                 trendData.Add(new TimeTrendDto
                 {
                     Label = date.ToString("dd MMM", new CultureInfo("tr-TR")),
-                    Value = dailyWork.GetValueOrDefault(date, 0),
+                    Value = StudyDurationMetrics.ToChartMinutesFromTotalSeconds(
+                        dailyWork.GetValueOrDefault(date, 0) * 60),
                 });
             }
 
@@ -259,6 +304,60 @@ namespace StudyTime.DesktopClient.Offline
             return summary;
         }
 
+        /// <summary>
+        /// API istatistik özeti ile yerel oturum cache'ini birleştirir (7/30 gün filtreleri için).
+        /// </summary>
+        public static async Task EnrichStatisticsWithLocalSessionsAsync(
+            StatisticsSummaryDto api,
+            string range,
+            LocalDb db,
+            LocalLessonCache lessonCache,
+            LocalTaskCache taskCache,
+            LocalUserContext userContext)
+        {
+            StatisticsSummaryDto local;
+            try
+            {
+                local = await BuildStatisticsSummaryAsync(range, db, lessonCache, taskCache, userContext);
+            }
+            catch
+            {
+                return;
+            }
+
+            if (local.TotalSessions == 0)
+                return;
+
+            var apiTrendSum = api.StudyTrends.Sum(t => t.Value);
+            var localTrendSum = local.StudyTrends.Sum(t => t.Value);
+            var apiStudyMinutes = api.TotalStudyTime.TotalMinutes;
+            var localStudyMinutes = local.TotalStudyTime.TotalMinutes;
+
+            var useLocalSessions =
+                localStudyMinutes > apiStudyMinutes + 0.5
+                || (apiTrendSum == 0 && localTrendSum > 0)
+                || local.TotalSessions > api.TotalSessions;
+
+            if (!useLocalSessions)
+                return;
+
+            api.TotalStudyTime = local.TotalStudyTime;
+            api.TotalBreakTime = local.TotalBreakTime;
+            api.AverageDailyStudyMinutes = local.AverageDailyStudyMinutes;
+            api.ProductivityScore = local.ProductivityScore;
+            api.LessonStatistics = local.LessonStatistics;
+            api.TaskStatistics = local.TaskStatistics;
+            api.StudyTrends = local.StudyTrends;
+            api.PeakProductivity = local.PeakProductivity;
+            api.MostProductiveDay = local.MostProductiveDay;
+            api.AverageSessionDuration = local.AverageSessionDuration;
+            api.TotalSessions = local.TotalSessions;
+            api.DailySessionCounts = local.DailySessionCounts;
+
+            if (api.TotalTasksCompleted < local.TotalTasksCompleted)
+                api.TotalTasksCompleted = local.TotalTasksCompleted;
+        }
+
         private static int CalculateStatisticsProductivity(
             List<Interval> workSessions,
             List<TaskDto> tasks,
@@ -300,17 +399,17 @@ namespace StudyTime.DesktopClient.Offline
                 .Where(i => !i.IsBreak && ToLocal(i.StartUtc).Date >= rangeStart && ToLocal(i.StartUtc).Date <= today)
                 .ToList();
 
-            var todayMinutes = (int)Math.Round(workSessions
+            var todayMinutes = workSessions
                 .Where(i => ToLocal(i.StartUtc).Date == today)
-                .Sum(Minutes));
+                .Sum(ChartMinutes);
 
             if (todayMinutes > 0)
                 dto.TodayStudiedMinutes = todayMinutes;
 
             var lastWeekSameDay = today.AddDays(-7);
-            var lastWeekMinutes = (int)Math.Round(workSessions
+            var lastWeekMinutes = workSessions
                 .Where(i => ToLocal(i.StartUtc).Date == lastWeekSameDay)
-                .Sum(Minutes));
+                .Sum(ChartMinutes);
             dto.StudyTimeChange = todayMinutes - lastWeekMinutes;
 
             var sessionByDate = workSessions
@@ -325,7 +424,8 @@ namespace StudyTime.DesktopClient.Offline
                     return new ChartDataDto
                     {
                         Label = $"{dayName} {date.Day}",
-                        Value = (int)Math.Round(sessionByDate.GetValueOrDefault(date, 0)),
+                        Value = StudyDurationMetrics.ToChartMinutesFromTotalSeconds(
+                            sessionByDate.GetValueOrDefault(date, 0) * 60),
                     };
                 })
                 .ToList();
@@ -351,17 +451,18 @@ namespace StudyTime.DesktopClient.Offline
                 .Select(h => new ChartDataDto
                 {
                     Label = $"{h:D2}:00",
-                    Value = (int)Math.Round(sessionByHour.GetValueOrDefault(h, 0)),
+                    Value = StudyDurationMetrics.ToChartMinutesFromTotalSeconds(
+                        sessionByHour.GetValueOrDefault(h, 0) * 60),
                 })
                 .ToList();
 
             dto.CategoryChartData = workSessions
                 .GroupBy(i =>
-                {
-                    if (lessonById.TryGetValue(i.LessonId, out var l))
-                        return l.Type;
-                    return LessonType.Academic;
-                })
+                    {
+                        if (lessonById.TryGetValue(i.LessonId, out var l))
+                            return l.Type;
+                        return LessonType.Academic;
+                    })
                 .Select(g =>
                 {
                     var typeName = g.Key switch
@@ -381,7 +482,7 @@ namespace StudyTime.DesktopClient.Offline
                     return new ChartDataDto
                     {
                         Label = typeName,
-                        Value = (int)Math.Round(g.Sum(Minutes)),
+                        Value = g.Sum(ChartMinutes),
                         Color = color,
                     };
                 })
@@ -428,6 +529,135 @@ namespace StudyTime.DesktopClient.Offline
             var taskScore = (double)completed / total * 100;
             var timeScore = Math.Min(totalTime / 240 * 100, 100);
             return (int)((taskScore * 0.6) + (timeScore * 0.4));
+        }
+
+        /// <summary>
+        /// API özeti ile yerel SQLite oturum cache'ini birleştirir.
+        /// Online stop sonrası API gecikse bile grafikler ve bugünkü dakika güncellenir.
+        /// </summary>
+        public static async Task EnrichDashboardWithLocalSessionsAsync(
+            DashboardSummaryDto dto,
+            LocalDb db,
+            LocalLessonCache lessonCache,
+            LocalUserContext userContext)
+        {
+            var today = DateTime.Today;
+            var allIntervals = await CollectIntervalsAsync(db, userContext);
+            var lessons = await lessonCache.GetAllAsync();
+            var lessonById = lessons.ToDictionary(l => l.Id);
+
+            var localToday = allIntervals
+                .Where(i => !i.IsBreak && ToLocal(i.StartUtc).Date == today)
+                .ToList();
+
+            if (localToday.Count == 0)
+                return;
+
+            var localTodayMinutes = localToday.Sum(ChartMinutes);
+            var apiTodayChartMinutes = dto.DailyChartData.Sum(x => x.Value);
+
+            if (localTodayMinutes > dto.TodayStudiedMinutes)
+                dto.TodayStudiedMinutes = localTodayMinutes;
+
+            if (localTodayMinutes <= 0)
+                return;
+
+            if (apiTodayChartMinutes >= localTodayMinutes && dto.CategoryChartData.Sum(x => x.Value) >= localTodayMinutes)
+                return;
+
+            RebuildTodayChartsFromLocal(dto, localToday, lessonById, today);
+        }
+
+        private static void RebuildTodayChartsFromLocal(
+            DashboardSummaryDto dto,
+            List<Interval> localToday,
+            Dictionary<Guid, LessonListItemDto> lessonById,
+            DateTime today)
+        {
+            var todayMinutes = localToday.Sum(ChartMinutes);
+
+            var sessionByHour = localToday
+                .GroupBy(i => ToLocal(i.StartUtc).Hour)
+                .ToDictionary(g => g.Key, g => g.Sum(Minutes));
+
+            int firstHour, lastHour;
+            if (sessionByHour.Count > 0)
+            {
+                firstHour = Math.Max(0, sessionByHour.Keys.Min() - 1);
+                lastHour = Math.Min(23, sessionByHour.Keys.Max() + 1);
+            }
+            else
+            {
+                firstHour = 8;
+                lastHour = 20;
+            }
+
+            dto.DailyChartData = Enumerable.Range(firstHour, lastHour - firstHour + 1)
+                .Select(h => new ChartDataDto
+                {
+                    Label = $"{h:D2}:00",
+                    Value = StudyDurationMetrics.ToChartMinutesFromTotalSeconds(
+                        sessionByHour.GetValueOrDefault(h, 0) * 60),
+                })
+                .ToList();
+
+            if (dto.WeeklyChartData.Count > 0)
+            {
+                var daySuffix = $" {today.Day}";
+                foreach (var bar in dto.WeeklyChartData)
+                {
+                    if (bar.Label.EndsWith(daySuffix, StringComparison.Ordinal))
+                        bar.Value = Math.Max(bar.Value, todayMinutes);
+                }
+            }
+
+            dto.CategoryChartData = localToday
+                .GroupBy(i =>
+                {
+                    if (lessonById.TryGetValue(i.LessonId, out var l))
+                        return l.Type;
+                    return LessonType.Academic;
+                })
+                .Select(g =>
+                {
+                    var typeName = g.Key switch
+                    {
+                        LessonType.Academic => "Okul",
+                        LessonType.Personal => "Kişisel",
+                        LessonType.Work => "İş",
+                        _ => g.Key.ToString(),
+                    };
+                    var dominantLessonId = g
+                        .GroupBy(x => x.LessonId)
+                        .OrderByDescending(lg => lg.Sum(Minutes))
+                        .First().Key;
+                    var color = lessonById.TryGetValue(dominantLessonId, out var dl) && !string.IsNullOrEmpty(dl.Color)
+                        ? dl.Color
+                        : "#6b7280";
+                    return new ChartDataDto
+                    {
+                        Label = typeName,
+                        Value = g.Sum(ChartMinutes),
+                        Color = color,
+                    };
+                })
+                .Where(x => x.Value > 0)
+                .OrderByDescending(x => x.Value)
+                .ToList();
+
+            var minutesByLesson = localToday
+                .GroupBy(i => i.LessonId)
+                .ToDictionary(g => g.Key, g => g.Sum(Minutes));
+
+            foreach (var ws in dto.Workspaces)
+            {
+                if (!minutesByLesson.TryGetValue(ws.LessonId, out var m))
+                    continue;
+                var total = (int)Math.Ceiling(m);
+                ws.TotalTimeTracked = total < 60
+                    ? $"{total}m"
+                    : $"{Math.Round(m / 60.0, 1)}h";
+            }
         }
     }
 }

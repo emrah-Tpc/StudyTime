@@ -1,0 +1,28 @@
+<div class="app-layout-container">
+    <StudyTime.DesktopClient.Components.Layout.OfflineBanner />
+
+    <div class="mobile-header-top">
+        <StudyTime.DesktopClient.Components.Navigation.MobileHeader />
+    </div>
+
+    <!-- Mobil cihazlarda alt barda boşluk bırakmak için pb-5 eklendi (BottomBar yüksekliği kadar) -->
+    <main class="main-content-scrollable pb-5">
+        <div class="content-wrapper">
+            @ChildContent
+        </div>
+    </main>
+
+    <div class="mobile-nav">
+        <StudyTime.DesktopClient.Components.Navigation.BottomBar />
+    </div>
+</div>
+
+<!-- Global Modals & Overlays -->
+<StudyTime.DesktopClient.Components.Layout.SyncIndicator />
+<StudyTime.DesktopClient.Components.Layout.FocusMode />
+<StudyTime.DesktopClient.Components.Navigation.NotificationCenter />
+
+@code {
+    [Parameter]
+    public RenderFragment ChildContent { get; set; } = default!;
+}

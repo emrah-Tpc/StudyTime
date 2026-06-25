@@ -1,7 +1,8 @@
 @page "/register"
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
 @layout StudyTime.DesktopClient.Components.Layout.AuthLayout
-@using StudyTime.Application.DTOs.Auth
-@inject HttpClient Http
+@using StudyTime.DesktopClient.Services
+@inject AuthService AuthService
 @inject NavigationManager NavigationManager
 
 @if (DeviceInfo.Platform == DevicePlatform.WinUI)
@@ -33,22 +34,22 @@ else
                 </div>
             }
 
-            <EditForm Model="RegisterModel" OnValidSubmit="HandleRegister">
+            <EditForm Model="RegisterData" OnValidSubmit="HandleRegister">
                 <DataAnnotationsValidator />
 
                 <div class="mb-3">
                     <label class="form-label" style="color: var(--st-text-color);">Tam Ad</label>
-                    <InputText @bind-Value="RegisterModel.FullName" class="form-control" style="background-color: var(--st-input-bg); color: var(--st-text-color); border: 1px solid var(--st-border-color);" placeholder="Ad Soyad" />
+                    <InputText @bind-Value="RegisterData.FullName" class="form-control" style="background-color: var(--st-input-bg); color: var(--st-text-color); border: 1px solid var(--st-border-color);" placeholder="Ad Soyad" />
                 </div>
 
                 <div class="mb-3">
                     <label class="form-label" style="color: var(--st-text-color);">E-Posta</label>
-                    <InputText @bind-Value="RegisterModel.Email" class="form-control" style="background-color: var(--st-input-bg); color: var(--st-text-color); border: 1px solid var(--st-border-color);" placeholder="ornek@email.com" />
+                    <InputText @bind-Value="RegisterData.Email" class="form-control" style="background-color: var(--st-input-bg); color: var(--st-text-color); border: 1px solid var(--st-border-color);" placeholder="ornek@email.com" />
                 </div>
 
                 <div class="mb-4">
                     <label class="form-label" style="color: var(--st-text-color);">Şifre</label>
-                    <InputText @bind-Value="RegisterModel.Password" type="password" class="form-control" style="background-color: var(--st-input-bg); color: var(--st-text-color); border: 1px solid var(--st-border-color);" placeholder="******" />
+                    <InputText @bind-Value="RegisterData.Password" type="password" class="form-control" style="background-color: var(--st-input-bg); color: var(--st-text-color); border: 1px solid var(--st-border-color);" placeholder="******" />
                 </div>
 
                 <button type="submit" class="btn btn-primary w-100 py-2 fw-bold" disabled="@IsLoading">
@@ -72,7 +73,7 @@ else
 }
 
 @code {
-    private RegisterRequestDto RegisterModel = new();
+    private RegisterFormModel RegisterData = new();
     private bool IsLoading = false;
     private string? ErrorMessage;
 
@@ -83,15 +84,14 @@ else
 
         try
         {
-            var response = await Http.PostAsJsonAsync("api/auth/register", RegisterModel);
-            if (response.IsSuccessStatusCode)
+            var success = await AuthService.RegisterAsync(RegisterData.FullName, RegisterData.Email, RegisterData.Password);
+            if (success)
             {
-                NavigationManager.NavigateTo("/login");
+                NavigationManager.NavigateTo("/login?registered=true");
             }
             else
             {
-                var errorMsg = await response.Content.ReadAsStringAsync();
-                ErrorMessage = string.IsNullOrEmpty(errorMsg) ? "Kayıt işlemi başarısız oldu." : errorMsg;
+                ErrorMessage = "Kayıt işlemi başarısız oldu.";
             }
         }
         catch (Exception ex)
@@ -102,5 +102,12 @@ else
         {
             IsLoading = false;
         }
+    }
+
+    public class RegisterFormModel
+    {
+        public string FullName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
     }
 }

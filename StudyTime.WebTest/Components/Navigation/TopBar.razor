@@ -1,0 +1,163 @@
+@using StudyTime.DesktopClient.Services
+@using Microsoft.AspNetCore.Components.Routing
+@implements IDisposable
+
+@inject GlobalTimerService GlobalTimer
+@inject NavigationManager Nav
+@inject AuthService AuthService
+
+<div class="topbar-header">
+    <div class="brand-section">
+        <div class="logo-icon">
+            <i class="bi bi-stopwatch-fill"></i>
+        </div>
+        <span class="brand-name">StudyTime</span>
+    </div>
+
+    <nav class="nav-links">
+        <NavLink class="nav-item" href="" Match="NavLinkMatch.All">
+            <i class="bi bi-grid-fill"></i>
+            <span>Panel</span>
+        </NavLink>
+
+        <NavLink class="nav-item" href="lessons">
+            <i class="bi bi-book-half"></i>
+            <span>Dersler</span>
+        </NavLink>
+
+        <NavLink class="nav-item" href="tasks">
+            <i class="bi bi-list-check"></i>
+            <span>Görev Takvimi</span>
+        </NavLink>
+
+        <NavLink class="nav-item" href="statistics">
+            <i class="bi bi-bar-chart-line-fill"></i>
+            <span>İstatistikler</span>
+        </NavLink>
+    </nav>
+
+    <div class="user-section">
+        @if ((GlobalTimer.IsRunning || GlobalTimer.IsPaused) && !IsOnWorkspacePage)
+        {
+            <a class="global-timer-widget" href="workspace/@GlobalTimer.ActiveLessonId" title="Aktif çalışmaya dön">
+                <span class="gts-dot @(GlobalTimer.IsRunning ? "gts-dot--blink" : "")"
+                      style="background: @GlobalTimer.ActiveColor; box-shadow: 0 0 6px @GlobalTimer.ActiveColor;"></span>
+                <span class="gts-time" style="color: @GlobalTimer.ActiveColor">
+                    @GlobalTimer.ElapsedTime.ToString(@"hh\:mm\:ss")
+                </span>
+                <span class="gts-mode-badge" style="color: @(GlobalTimer.IsBreak ? "#22c55e" : GlobalTimer.ActiveColor)">
+                    @(GlobalTimer.IsBreak ? "☕ Mola" : GlobalTimer.ActiveModeName)
+                </span>
+                @if (!string.IsNullOrEmpty(GlobalTimer.ActiveTaskTitle) && !GlobalTimer.IsBreak)
+                {
+                    <span class="gts-mode-badge" style="color: inherit; opacity: 0.85; font-weight: bold; margin-left: 4px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        <i class="bi bi-check2-square me-1"></i> @GlobalTimer.ActiveTaskTitle
+                    </span>
+                }
+            </a>
+        }
+        
+        <div class="position-relative d-inline-block">
+            <button class="icon-btn" @onclick="() => NotificationService.ToggleCenter()">
+                <i class="bi bi-bell"></i>
+                @if (NotificationService.UnreadCount > 0)
+                {
+                    <span class="badge-dot pulse-blue"></span>
+                }
+            </button>
+        </div>
+
+        <button class="icon-btn" @onclick="ShowProfileInfo" title="Profil"><i class="bi bi-person-fill"></i></button>
+
+        <NavLink class="icon-btn" href="settings" title="Ayarlar">
+            <i class="bi bi-gear-fill"></i>
+        </NavLink>
+
+        <button class="icon-btn text-danger" @onclick="Logout" title="Çıkış Yap">
+            <i class="bi bi-box-arrow-right"></i>
+        </button>
+    </div>
+
+</div>
+
+@code {
+    [Inject] AppNotificationCenterService NotificationService { get; set; } = default!;
+    
+    private bool IsOnWorkspacePage =>
+        Nav.Uri.Contains("/workspace/", StringComparison.OrdinalIgnoreCase);
+
+    private bool isNotificationOpen = false;
+
+    protected override void OnInitialized()
+    {
+        GlobalTimer.OnTick += OnTimerTick;
+        Nav.LocationChanged += OnLocationChanged;
+        NotificationService.OnNotificationsChanged += OnNotificationsChanged;
+        NotificationService.OnCenterStateChanged += OnNotificationsChanged;
+    }
+
+    private void ToggleNotifications() => isNotificationOpen = !isNotificationOpen;
+
+    private async Task ShowProfileInfo()
+    {
+        // Removed Shell.Current.DisplayAlert
+    }
+
+    private async Task Logout()
+    {
+        await AuthService.LogoutAsync();
+        Nav.NavigateTo("/login", forceLoad: true);
+    }
+
+    private void OnTimerTick() => InvokeAsync(StateHasChanged);
+    private void OnNotificationsChanged() => InvokeAsync(StateHasChanged);
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        NotificationService.CloseCenter(); // Sayfa değişince kapat
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        GlobalTimer.OnTick -= OnTimerTick;
+        Nav.LocationChanged -= OnLocationChanged;
+        NotificationService.OnNotificationsChanged -= OnNotificationsChanged;
+        NotificationService.OnCenterStateChanged -= OnNotificationsChanged;
+    }
+}
+
+<style>
+    .badge-dot {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 8px;
+        height: 8px;
+        background: #3b82f6;
+        border-radius: 50%;
+        border: 2px solid #18181b;
+    }
+    
+    .pulse-blue {
+        box-shadow: 0 0 0 rgba(59, 130, 246, 0.4);
+        animation: pulse-blue 2s infinite;
+    }
+
+    @@keyframes pulse-blue {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+        70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(59, 130, 246, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+    }
+
+    .gts-mode-badge {
+        font-size: 0.67rem;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        padding: 2px 7px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.07);
+        border: 1px solid rgba(255,255,255,0.12);
+    }
+</style>

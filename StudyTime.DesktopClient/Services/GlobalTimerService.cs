@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using StudyTime.Application;
 using StudyTime.DesktopClient.Offline;
 using Timer = System.Timers.Timer;
 
@@ -61,6 +62,112 @@ namespace StudyTime.DesktopClient.Services
         public event Action? OnTimerFinished;
         /// <summary>Mola süresi 00:00'a ulaştığında tetiklenir.</summary>
         public event Action? OnBreakFinished;
+        /// <summary>Kullanıcı kronometreyi manuel durdurduğunda tetiklenir.</summary>
+        public event Action? OnTimerStopped;
+
+        // ── Dashboard bugünkü süre (singleton — saniye hassasiyeti) ─────────────
+        private int _displayHighWaterMarkSeconds;
+        private int _displayStoppedBridgeSeconds;
+        private int _summaryBaselineSeconds;
+        private int _sessionsSecondsAddedLocally;
+        private int _displayStateDayOfYear = -1;
+
+        public int DisplayTodayStudiedTotalSeconds
+        {
+            get
+            {
+                EnsureDisplayStateDay();
+                var current = ComputeCurrentDisplaySeconds();
+                if (current > _displayHighWaterMarkSeconds)
+                    _displayHighWaterMarkSeconds = current;
+                return _displayHighWaterMarkSeconds;
+            }
+        }
+
+        public int DisplayTodayStudiedMinutes =>
+            StudyDurationMetrics.ToChartMinutesFromTotalSeconds(DisplayTodayStudiedTotalSeconds);
+
+        public string DisplayTodayStudiedLabel =>
+            StudyDurationMetrics.FormatDisplay(TimeSpan.FromSeconds(DisplayTodayStudiedTotalSeconds));
+
+        public void SetSummaryBaseline(int todayStudiedMinutes)
+        {
+            EnsureDisplayStateDay();
+            _summaryBaselineSeconds = todayStudiedMinutes * 60;
+            var current = ComputeCurrentDisplaySeconds();
+            if (current > _displayHighWaterMarkSeconds)
+                _displayHighWaterMarkSeconds = current;
+        }
+
+        public void MergeApiSummaryMinutes(int apiTodayMinutes)
+        {
+            EnsureDisplayStateDay();
+            _summaryBaselineSeconds = apiTodayMinutes * 60;
+
+            if (IsRunning && !IsBreak)
+            {
+                var live = ComputeCurrentDisplaySeconds();
+                if (live > _displayHighWaterMarkSeconds)
+                    _displayHighWaterMarkSeconds = live;
+                return;
+            }
+
+            var apiSeconds = apiTodayMinutes * 60;
+            if (apiSeconds >= _displayHighWaterMarkSeconds)
+            {
+                _displayHighWaterMarkSeconds = apiSeconds;
+                _displayStoppedBridgeSeconds = 0;
+                _sessionsSecondsAddedLocally = 0;
+            }
+        }
+
+        public void ClearDashboardDisplayState()
+        {
+            _displayHighWaterMarkSeconds = 0;
+            _displayStoppedBridgeSeconds = 0;
+            _summaryBaselineSeconds = 0;
+            _sessionsSecondsAddedLocally = 0;
+            _displayStateDayOfYear = -1;
+        }
+
+        private int ActiveSessionExtraSeconds =>
+            IsRunning && !IsBreak ? (int)ElapsedTime.TotalSeconds : 0;
+
+        private int ComputeCurrentDisplaySeconds()
+        {
+            var baseTotal = _summaryBaselineSeconds + _sessionsSecondsAddedLocally;
+            if (IsRunning && !IsBreak)
+                return baseTotal + ActiveSessionExtraSeconds;
+
+            return Math.Max(baseTotal, _displayStoppedBridgeSeconds);
+        }
+
+        private void CaptureHighWaterOnSessionEnd()
+        {
+            if (IsBreak) return;
+
+            EnsureDisplayStateDay();
+            var sessionSeconds = (int)ElapsedTime.TotalSeconds;
+            if (sessionSeconds < 1) return;
+
+            _sessionsSecondsAddedLocally += sessionSeconds;
+            var total = _summaryBaselineSeconds + _sessionsSecondsAddedLocally;
+            if (total > _displayHighWaterMarkSeconds)
+                _displayHighWaterMarkSeconds = total;
+            _displayStoppedBridgeSeconds = _displayHighWaterMarkSeconds;
+        }
+
+        private void EnsureDisplayStateDay()
+        {
+            var today = DateTime.Today.DayOfYear;
+            if (_displayStateDayOfYear == today) return;
+
+            _displayHighWaterMarkSeconds = 0;
+            _displayStoppedBridgeSeconds = 0;
+            _summaryBaselineSeconds = 0;
+            _sessionsSecondsAddedLocally = 0;
+            _displayStateDayOfYear = today;
+        }
 
         public GlobalTimerService(SyncedStudySessionApiService apiService)
         {
@@ -82,7 +189,7 @@ namespace StudyTime.DesktopClient.Services
 
             if (IsPaused && ActiveLessonId == lessonId && !IsBreak)
             {
-                Resume();
+                await ResumeAsync();
                 return;
             }
 
@@ -147,7 +254,7 @@ namespace StudyTime.DesktopClient.Services
         }
 
         // ── Kontroller ───────────────────────────────────────────────────────
-        public void Pause()
+        public async Task PauseAsync()
         {
             _timer?.Stop();
             // Birikmiş süreyi kaydet; sessionStartedAt'ı temizle
@@ -157,17 +264,32 @@ namespace StudyTime.DesktopClient.Services
             IsRunning = false;
             IsPaused  = true;
             OnTick?.Invoke();
+
+            if (CurrentSessionId != Guid.Empty)
+            {
+                await _apiService.PauseSessionAsync(CurrentSessionId);
+            }
         }
 
-        public void Resume()
+        public async Task ResumeAsync()
         {
             StartLocalTimer();
             IsRunning = true;
             IsPaused  = false;
+
+            if (CurrentSessionId != Guid.Empty)
+            {
+                await _apiService.ResumeSessionAsync(CurrentSessionId);
+            }
         }
 
         public async Task StopAsync()
         {
+            var wasActiveTimer = IsRunning || IsPaused;
+
+            if (wasActiveTimer && !IsBreak)
+                CaptureHighWaterOnSessionEnd();
+
             _timer?.Stop();
             _timer?.Dispose();
             _timer = null;
@@ -199,6 +321,8 @@ namespace StudyTime.DesktopClient.Services
 
             OnFocusModeChanged?.Invoke();
             OnTick?.Invoke();
+            if (wasActiveTimer)
+                OnTimerStopped?.Invoke();
         }
 
         public void SetFocusMode(bool active)
@@ -207,7 +331,7 @@ namespace StudyTime.DesktopClient.Services
             OnFocusModeChanged?.Invoke();
         }
 
-        public void ForceReset()
+        public async Task ForceResetAsync()
         {
             _timer?.Stop();
             _timer?.Dispose();
@@ -224,6 +348,11 @@ namespace StudyTime.DesktopClient.Services
             InitialDuration   = TimeSpan.Zero;
             BreakDuration     = TimeSpan.Zero;
 
+            if (CurrentSessionId != Guid.Empty)
+            {
+                await _apiService.StopSessionAsync(CurrentSessionId);
+            }
+
             CurrentSessionId  = Guid.Empty;
             ActiveLessonId  = null;
             ActiveTaskId    = null;
@@ -231,6 +360,7 @@ namespace StudyTime.DesktopClient.Services
             ActiveModeName  = null;
             ActiveColor     = _workColor;
 
+            ClearDashboardDisplayState();
             OnFocusModeChanged?.Invoke();
             OnTick?.Invoke();
         }
@@ -282,6 +412,7 @@ namespace StudyTime.DesktopClient.Services
                     else
                     {
                         // Çalışma bitti → oturumu kapat
+                        CaptureHighWaterOnSessionEnd();
                         await _apiService.StopSessionAsync(CurrentSessionId);
                         CurrentSessionId = Guid.Empty;
                         // NOT: ActiveLessonId ve BreakDuration burada HÂLÂ DOLU

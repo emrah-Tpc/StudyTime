@@ -20,10 +20,15 @@ namespace StudyTime.DesktopClient.Offline
         LocalDb              db,
         LocalLessonCache     lessonCache,
         LocalTaskCache       taskCache,
-        LocalUserContext     userContext,
-        StudyTimeAppOptions  appOptions)
+        LocalUserContext     userContext)
     {
         private const string CacheKey = "Dashboard";
+
+        /// <summary>
+        /// Yalnızca yerel snapshot'tan okur (API çağrısı yok). Dashboard ilk boyamada kullanılır.
+        /// </summary>
+        public Task<DashboardSummaryDto?> TryGetCachedSummaryAsync()
+            => cache.GetAsync<DashboardSummaryDto>(CacheKey);
 
         // ── Özet Verileri ─────────────────────────────────────────────────────
 
@@ -37,6 +42,9 @@ namespace StudyTime.DesktopClient.Offline
             DashboardSummaryDto? summary = null;
             var builtFromLocalTaskAndLessonCaches = false;
 
+            // Her zaman önce API'den taze veri çekmeye çalış.
+            // Stop → navigate → dashboard senaryosunda eski snapshot gösterilmemesi için
+            // TTL/cache-first stratejisi kullanmıyoruz; API başarısız olursa cache'e düşüyoruz.
             if (connectivity.IsOnline)
             {
                 try
@@ -48,20 +56,16 @@ namespace StudyTime.DesktopClient.Offline
                         summary = fresh;
                     }
                 }
-                catch (HttpRequestException)
-                {
-                }
-                catch (Exception)
-                {
-                }
+                catch { /* API ulaşılamaz → snapshot/local fallback */ }
             }
 
-            var skipStaleSnapshot = MauiProgram.IsOfflineBeta || appOptions.LocalOnlyMode;
-            if (summary == null && !skipStaleSnapshot)
+            // API başarısız olduysa snapshot cache'e bak
+            if (summary == null)
             {
                 summary = await cache.GetAsync<DashboardSummaryDto>(CacheKey);
             }
 
+            // Snapshot da yoksa yerel cache'ten özet üret
             if (summary == null)
             {
                 summary = await BuildSummaryFromLocalCachesAsync();
@@ -70,11 +74,11 @@ namespace StudyTime.DesktopClient.Offline
 
             if (summary != null)
             {
-                // Yerel görev önbelleğinden üretildiyse veya Offline Beta'da outbox flush yok: outbox Task Create sayısı
-                // zaten TaskCache'te olduğu için tekrar eklenmesin (sahte +1 bekleyen vb.).
-                var skipTaskOutbox = builtFromLocalTaskAndLessonCaches || MauiProgram.IsOfflineBeta;
-                var skipSessionOutbox = builtFromLocalTaskAndLessonCaches;
+                var skipTaskOutbox     = builtFromLocalTaskAndLessonCaches || MauiProgram.IsOfflineBeta;
+                var skipSessionOutbox  = builtFromLocalTaskAndLessonCaches;
                 summary = await ApplyOfflineDeltasAsync(summary, skipTaskOutbox, skipSessionOutbox);
+                await LocalSessionAnalytics.EnrichDashboardWithLocalSessionsAsync(
+                    summary, db, lessonCache, userContext);
             }
 
             return summary;

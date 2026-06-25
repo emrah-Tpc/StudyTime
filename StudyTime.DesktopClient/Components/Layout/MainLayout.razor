@@ -1,48 +1,20 @@
 @inherits LayoutComponentBase
+@inject StudyTime.DesktopClient.Services.IPlatformDetector PlatformDetector
 
-<div class="app-layout-container">
-    
-    <StudyTime.DesktopClient.Components.Layout.OfflineBanner />
-
-    <div class="desktop-nav">
-         <StudyTime.DesktopClient.Components.Navigation.TopBar /> 
-    </div>
-
-    <main class="main-content-scrollable">
-        <div class="content-wrapper">
-            @Body
-        </div>
-    </main>
-
-    <div class="mobile-nav">
-        <StudyTime.DesktopClient.Components.Navigation.BottomBar />
-    </div>
-
-</div>
-
-<!-- Global Modals & Overlays -->
-<StudyTime.DesktopClient.Components.Layout.SyncIndicator />
-<StudyTime.DesktopClient.Components.Layout.FocusMode />
-<StudyTime.DesktopClient.Components.Navigation.NotificationCenter />
+@if (PlatformDetector.IsMobile)
+{
+    <StudyTime.DesktopClient.Components.Layout.MobileLayout>
+        @Body
+    </StudyTime.DesktopClient.Components.Layout.MobileLayout>
+}
+else
+{
+    <StudyTime.DesktopClient.Components.Layout.DesktopLayout>
+        @Body
+    </StudyTime.DesktopClient.Components.Layout.DesktopLayout>
+}
 
 @code {
-    [CascadingParameter]
-    private Task<AuthenticationState>? AuthState { get; set; }
-    
-    [Inject]
-    private NavigationManager NavigationManager { get; set; } = default!;
-
-    protected override async Task OnInitializedAsync()
-    {
-        if (AuthState is not null)
-        {
-            var authState = await AuthState;
-            var user = authState.User;
-
-            if (user.Identity?.IsAuthenticated == false)
-            {
-                NavigationManager.NavigateTo("/login");
-            }
-        }
-    }
+    // Auth yönlendirmesi Routes/AuthorizeRouteView + RedirectToLogin üzerinden yapılıyor.
+    // Burada AuthState await etmek ilk render'ı bloke edip siyah ekrana neden olabiliyor.
 }

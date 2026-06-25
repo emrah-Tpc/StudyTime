@@ -1,0 +1,23 @@
+<div class="app-layout-container">
+    <StudyTime.DesktopClient.Components.Layout.OfflineBanner />
+
+    <div class="desktop-nav">
+         <StudyTime.DesktopClient.Components.Navigation.TopBar /> 
+    </div>
+
+    <main class="main-content-scrollable">
+        <div class="content-wrapper">
+            @ChildContent
+        </div>
+    </main>
+</div>
+
+<!-- Global Modals & Overlays -->
+<StudyTime.DesktopClient.Components.Layout.SyncIndicator />
+<StudyTime.DesktopClient.Components.Layout.FocusMode />
+<StudyTime.DesktopClient.Components.Navigation.NotificationCenter />
+
+@code {
+    [Parameter]
+    public RenderFragment ChildContent { get; set; } = default!;
+}

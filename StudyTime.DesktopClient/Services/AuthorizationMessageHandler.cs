@@ -8,6 +8,7 @@ namespace StudyTime.DesktopClient.Services
 {
     public class AuthorizationMessageHandler : DelegatingHandler
     {
+        private static readonly SemaphoreSlim RefreshLock = new(1, 1);
         private readonly IServiceProvider _serviceProvider;
         private readonly NavigationManager _navigationManager;
 
@@ -52,7 +53,7 @@ namespace StudyTime.DesktopClient.Services
             // 401 Unauthorized ise önce Refresh Token deniyoruz:
             if (response.StatusCode == HttpStatusCode.Unauthorized)
             {
-                bool refreshed = await TryRefreshTokensAsync(cancellationToken);
+                bool refreshed = await TryRefreshTokensAsync(token, cancellationToken);
                 if (refreshed)
                 {
                     var newToken = await authStateProvider.GetTokenAsync();
@@ -69,11 +70,12 @@ namespace StudyTime.DesktopClient.Services
                 }
             }
 
-            // Hala 401, veya 403/402 geldiyse oturumu kapat
-            if (response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.Forbidden || response.StatusCode == HttpStatusCode.PaymentRequired)
+            // Sadece 401 (refresh de basarisiz) durumunda oturumu kapat.
+            // 403/402 yetki/abonelik problemlerinde local veriyi silmek, kullaniciya "her sey silindi" gibi gorunur.
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
             {
                 var content = await response.Content.ReadAsStringAsync();
-                await authStateProvider.MarkUserAsLoggedOut();
+                await authStateProvider.MarkUserAsLoggedOut(wipeLocalData: false);
                 
                 bool isMismatch = content.Contains("SESSION_MISMATCH");
                 bool isPremiumExpired = content.Contains("PREMIUM_EXPIRED");
@@ -120,7 +122,7 @@ namespace StudyTime.DesktopClient.Services
             return response;
         }
 
-        private async Task<bool> TryRefreshTokensAsync(CancellationToken cancellationToken)
+        private async Task<bool> TryRefreshTokensAsync(string failedAccessToken, CancellationToken cancellationToken)
         {
             var authStateProvider = _serviceProvider.GetService<CustomAuthenticationStateProvider>();
             if (authStateProvider == null)
@@ -132,25 +134,47 @@ namespace StudyTime.DesktopClient.Services
             if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(refreshToken))
                 return false;
 
-            var request = new TokenRequestDto
+            // Baska bir istek bu arada token yenilediyse yeniden refresh denemeyelim.
+            if (!string.Equals(accessToken, failedAccessToken, StringComparison.Ordinal))
+                return true;
+
+            await RefreshLock.WaitAsync(cancellationToken);
+            try
             {
-                AccessToken = accessToken,
-                RefreshToken = refreshToken
-            };
+                // Kilit beklerken token yenilenmis olabilir; tekrar kontrol et.
+                accessToken = await authStateProvider.GetTokenAsync();
+                refreshToken = await authStateProvider.GetRefreshTokenAsync();
 
-            // NoAuth client: refresh çağrısında AuthorizationMessageHandler devreye girmez.
-            var httpClientFactory = _serviceProvider.GetRequiredService<IHttpClientFactory>();
-            var refreshClient = httpClientFactory.CreateClient("StudyTimeApiNoAuth");
-            var response = await refreshClient.PostAsJsonAsync("api/auth/refresh", request, cancellationToken);
-            if (!response.IsSuccessStatusCode)
-                return false;
+                if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(refreshToken))
+                    return false;
 
-            var result = await response.Content.ReadFromJsonAsync<AuthResponseDto>(cancellationToken: cancellationToken);
-            if (result == null || string.IsNullOrEmpty(result.Token))
-                return false;
+                if (!string.Equals(accessToken, failedAccessToken, StringComparison.Ordinal))
+                    return true;
 
-            await authStateProvider.MarkUserAsAuthenticated(result.Token, result.RefreshToken);
-            return true;
+                var request = new TokenRequestDto
+                {
+                    AccessToken = accessToken,
+                    RefreshToken = refreshToken
+                };
+
+                // NoAuth client: refresh çağrısında AuthorizationMessageHandler devreye girmez.
+                var httpClientFactory = _serviceProvider.GetRequiredService<IHttpClientFactory>();
+                var refreshClient = httpClientFactory.CreateClient("StudyTimeApiNoAuth");
+                var response = await refreshClient.PostAsJsonAsync("api/auth/refresh", request, cancellationToken);
+                if (!response.IsSuccessStatusCode)
+                    return false;
+
+                var result = await response.Content.ReadFromJsonAsync<AuthResponseDto>(cancellationToken: cancellationToken);
+                if (result == null || string.IsNullOrEmpty(result.Token))
+                    return false;
+
+                await authStateProvider.MarkUserAsAuthenticated(result.Token, result.RefreshToken);
+                return true;
+            }
+            finally
+            {
+                RefreshLock.Release();
+            }
         }
         private async Task<HttpRequestMessage> CloneRequestAsync(HttpRequestMessage req)
         {

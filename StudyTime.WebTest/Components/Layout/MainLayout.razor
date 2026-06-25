@@ -1,0 +1,20 @@
+@inherits LayoutComponentBase
+@inject StudyTime.DesktopClient.Services.IPlatformDetector PlatformDetector
+
+@if (PlatformDetector.IsMobile)
+{
+    <StudyTime.WebTest.Components.Layout.MobileLayout>
+        @Body
+    </StudyTime.WebTest.Components.Layout.MobileLayout>
+}
+else
+{
+    <StudyTime.WebTest.Components.Layout.DesktopLayout>
+        @Body
+    </StudyTime.WebTest.Components.Layout.DesktopLayout>
+}
+
+@code {
+    // Auth yönlendirmesi Routes/AuthorizeRouteView + RedirectToLogin üzerinden yapılıyor.
+    // Burada AuthState await etmek ilk render'ı bloke edip siyah ekrana neden olabiliyor.
+}

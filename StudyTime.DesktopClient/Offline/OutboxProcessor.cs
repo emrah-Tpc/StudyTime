@@ -100,10 +100,10 @@ namespace StudyTime.DesktopClient.Offline
                 _syncStatus.SetError(null);
 
                 var conn    = await _db.GetAsync();
-                // Aynı CreatedAt'te bile Lesson → StudySession → Task (FK / TempIdMap için ders önce işlensin)
+                // Aynı CreatedAt'te bile Lesson → Task → StudySession → Notification
                 var pending = (await conn.Table<OutboxEntry>().ToListAsync())
                     .OrderBy(e => e.CreatedAt)
-                    .ThenBy(e => e.EntityType)
+                    .ThenBy(e => GetEntityOrder(e.EntityType))
                     .ToList();
 
                 foreach (var entry in pending)
@@ -171,6 +171,7 @@ namespace StudyTime.DesktopClient.Offline
             var lessonApi  = scope.ServiceProvider.GetRequiredService<LessonApiService>();
             var taskApi    = scope.ServiceProvider.GetRequiredService<TaskApiService>();
             var sessionApi = scope.ServiceProvider.GetRequiredService<StudySessionApiService>();
+            var noteApi    = scope.ServiceProvider.GetRequiredService<NotificationApiService>();
 
             try
             {
@@ -210,7 +211,24 @@ namespace StudyTime.DesktopClient.Offline
                         {
                             var lessonId = JsonSerializer.Deserialize<Guid>(entry.Payload);
                             lessonId = await ResolveMappedIdAsync(conn, lessonId);
-                            await lessonApi.DeleteAsync(lessonId, entry.CreatedAt);
+                            // Bypass Last-Write-Wins conflict check for offline outbox syncs
+                            await lessonApi.DeleteAsync(lessonId, null);
+                            return (true, null);
+                        }
+
+                        case "Archive":
+                        {
+                            var lessonId = JsonSerializer.Deserialize<Guid>(entry.Payload);
+                            lessonId = await ResolveMappedIdAsync(conn, lessonId);
+                            await lessonApi.ArchiveAsync(lessonId, null);
+                            return (true, null);
+                        }
+
+                        case "Restore":
+                        {
+                            var lessonId = JsonSerializer.Deserialize<Guid>(entry.Payload);
+                            lessonId = await ResolveMappedIdAsync(conn, lessonId);
+                            await lessonApi.RestoreAsync(lessonId, null);
                             return (true, null);
                         }
 
@@ -220,7 +238,7 @@ namespace StudyTime.DesktopClient.Offline
                             if (notesPayload == null)
                                 return (false, "Invalid Lesson UpdateNotes payload.");
                             var lessonId = await ResolveMappedIdAsync(conn, notesPayload.LessonId);
-                            await lessonApi.UpdateNotesAsync(lessonId, notesPayload.Notes, entry.CreatedAt);
+                            await lessonApi.UpdateNotesAsync(lessonId, notesPayload.Notes, null);
                             return (true, null);
                         }
                     }
@@ -262,7 +280,8 @@ namespace StudyTime.DesktopClient.Offline
                         {
                             var taskId = JsonSerializer.Deserialize<Guid>(entry.Payload);
                             taskId = await ResolveMappedIdAsync(conn, taskId);
-                            await taskApi.DeleteAsync(taskId, entry.CreatedAt);
+                            // Bypass Last-Write-Wins conflict check for offline outbox syncs
+                            await taskApi.DeleteAsync(taskId, null);
                             return (true, null);
                         }
 
@@ -270,7 +289,8 @@ namespace StudyTime.DesktopClient.Offline
                         {
                             var toggleId = JsonSerializer.Deserialize<Guid>(entry.Payload);
                             toggleId = await ResolveMappedIdAsync(conn, toggleId);
-                            await taskApi.ToggleCompleteAsync(toggleId, entry.CreatedAt);
+                            // Bypass Last-Write-Wins conflict check for offline outbox syncs
+                            await taskApi.ToggleCompleteAsync(toggleId, null);
                             return (true, null);
                         }
 
@@ -281,7 +301,8 @@ namespace StudyTime.DesktopClient.Offline
                                 return (false, "Invalid Task Update payload.");
                             var effectiveId = await ResolveMappedIdAsync(conn, updatePayload.Id);
                             await ResolveUpdateTaskDtoLessonIdAsync(conn, updatePayload.Dto);
-                            updatePayload.Dto.UpdatedAt = entry.CreatedAt;
+                            // Bypass Last-Write-Wins conflict check for offline outbox syncs
+                            updatePayload.Dto.UpdatedAt = null;
                             await taskApi.UpdateAsync(effectiveId, updatePayload.Dto);
                             return (true, null);
                         }
@@ -329,6 +350,33 @@ namespace StudyTime.DesktopClient.Offline
                     }
                 }
 
+                // ── Notification operasyonları ─────────────────────────────
+                if (entry.EntityType == "Notification")
+                {
+                    switch (entry.Operation)
+                    {
+                        case "Create":
+                            var notification = JsonSerializer.Deserialize<StudyTime.Domain.Entities.Notification>(entry.Payload);
+                            if (notification == null)
+                                return (false, "Invalid Notification Create payload.");
+                            var originalId = notification.Id;
+                            var serverId = await noteApi.CreateAsync(notification);
+                            if (serverId != Guid.Empty && serverId != originalId)
+                            {
+                                var noteCache = scope.ServiceProvider.GetRequiredService<LocalNotificationCache>();
+                                await conn.InsertOrReplaceAsync(new TempIdMapEntry
+                                {
+                                    EntityType = "Notification",
+                                    TempId = originalId,
+                                    ServerId = serverId
+                                });
+                                await noteCache.ReconcileIdAsync(originalId, serverId);
+                                RaiseLocalIdReconciled("Notification", originalId, serverId);
+                            }
+                            return (true, null);
+                    }
+                }
+
                 return (false, $"Unknown entity/operation: {entry.EntityType}/{entry.Operation}");
             }
             catch (Exception ex)
@@ -347,6 +395,18 @@ namespace StudyTime.DesktopClient.Offline
             await conn.DeleteAllAsync<DeadLetterEntry>();
             await conn.DeleteAllAsync<SessionServerIdMapEntry>();
             await conn.DeleteAllAsync<TempIdMapEntry>();
+        }
+
+        private static int GetEntityOrder(string entityType)
+        {
+            return entityType switch
+            {
+                "Lesson" => 1,
+                "Task" => 2,
+                "StudySession" => 3,
+                "Notification" => 4,
+                _ => 5
+            };
         }
 
         private static async Task<Guid> ResolveMappedIdAsync(SQLiteAsyncConnection conn, Guid id)

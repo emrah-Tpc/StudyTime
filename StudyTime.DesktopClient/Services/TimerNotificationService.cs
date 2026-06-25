@@ -1,46 +1,56 @@
+using StudyTime.DesktopClient.Interfaces;
 using StudyTime.DesktopClient.Services;
 
 namespace StudyTime.DesktopClient.Services
 {
     /// <summary>
-    /// Mobil platformlarda (iOS/Android) timer bitiminde yerel push bildirim gönderir.
-    /// Plugin.LocalNotification paketi gerekmez — MAUI Local Notifications kullanılır.
-    /// Windows'ta TrayIconService.ShowFinishedBalloon() kullanıldığından bu servis devre dışıdır.
+    /// Mobil platformlarda veya Windows'ta timer bitiminde yerel bildirim fırlatır.
+    /// Context-aware şekilde UI Toast veya OS (Tray/Push) bildirimini yönetir.
     /// </summary>
     public class TimerNotificationService : IDisposable
     {
         private readonly GlobalTimerService _timer;
-        private readonly AppNotificationCenterService _notificationCenter;
+        private readonly IAppNotificationService _notificationService;
 
-        public TimerNotificationService(GlobalTimerService timer, AppNotificationCenterService notificationCenter)
+        public TimerNotificationService(GlobalTimerService timer, IAppNotificationService notificationService)
         {
             _timer = timer;
-            _notificationCenter = notificationCenter;
+            _notificationService = notificationService;
 
             _timer.OnTimerFinished += OnWorkFinished;
             _timer.OnBreakFinished += OnBreakFinished;
+            _timer.OnTimerStopped += OnTimerStopped;
         }
 
-        private void OnWorkFinished()
+        private async void OnWorkFinished()
         {
-            _notificationCenter.AddNotification(
+            await _notificationService.SendNotificationAsync(
+                NotificationCategory.Discipline,
                 "⏱ Çalışma Tamamlandı!",
-                "Harika iş! Artık mola zamanı 🎉",
-                NotificationCategory.Discipline);
+                "Harika iş! Artık mola zamanı 🎉");
         }
 
-        private void OnBreakFinished()
+        private async void OnBreakFinished()
         {
-            _notificationCenter.AddNotification(
+            await _notificationService.SendNotificationAsync(
+                NotificationCategory.Discipline,
                 "✅ Mola Bitti!",
-                "Yeniden odaklanma zamanı 💪",
-                NotificationCategory.Discipline);
+                "Yeniden odaklanma zamanı 💪");
+        }
+
+        private async void OnTimerStopped()
+        {
+            await _notificationService.SendNotificationAsync(
+                NotificationCategory.System,
+                "Kronometre Durduruldu",
+                "Çalışma oturumu manuel olarak durduruldu.");
         }
 
         public void Dispose()
         {
             _timer.OnTimerFinished -= OnWorkFinished;
             _timer.OnBreakFinished -= OnBreakFinished;
+            _timer.OnTimerStopped -= OnTimerStopped;
         }
     }
 }

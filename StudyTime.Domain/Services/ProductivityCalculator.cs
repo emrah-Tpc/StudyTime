@@ -12,7 +12,10 @@ namespace StudyTime.Domain.Services
             DateTime to)
         {
             var totalTime = sessions
-                .Where(s => s.StartedAt >= from && s.StartedAt <= to)
+                .Where(s => {
+                    var localStart = s.StartedAt.Kind == DateTimeKind.Utc ? s.StartedAt.ToLocalTime() : s.StartedAt;
+                    return localStart.Date >= from.Date && localStart.Date <= to.Date;
+                })
                 .Sum(s => s.TotalActiveDuration.TotalMinutes);
 
             var completedTasks = tasks.Count(t => t.Status == DomainTaskStatus.Completed);
@@ -21,15 +24,15 @@ namespace StudyTime.Domain.Services
             // Maksimum 4 saat hedefi = 240 dakika
             var timeScore = Math.Min(totalTime / 240.0 * 100.0, 100.0);
 
-            // Görev yoksa: Max verimlilik puanı timeScore üzerinden, ancak %50 limite takılır. (Teşvik için)
+            // Görev yoksa: Puan sadece çalışma süresine dayanır (Maksimum %100 olabilir)
             if (totalTasks == 0) 
             {
-                return (int)(timeScore * 0.50);
+                return (int)timeScore;
             }
-
-            // Görev varsa formül: %60 Görev Başarısı + %40 Süre
+            
+            // Görev varsa: %50 Görev Başarısı + %50 Çalışma Süresi (Daha dengeli)
             var taskScore = (double)completedTasks / totalTasks * 100.0;
-            return (int)((taskScore * 0.6) + (timeScore * 0.4));
+            return (int)((taskScore * 0.5) + (timeScore * 0.5));
         }
     }
 }

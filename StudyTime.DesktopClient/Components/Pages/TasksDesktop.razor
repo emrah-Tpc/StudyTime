@@ -1,0 +1,330 @@
+@inherits TasksBase
+@using StudyTime.Application.DTOs.Tasks
+@using StudyTime.Application.DTOs.Lessons
+@using System.Globalization
+
+<div class="calendar-container fade-in">
+    <!-- Header -->
+    <div class="calendar-header mb-4 d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="text-2xl fw-bold text-white m-0">Görev Takvimi</h1>
+            <p class="text-white opacity-75 small m-0">Planla ve organize et</p>
+        </div>
+        <div class="d-flex align-items-center gap-3">
+             <button class="btn-icon-sm" @onclick="PreviousMonth"><i class="bi bi-chevron-left"></i></button>
+             <span class="fs-4 fw-bold text-white" style="min-width: 200px; text-align: center;">@CurrentMonthName @CurrentYear</span>
+             <button class="btn-icon-sm" @onclick="NextMonth"><i class="bi bi-chevron-right"></i></button>
+             <button class="btn-primary ms-3" @onclick="GoToToday">Bugün</button>
+        </div>
+    </div>
+
+    <!-- Calendar Grid -->
+    <div class="calendar-grid">
+        <!-- Day Names -->
+        @foreach (var day in Enum.GetValues(typeof(DayOfWeek)).Cast<DayOfWeek>().OrderBy(d => (int)d == 0 ? 7 : (int)d))
+        {
+            <div class="calendar-day-header">
+                @CurrentCulture.DateTimeFormat.GetAbbreviatedDayName(day)
+            </div>
+        }
+
+        <!-- Days -->
+        @if (isLoading)
+        {
+             @for (int i = 0; i < 35; i++)
+             {
+                 <div class="calendar-cell skeleton-cell"></div>
+             }
+        }
+        else
+        {
+            @foreach (var day in CalendarDays)
+            {
+                <div class="calendar-cell @(day.IsCurrentMonth ? "" : "opacity-50") @(IsToday(day.Date) ? "today" : "")"
+                     style="background-color: @GetHeatmapColor(day.Tasks.Count);"
+                     @onclick="() => SelectDay(day)">
+                    
+                    <div class="cell-header d-flex justify-content-between">
+                        <span class="day-number">@day.Date.Day</span>
+                        @if (day.Tasks.Any())
+                        {
+                            <span class="badge bg-dark rounded-pill" style="font-size: 0.6rem;">@day.Tasks.Count</span>
+                        }
+                    </div>
+
+                    <div class="cell-content">
+                        @foreach (var task in day.Tasks.Take(3)) 
+                        {
+                             var dotColor = task.Lesson?.Color ?? "#fff";
+                             if (task.Status == StudyTime.Domain.Enums.TaskStatus.Completed)
+                             {
+                                 <div class="task-dot-completed" title="@task.Title - Tamamlandı">
+                                     <svg viewBox="0 0 10 10" width="10" height="10" stroke="@dotColor" stroke-width="2.5" opacity="0.6" stroke-linecap="round">
+                                         <line x1="2" y1="2" x2="8" y2="8" />
+                                         <line x1="8" y1="2" x2="2" y2="8" />
+                                     </svg>
+                                 </div>
+                             }
+                             else
+                             {
+                                 <div class="task-dot" style="background-color: @dotColor;" title="@task.Title"></div>
+                             }
+                        }
+                        @if(day.Tasks.Count > 3)
+                        {
+                            <div class="task-dot-more">+@(day.Tasks.Count - 3)</div>
+                        }
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+<!-- Task Detail Modal -->
+@if (selectedDay != null)
+{
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal fade show d-block" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content custom-modal">
+                <div class="modal-header border-0">
+                    <div>
+                        <h5 class="modal-title fw-bold text-white">@selectedDay.Date.ToString("dd MMMM dddd", CurrentCulture)</h5>
+                         <span class="text-white opacity-50 small">@selectedDay.Tasks.Count Görev</span>
+                    </div>
+                    <button type="button" class="modal-close-adaptive" @onclick="CloseModal" aria-label="Kapat">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+                <div class="modal-body" style="max-height: 500px; overflow-y: auto;">
+                    @if (selectedDay.Tasks.Any())
+                    {
+                        <div class="d-flex flex-column gap-3">
+                            @foreach (var task in selectedDay.Tasks)
+                            {
+                                var lessonColor = task.Lesson?.Color ?? "var(--accent-blue)";
+                                <div class="st-card p-3 d-flex flex-column gap-2" style="border-left: 4px solid @lessonColor; position: relative;">
+                                    <div class="d-flex align-items-center justify-content-between">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="form-check m-0">
+                                                <input class="form-check-input" type="checkbox" checked="@IsTaskCompleted(task)"
+                                                       disabled="@IsTaskCompleted(task)"
+                                                       @onchange="(e) => ToggleTaskStatus(task, e.Value)">
+                                            </div>
+                                            <div>
+                                                <div class="fw-medium text-white @(IsTaskCompleted(task) ? "text-decoration-line-through opacity-50" : "")" style="font-size: 1.05rem;">
+                                                    @task.Title
+                                                </div>
+                                                <div class="small fw-medium mt-1" style="color: @lessonColor;">
+                                                    <i class="bi bi-circle-fill me-1" style="font-size: 8px;"></i>@(task.Lesson?.Name ?? "Genel")
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex gap-2 align-items-center">
+                                            @if(task.PlannedDuration.HasValue)
+                                            {
+                                                <span class="badge bg-dark text-white opacity-75 h-100 d-flex align-items-center"><i class="bi bi-clock me-1"></i> @GetFormattedDuration(task.PlannedDuration.Value)</span>
+                                            }
+                                            <button class="btn btn-sm" style="border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); border-radius: 6px; color: white;" 
+                                                    @onclick="() => selectedDetailTask = task">
+                                                <i class="bi bi-info-circle me-1"></i> Detay
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    @if (!string.IsNullOrWhiteSpace(task.Note) || task.EndDate.HasValue)
+                                    {
+                                        <div class="mt-1 ms-5 ps-1 d-flex flex-column gap-2">
+                                            @if (!string.IsNullOrWhiteSpace(task.Note))
+                                            {
+                                                <div class="small text-white opacity-50 text-truncate" style="max-width: 90%;">
+                                                    <i class="bi bi-text-paragraph me-1"></i> @task.Note
+                                                </div>
+                                            }
+                                            @if (task.EndDate.HasValue)
+                                            {
+                                                <div class="small text-white opacity-50">
+                                                    <i class="bi bi-calendar-check me-1"></i> Bitiş: @task.EndDate.Value.ToString("dd MMM HH:mm", CurrentCulture)
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center py-5 text-white opacity-50">
+                            <i class="bi bi-calendar-x fs-1 mb-2"></i>
+                            <p>Bugün için planlanmış görev yok.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Alt Görev Detay Modalı -->
+@if (selectedDetailTask != null)
+{
+    <div class="modal-backdrop fade show" style="z-index: 1060;"></div>
+    <div class="modal fade show d-block" tabindex="-1" style="z-index: 1065;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="background: linear-gradient(145deg, #2b2b2b, #1f1f1f); border-radius: 12px;">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold text-white d-flex align-items-center">
+                        <i class="bi bi-list-task me-2" style="color: @(selectedDetailTask.Lesson?.Color ?? "#fff")"></i> 
+                        <span style="font-size: 1.1rem; line-height: 1.2;">@selectedDetailTask.Title</span>
+                    </h5>
+                    <button type="button" class="modal-close-adaptive" @onclick="() => selectedDetailTask = null" aria-label="Kapat">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="p-3 mb-3" style="background: rgba(255,255,255,0.05); border-radius: 8px;">
+                        <h6 class="text-white opacity-75 small text-uppercase mb-2"><i class="bi bi-card-text me-1"></i>Açıklama</h6>
+                        <p class="text-white m-0" style="font-size: 0.95rem; word-wrap: break-word; word-break: break-all; white-space: pre-wrap; max-height: 200px; overflow-y: auto;">
+                            @(string.IsNullOrWhiteSpace(selectedDetailTask.Note) ? "Bu görev için açıklama veya not bulunmuyor." : selectedDetailTask.Note)
+                        </p>
+                    </div>
+
+                    <div class="row g-2">
+                         <div class="col-6">
+                            <div class="p-2 h-100" style="background: rgba(255,255,255,0.03); border-radius: 8px;">
+                                <div class="text-white opacity-50 small mb-1"><i class="bi bi-clock-history"></i> Tahmini Süre</div>
+                                <div class="fw-bold text-white fs-6">
+                                    @(selectedDetailTask.PlannedDuration.HasValue ? GetFormattedDuration(selectedDetailTask.PlannedDuration.Value) : "-")
+                                </div>
+                            </div>
+                         </div>
+                         <div class="col-6">
+                            <div class="p-2 h-100" style="background: rgba(255,255,255,0.03); border-radius: 8px;">
+                                <div class="text-white opacity-50 small mb-1"><i class="bi bi-tag"></i> Ders</div>
+                                <div class="fw-bold fs-6" style="color: @(selectedDetailTask.Lesson?.Color ?? "#fff")">
+                                    @(selectedDetailTask.Lesson?.Name ?? "Genel")
+                                </div>
+                            </div>
+                         </div>
+                         <div class="col-12 mt-2">
+                             <div class="d-flex justify-content-between p-2" style="background: rgba(255,255,255,0.03); border-radius: 8px;">
+                                 <div>
+                                     <div class="text-white opacity-50 small"><i class="bi bi-calendar-event"></i> Başlangıç</div>
+                                     <div class="text-white small fw-medium mt-1">@(selectedDetailTask.StartDate?.ToString("dd MMM yyyy HH:mm", CurrentCulture) ?? "-")</div>
+                                 </div>
+                                 <div class="text-end">
+                                     <div class="text-white opacity-50 small"><i class="bi bi-calendar-check"></i> Bitiş (Hedef)</div>
+                                     <div class="text-white small fw-medium mt-1">@(selectedDetailTask.EndDate?.ToString("dd MMM yyyy HH:mm", CurrentCulture) ?? "-")</div>
+                                 </div>
+                             </div>
+                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+<style>
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 1px;
+        background-color: var(--border-color);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-xl);
+        overflow: hidden;
+    }
+
+    .calendar-day-header {
+        background-color: var(--bg-card);
+        color: var(--text-muted);
+        text-align: center;
+        padding: 10px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+    }
+
+    .calendar-cell {
+        background-color: var(--bg-card);
+        min-height: 120px;
+        padding: 8px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        position: relative;
+    }
+
+    .calendar-cell:hover {
+        filter: brightness(1.2);
+    }
+    
+    .calendar-cell.today {
+        border: 2px solid var(--accent-blue);
+    }
+
+    .skeleton-cell {
+        background-color: var(--bg-surface);
+        animation: pulse 1.5s infinite;
+    }
+    
+    @@keyframes pulse {
+        0% { opacity: 0.6; }
+        50% { opacity: 1; }
+        100% { opacity: 0.6; }
+    }
+
+    .cell-header {
+        margin-bottom: 6px;
+    }
+
+    .day-number {
+        font-weight: 600;
+        color: var(--text-main);
+    }
+
+    .cell-content {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    .task-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+    }
+
+    .task-dot-completed {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .task-dot-more {
+        font-size: 0.6rem;
+        color: var(--text-muted);
+    }
+
+    .task-due-date {
+        color: var(--text-dim);
+    }
+
+    .modal-close-adaptive {
+        background: none;
+        border: none;
+        font-size: 1.1rem;
+        color: var(--text-main);
+        opacity: 0.6;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 6px;
+        line-height: 1;
+        transition: opacity 0.15s, background 0.15s;
+    }
+    .modal-close-adaptive:hover {
+        opacity: 1;
+        background: var(--bg-surface);
+    }
+</style>

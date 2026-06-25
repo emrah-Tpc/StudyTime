@@ -41,10 +41,10 @@ namespace StudyTime.Controllers
 
             if (!canAccess)
             {
-                // Detaylı grafikleri gizle
-                summary.WeeklyChartData = new List<StudyTime.Application.DTOs.Dashboard.ChartDataDto>();
-                summary.DailyChartData = new List<StudyTime.Application.DTOs.Dashboard.ChartDataDto>();
-                summary.CategoryChartData = new List<StudyTime.Application.DTOs.Dashboard.ChartDataDto>();
+                // Demo/GBYF için grafikleri her zaman gösteriyoruz
+                // summary.WeeklyChartData = new List<StudyTime.Application.DTOs.Dashboard.ChartDataDto>();
+                // summary.DailyChartData = new List<StudyTime.Application.DTOs.Dashboard.ChartDataDto>();
+                // summary.CategoryChartData = new List<StudyTime.Application.DTOs.Dashboard.ChartDataDto>();
             }
 
             return Ok(summary);

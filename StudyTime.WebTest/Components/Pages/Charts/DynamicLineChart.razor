@@ -1,0 +1,151 @@
+@using StudyTime.Application.DTOs.Dashboard
+@using ApexCharts
+@namespace StudyTime.WebTest.Components.Charts
+
+<div style="width: 100%; overflow: hidden;">
+    <ApexChart TItem="ChartDataDto"
+               Title=""
+               Height="180"
+               Width="@("100%")"
+               @ref="chart"
+               Options="options">
+
+        <ApexPointSeries TItem="ChartDataDto"
+                         Items="Data"
+                         Name="Süre"
+                         SeriesType="SeriesType.Area"
+                         XValue="@(e => e.Label)"
+                         YValue="@(e => e.Value)"
+                         Color="#22d3ee" />
+    </ApexChart>
+</div>
+
+@code {
+    [Parameter]
+    public List<ChartDataDto> Data { get; set; } = new();
+
+    private ApexChartOptions<ChartDataDto> options { get; set; } = new();
+    private ApexChart<ChartDataDto>? chart;
+
+    protected override void OnInitialized()
+    {
+        options.Chart = new Chart
+        {
+            Toolbar = new Toolbar { Show = false },
+            Selection = new Selection { Enabled = false },
+            Background = "transparent",
+            ForeColor = "#94a3b8", // Text color
+            Zoom = new Zoom { Enabled = false }
+        };
+
+        options.Theme = new Theme { Mode = ApexCharts.Mode.Dark };
+
+        // Smooth curve
+        options.Stroke = new Stroke { Curve = Curve.Smooth, Width = 3 };
+
+        // Grid
+        options.Grid = new Grid
+        {
+            Show = true,
+            BorderColor = "#374151",
+            StrokeDashArray = 4,
+            Padding = new Padding { Left = 0, Right = 0, Top = 0, Bottom = 0 }
+        };
+
+        // X-Axis
+        options.Xaxis = new XAxis
+        {
+            AxisBorder = new AxisBorder { Show = false },
+            AxisTicks = new AxisTicks { Show = false },
+            Labels = new XAxisLabels { Style = new AxisLabelStyle { Colors = "#94a3b8" } },
+            Tooltip = new AxisTooltip { Enabled = false }
+        };
+
+        // Y-Axis
+        options.Yaxis = new List<YAxis>
+        {
+            new YAxis
+            {
+                Labels = new YAxisLabels
+                {
+                    Style = new AxisLabelStyle { Colors = "#94a3b8" },
+                    Formatter = @"function (value) {
+                        if (value == 0) return '0';
+                        if (value < 60) return value + 'dk';
+                        return (value / 60).toFixed(1) + 's';
+                    }"
+                }
+            }
+        };
+
+        // Fill / Area Gradient
+        options.Fill = new Fill
+        {
+            Type = FillType.Gradient,
+            Gradient = new FillGradient
+            {
+                ShadeIntensity = 1,
+                OpacityFrom = 0.4,
+                OpacityTo = 0.05,
+                Stops = new List<double> { 0, 100 }
+            }
+        };
+
+        options.DataLabels = new DataLabels { Enabled = false };
+        options.Theme = new Theme { Mode = ApexCharts.Mode.Dark };
+        options.Tooltip = new Tooltip { Enabled = true, Theme = ApexCharts.Mode.Dark, Intersect = false, Shared = true };
+
+        // Responsive Options
+        options.Responsive = new List<Responsive<ChartDataDto>>
+        {
+            new Responsive<ChartDataDto>
+            {
+                Breakpoint = 768,
+                Options = new ApexChartOptions<ChartDataDto>
+                {
+                    Chart = new Chart
+                    {
+                        Height = 170,
+                        Width = "100%",
+                        Toolbar = new Toolbar { Show = false }
+                    },
+                    Xaxis = new XAxis
+                    {
+                        Labels = new XAxisLabels
+                        {
+                            Show = true,
+                            Rotate = -30,
+                            Style = new AxisLabelStyle { Colors = "#94a3b8", FontSize = "9px" }
+                        },
+                        TickAmount = 5
+                    }
+                }
+            },
+            new Responsive<ChartDataDto>
+            {
+                Breakpoint = 480,
+                Options = new ApexChartOptions<ChartDataDto>
+                {
+                    Chart = new Chart
+                    {
+                        Height = 150,
+                        Width = "100%",
+                        Toolbar = new Toolbar { Show = false }
+                    },
+                    Xaxis = new XAxis
+                    {
+                        Labels = new XAxisLabels { Show = false }
+                    }
+                }
+            }
+        };
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (chart != null)
+        {
+            await chart.UpdateSeriesAsync(true);
+        }
+    }
+}

@@ -37,6 +37,8 @@ namespace StudyTime.DesktopClient.Offline
                     var fresh = await remote.GetStatisticsAsync(range);
                     if (fresh != null)
                     {
+                        await LocalSessionAnalytics.EnrichStatisticsWithLocalSessionsAsync(
+                            fresh, range, db, lessonCache, taskCache, userContext);
                         await cache.SetAsync(key, fresh);
                         return fresh;
                     }
@@ -52,7 +54,11 @@ namespace StudyTime.DesktopClient.Offline
             {
                 var cached = await cache.GetAsync<StatisticsSummaryDto>(key);
                 if (cached != null)
+                {
+                    await LocalSessionAnalytics.EnrichStatisticsWithLocalSessionsAsync(
+                        cached, range, db, lessonCache, taskCache, userContext);
                     return cached;
+                }
             }
 
             try

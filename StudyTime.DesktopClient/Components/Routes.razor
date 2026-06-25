@@ -1,32 +1,56 @@
-﻿@using StudyTime.DesktopClient.Components.Layout
+@using StudyTime.DesktopClient.Components.Layout
 
 <CascadingAuthenticationState>
-    <Router AppAssembly="@typeof(MauiProgram).Assembly">
-        <Found Context="routeData">
-            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
-                <NotAuthorized>
-                    @if (context.User.Identity?.IsAuthenticated == false)
-                    {
-                        <RedirectToLogin />
-                    }
-                    else
-                    {
+    <GlobalErrorBoundary>
+        <ChildContent>
+            <Router AppAssembly="@typeof(MauiProgram).Assembly">
+                <Found Context="routeData">
+                    <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                        <Authorizing>
+                            <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#09090b;flex-direction:column;gap:16px;">
+                                <div style="width:36px;height:36px;border:3px solid rgba(255,255,255,0.1);border-top-color:#3b82f6;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+                                <style>@@keyframes spin{to{transform:rotate(360deg)}}</style>
+                            </div>
+                        </Authorizing>
+                        <NotAuthorized>
+                            @if (context.User.Identity?.IsAuthenticated == false)
+                            {
+                                <RedirectToLogin />
+                            }
+                            else
+                            {
+                                <div class="p-4 text-center">
+                                    <h1 class="text-danger">Erişim Reddedildi</h1>
+                                    <p>Bu sayfayı görüntüleme yetkiniz yok.</p>
+                                </div>
+                            }
+                        </NotAuthorized>
+                    </AuthorizeRouteView>
+                    <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+                </Found>
+                <NotFound>
+                    <LayoutView Layout="@typeof(MainLayout)">
                         <div class="p-4 text-center">
-                            <h1 class="text-danger">Erişim Reddedildi</h1>
-                            <p>Bu sayfayı görüntüleme yetkiniz yok.</p>
+                            <h1 class="text-danger">Sayfa Bulunamadı</h1>
+                            <p>Aradığınız sayfa bu adreste yok.</p>
                         </div>
-                    }
-                </NotAuthorized>
-            </AuthorizeRouteView>
-            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
-        </Found>
-        <NotFound>
-            <LayoutView Layout="@typeof(MainLayout)">
-                <div class="p-4 text-center">
-                    <h1 class="text-danger">Sayfa Bulunamadı</h1>
-                    <p>Aradığınız sayfa bu adreste yok.</p>
-                </div>
-            </LayoutView>
-        </NotFound>
-    </Router>
+                    </LayoutView>
+                </NotFound>
+            </Router>
+        </ChildContent>
+        <ErrorContent>
+            <div class="d-flex flex-column justify-content-center align-items-center text-center p-4" style="min-height: 100vh; background: #09090b; color: #f8fafc;">
+                <h2 class="mb-2">Bir ekran hatası oluştu</h2>
+                <p class="mb-3" style="opacity: 0.8;">Uygulamayı yeniden başlatmayı deneyin. Hata ayrıntısı log'a kaydedildi.</p>
+                <button class="btn btn-primary" @onclick="Reload">Yeniden Yükle</button>
+            </div>
+        </ErrorContent>
+    </GlobalErrorBoundary>
 </CascadingAuthenticationState>
+
+@code {
+    [Inject] private NavigationManager NavigationManager { get; set; } = default!;
+
+    private void Reload()
+        => NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+}

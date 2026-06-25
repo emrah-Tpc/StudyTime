@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using StudyTime.Application.Interfaces;
 using StudyTime.Domain.Entities;
 using StudyTime.Infrastructure.Persistence;
@@ -115,6 +115,16 @@ namespace StudyTime.Infrastructure.Repositories
                      t.CreatedAt.Date <= endDate.Date)
                 )
                 .OrderByDescending(t => t.StartDate ?? t.EndDate ?? t.UpdatedAt ?? t.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<List<TaskItem>> GetPendingTasksAsync()
+        {
+            return await context.Tasks
+                .AsNoTracking()
+                .Include(t => t.Lesson)
+                .Where(t => t.Status == TaskStatus.Pending)
+                .OrderByDescending(t => t.CreatedAt)
                 .ToListAsync();
         }
     }

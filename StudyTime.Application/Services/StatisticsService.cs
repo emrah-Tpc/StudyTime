@@ -1,3 +1,4 @@
+using System.Globalization;
 using StudyTime.Application.DTOs.Statistics;
 using StudyTime.Application.Interfaces;
 using StudyTime.Domain.Enums;
@@ -79,18 +80,19 @@ namespace StudyTime.Application.Services
                 .Take(5)
                 .ToList();
 
-            // 5. Günlük Çalışma Trendi (mola hariç, sıfır doldurma)
+            // 5. Günlük Çalışma Trendi (mola hariç) — local-time ile grupla (UTC kayması önlenir)
             var dailyWork = workSessions
-                .GroupBy(s => s.StartedAt.Date)
+                .GroupBy(s => s.StartedAt.ToLocalTime().Date)
                 .ToDictionary(g => g.Key, g => g.Sum(s => s.CurrentDuration.TotalMinutes));
 
+            var trCulture = new CultureInfo("tr-TR");
             var trendData = new List<TimeTrendDto>();
             for (var date = startDate.Date; date <= endDate.Date; date = date.AddDays(1))
             {
                 trendData.Add(new TimeTrendDto
                 {
-                    Label = date.ToString("dd MMM", new System.Globalization.CultureInfo("tr-TR")),
-                    Value = dailyWork.GetValueOrDefault(date, 0)
+                    Label = date.ToString("dd MMM", trCulture),
+                    Value = Math.Floor(dailyWork.GetValueOrDefault(date, 0))
                 });
             }
             summary.StudyTrends = trendData;
@@ -98,7 +100,7 @@ namespace StudyTime.Application.Services
             // 6. Sliding Window (3-hour blocks) Peak Productivity
             var minutesByHour = new double[24];
             foreach (var s in workSessions)
-                minutesByHour[s.StartedAt.Hour] += s.CurrentDuration.TotalMinutes;
+                minutesByHour[s.StartedAt.ToLocalTime().Hour] += s.CurrentDuration.TotalMinutes;
 
             var windows = new List<ProductivityDto>();
             for (var h = 0; h <= 21; h++)
@@ -128,15 +130,14 @@ namespace StudyTime.Application.Services
 
             if (workSessions.Any())
             {
-                var culture      = new System.Globalization.CultureInfo("tr-TR");
                 var bestDayGroup = workSessions
-                    .GroupBy(s => s.StartedAt.DayOfWeek)
+                    .GroupBy(s => s.StartedAt.ToLocalTime().DayOfWeek)
                     .OrderByDescending(g => g.Sum(s => s.CurrentDuration.TotalMinutes))
                     .FirstOrDefault();
 
                 if (bestDayGroup != null)
                 {
-                    summary.MostProductiveDay = culture.DateTimeFormat.GetDayName(bestDayGroup.Key);
+                    summary.MostProductiveDay = trCulture.DateTimeFormat.GetDayName(bestDayGroup.Key);
                     summary.MostProductiveDay = char.ToUpper(summary.MostProductiveDay[0])
                                               + summary.MostProductiveDay[1..];
                 }
@@ -144,7 +145,7 @@ namespace StudyTime.Application.Services
 
             // 8. Günlük Seans Heatmap (mola hariç)
             var dailySessionGroups = workSessions
-                .GroupBy(s => s.StartedAt.Date)
+                .GroupBy(s => s.StartedAt.ToLocalTime().Date)
                 .ToDictionary(
                     g => g.Key,
                     g =>

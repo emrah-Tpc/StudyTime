@@ -1,4 +1,4 @@
-﻿@using StudyTime.Application.DTOs.Dashboard
+@using StudyTime.Application.DTOs.Dashboard
 @using ApexCharts
 @namespace StudyTime.DesktopClient.Components.Charts
 
@@ -93,6 +93,18 @@
     }
 
     protected override async Task OnParametersSetAsync()
+    {
+        if (chart != null)
+        {
+            await chart.UpdateSeriesAsync(true);
+        }
+    }
+
+    /// <summary>
+    /// DashboardBase.OnChartDataRefreshed tarafından çağrılır.
+    /// ApexCharts'ın Blazor state değişimini kaçırdığı durumlarda DOM'u zorla günceller.
+    /// </summary>
+    public async Task ForceUpdateAsync()
     {
         if (chart != null)
         {

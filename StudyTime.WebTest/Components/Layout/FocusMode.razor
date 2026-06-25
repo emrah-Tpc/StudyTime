@@ -1,0 +1,191 @@
+@using StudyTime.DesktopClient.Services
+@implements IDisposable
+
+@inject GlobalTimerService GlobalTimer
+
+@if (GlobalTimer.IsFocusModeActive)
+{
+    <div class="focus-overlay fade-in" @onkeydown="HandleKeyDown" tabindex="0">
+        <!-- Ambient Background -->
+        <div class="focus-ambient" style="--accent: @GlobalTimer.ActiveColor"></div>
+
+        <!-- Header: Close -->
+        <div class="focus-header">
+            <button class="focus-exit-btn" @onclick="ExitFocusMode">
+                <i class="bi bi-x-lg"></i> Odak Modundan Çık
+            </button>
+        </div>
+
+        <!-- Main: Giant Clock -->
+        <div class="focus-center">
+            <div class="focus-lesson-label d-flex flex-column align-items-center gap-2" style="color: @GlobalTimer.ActiveColor">
+                @if (GlobalTimer.IsBreak)
+                {
+                    <span class="fs-4"><i class="bi bi-cup-hot-fill me-2"></i>Mola Vakti</span>
+                }
+                else
+                {
+                    <span class="fs-5 opacity-75">
+                        @if (GlobalTimer.ActiveModeName == "Serbest")
+                        {
+                            <i class="bi bi-infinity me-2"></i>
+                        }
+                        else if (GlobalTimer.ActiveModeName == "Klasik")
+                        {
+                            <i class="bi bi-clock me-2"></i>
+                        }
+                        else if (GlobalTimer.ActiveModeName == "Derin Odak")
+                        {
+                            <i class="bi bi-bullseye me-2"></i>
+                        }
+                        else
+                        {
+                            <i class="bi bi-sliders me-2"></i>
+                        }
+                        @(GlobalTimer.ActiveModeName ?? "Odaklanma Modu")
+                    </span>
+                }
+
+                @if (!string.IsNullOrEmpty(GlobalTimer.ActiveTaskTitle) && !GlobalTimer.IsBreak)
+                {
+                    <div class="active-task-pill" style="background: @(GlobalTimer.ActiveColor)22; border: 1px solid @(GlobalTimer.ActiveColor)44; padding: 6px 20px; border-radius: 99px; font-weight: 700;">
+                        <i class="bi bi-bookmark-fill me-2"></i>@GlobalTimer.ActiveTaskTitle
+                    </div>
+                }
+            </div>
+
+            <div class="focus-clock" style="color: @GlobalTimer.ActiveColor; text-shadow: 0 0 40px @(GlobalTimer.ActiveColor)88, 0 0 80px @(GlobalTimer.ActiveColor)44">
+                @FocusDisplayTime.ToString(FocusDisplayTime.TotalHours >= 1 ? @"hh\:mm\:ss" : @"mm\:ss")
+            </div>
+
+            <div class="focus-pulsing-ring @(GlobalTimer.IsPaused ? "paused" : "")" style="border-color: @GlobalTimer.ActiveColor"></div>
+
+            <div class="focus-quote">
+                <i class="bi bi-chat-quote-fill me-2 opacity-50"></i>@CurrentQuote
+            </div>
+        </div>
+
+        <!-- Footer: Controls -->
+        <div class="focus-footer d-flex gap-3">
+            @if (GlobalTimer.IsPaused)
+            {
+                <button class="focus-action-btn resume" @onclick="() => GlobalTimer.Resume()">
+                    <i class="bi bi-play-fill me-2"></i>Devam Et
+                </button>
+            }
+            else if (GlobalTimer.IsRunning)
+            {
+                <button class="focus-action-btn pause" @onclick="() => GlobalTimer.Pause()">
+                    <i class="bi bi-pause-fill me-2"></i>Duraklat
+                </button>
+            }
+
+            <button class="focus-stop-btn" @onclick="StopTimer">
+                <i class="bi bi-stop-fill me-2"></i>Çalışmayı Bitir
+            </button>
+        </div>
+    </div>
+}
+
+<style>
+    .focus-overlay {
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+    }
+
+    .focus-action-btn {
+        background: rgba(255,255,255,0.08);
+        border: 1px solid rgba(255,255,255,0.15);
+        color: white;
+        padding: 14px 36px;
+        border-radius: 99px;
+        font-weight: 700;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    
+    .focus-action-btn.resume { 
+        background: rgba(16, 185, 129, 0.15); 
+        border-color: rgba(16, 185, 129, 0.4); 
+        color: #34d399; 
+    }
+    
+    .focus-action-btn.pause { 
+        background: rgba(245, 158, 11, 0.15); 
+        border-color: rgba(245, 158, 11, 0.4); 
+        color: #fbbf24; 
+    }
+    
+    .focus-action-btn:active { 
+        transform: scale(0.95);
+        background: rgba(255,255,255,0.12);
+    }
+
+    .focus-pulsing-ring.paused { animation: none; opacity: 0.1; }
+
+    @@media (max-width: 768px) {
+        .focus-clock {
+            font-size: 5.5rem !important;
+            margin: 20px 0;
+        }
+        .active-task-pill {
+            font-size: 0.85rem;
+            max-width: 80vw;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    }
+</style>
+
+@code {
+    private static readonly string[] Quotes = new[]
+    {
+        "Başarı, her gün tekrar edilen küçük çabaların toplamıdır.",
+        "Odaklan. Şu an yaptığın şey hayatını şekillendiriyor.",
+        "Zorlu yollar, güzel yerlere çıkar.",
+        "Bugünün çalışması, yarının başarısıdır.",
+        "Kendine olan inanç, her şeyin başlangıcıdır.",
+        "Sabır ve azimle, her engeli aşarsın.",
+        "Her dakika önemli. Şu anın değerini bil.",
+        "Başarmak için önce inanmak gerekir.",
+        "Küçük adımlar, büyük hedeflere götürür.",
+        "Vazgeçme. Zirveye giden yol buradan geçiyor.",
+    };
+
+    private string CurrentQuote = Quotes[0];
+    private int _quoteIndex = 0;
+    private System.Threading.Timer? _quoteTimer;
+
+    private TimeSpan FocusDisplayTime =>
+        GlobalTimer.IsCountdown ? GlobalTimer.RemainingTime : GlobalTimer.ElapsedTime;
+
+    protected override void OnInitialized()
+    {
+        GlobalTimer.OnTick += OnTimerTick;
+        GlobalTimer.OnFocusModeChanged += OnFocusModeChanged;
+
+        _quoteTimer = new System.Threading.Timer(_ =>
+        {
+            _quoteIndex = (_quoteIndex + 1) % Quotes.Length;
+            CurrentQuote = Quotes[_quoteIndex];
+            InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+    }
+
+    private void OnTimerTick() => InvokeAsync(StateHasChanged);
+    private void OnFocusModeChanged() => InvokeAsync(StateHasChanged);
+    private void ExitFocusMode() => GlobalTimer.SetFocusMode(false);
+    private async Task StopTimer() => await GlobalTimer.StopAsync();
+    private void HandleKeyDown(KeyboardEventArgs e) { if (e.Key == "Escape") ExitFocusMode(); }
+
+    public void Dispose()
+    {
+        GlobalTimer.OnTick -= OnTimerTick;
+        GlobalTimer.OnFocusModeChanged -= OnFocusModeChanged;
+        _quoteTimer?.Dispose();
+    }
+}

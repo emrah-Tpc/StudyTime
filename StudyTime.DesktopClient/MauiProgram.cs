@@ -2,9 +2,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Maui.Controls.Hosting;
 using Microsoft.Maui.Hosting;
 using Microsoft.Maui.Controls;
-using Microsoft.Maui.Devices; // DeviceInfo ve DevicePlatform için gerekli
+using Microsoft.Maui.Devices; 
 using StudyTime.Application.Interfaces;
-using StudyTime.DesktopClient.Services; // Senin servislerin
+using StudyTime.DesktopClient.Interfaces;
+using StudyTime.DesktopClient.Services; 
 #if WINDOWS
 using StudyTime.DesktopClient.Platforms.Windows;
 #endif
@@ -63,15 +64,15 @@ namespace StudyTime.DesktopClient
                 return new HttpClient(handler)
                 {
                     BaseAddress = new Uri(baseUrl),
-                    // Offline/API-kapalı durumunda hızlı fallback için kısa timeout
-                    Timeout = TimeSpan.FromSeconds(8)
+                    // Increased timeout to prevent "Socket closed" errors during heavy operations
+                    Timeout = TimeSpan.FromSeconds(30)
                 };
             });
 
-            // "StudyTimeApi" adlı özel HttpClient, AuthorizationMessageHandler kullanır
             builder.Services.AddHttpClient("StudyTimeApi", client =>
             {
                 client.BaseAddress = new Uri(baseUrl);
+                client.DefaultRequestHeaders.Add("X-Tunnel-Skip-Anti-Phishing-Page", "true");
             })
             .ConfigurePrimaryHttpMessageHandler(() => {
                 var handler = new HttpClientHandler();
@@ -86,6 +87,7 @@ namespace StudyTime.DesktopClient
             builder.Services.AddHttpClient("StudyTimeApiNoAuth", client =>
             {
                 client.BaseAddress = new Uri(baseUrl);
+                client.DefaultRequestHeaders.Add("X-Tunnel-Skip-Anti-Phishing-Page", "true");
             })
             .ConfigurePrimaryHttpMessageHandler(() => {
                 var handler = new HttpClientHandler();
@@ -107,16 +109,21 @@ namespace StudyTime.DesktopClient
             builder.Services.AddScoped<StatisticsApiService>();
 
             // --- Platform Servisleri ---
+            builder.Services.AddSingleton<IPlatformDetector, PlatformDetector>();
 #if WINDOWS
             // Sistem tepsisi (Windows) — Singleton: uygulama boyunca tek tray icon
             builder.Services.AddSingleton<TrayIconService>();
             builder.Services.AddSingleton<IDeviceIdentityService, WindowsDeviceIdentityService>();
+            builder.Services.AddSingleton<IPlatformNotificationHandler, WindowsTrayNotificationHandler>();
 #else
             builder.Services.AddSingleton<IDeviceIdentityService, DeviceIdentityService>();
+            builder.Services.AddSingleton<IPlatformNotificationHandler, MobilePushNotificationHandler>();
 #endif
             // Mobil bildirimler (iOS/Android) — Singleton: eventlere sürekli bağlı olmalı
             builder.Services.AddSingleton<TimerNotificationService>();
+            builder.Services.AddSingleton<TaskReminderNotificationService>();
             builder.Services.AddSingleton<AppNotificationCenterService>();
+            builder.Services.AddSingleton<IAppNotificationService>(sp => sp.GetRequiredService<AppNotificationCenterService>());
 
             // --- Offline Sync Servisleri ---
             builder.Services.AddSingleton<LocalUserContext>();
@@ -136,8 +143,8 @@ namespace StudyTime.DesktopClient
             builder.Services.AddScoped<SyncedDashboardApiService>();
             builder.Services.AddScoped<SyncedStatisticsApiService>();
             builder.Services.AddScoped<StudyTime.DesktopClient.Offline.SyncedNotificationApiService>();
-            // Singleton: her API çağrısında IServiceScopeFactory ile StudySessionApiService (Scoped) güvenli şekilde çözülür (C4)
             builder.Services.AddSingleton<SyncedStudySessionApiService>();
+            builder.Services.AddSingleton<SyncBackgroundService>();
 
             return builder.Build();
         }

@@ -16,9 +16,9 @@ namespace StudyTime.DesktopClient.Offline
     {
         public async Task WipeAllUserLocalDataAsync()
         {
-            timerService.ForceReset();
+            await timerService.ForceResetAsync();
             syncStatusService.Reset();
-            notificationCenterService.ClearAll();
+            await notificationCenterService.ClearAllAsync();
 
             await lessonCache.ClearAsync();
             await taskCache.ClearAsync();

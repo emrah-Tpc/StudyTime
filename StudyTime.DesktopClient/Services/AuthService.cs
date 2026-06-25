@@ -43,11 +43,19 @@ namespace StudyTime.DesktopClient.Services
 
             if (response.IsSuccessStatusCode)
             {
-                var result = await response.Content.ReadFromJsonAsync<AuthResponseDto>();
-                if (result != null && !string.IsNullOrEmpty(result.Token))
+                try
                 {
-                    await _authStateProvider.MarkUserAsAuthenticated(result.Token, result.RefreshToken);
-                    return true;
+                    var result = await response.Content.ReadFromJsonAsync<AuthResponseDto>();
+                    if (result != null && !string.IsNullOrEmpty(result.Token))
+                    {
+                        await _authStateProvider.MarkUserAsAuthenticated(result.Token, result.RefreshToken);
+                        return true;
+                    }
+                }
+                catch (JsonException ex)
+                {
+                    var rawContent = await response.Content.ReadAsStringAsync();
+                    throw new Exception($"Sunucudan geçersiz bir yanıt alındı. Yanıt: '{rawContent}'. Detay: {ex.Message}");
                 }
             }
             else if (response.StatusCode == System.Net.HttpStatusCode.Forbidden ||
@@ -96,24 +104,21 @@ namespace StudyTime.DesktopClient.Services
 
             if (response.IsSuccessStatusCode)
             {
-                var result = await response.Content.ReadFromJsonAsync<AuthResponseDto>();
-                if (result != null && !string.IsNullOrEmpty(result.Token))
-                {
-                    await _authStateProvider.MarkUserAsAuthenticated(result.Token, result.RefreshToken);
-                    return true;
-                }
+                // Kullanıcı başarıyla kayıt oldu. Otomatik giriş yapma, sadece true dön.
+                return true;
             }
 
             var errorMsg = await response.Content.ReadAsStringAsync();
-            throw new Exception($"Kayıt başarısız: {errorMsg}");
+            throw new Exception($"Kayıt başarısız (Durum: {(int)response.StatusCode}): {errorMsg}");
         }
 
         public async Task LogoutAsync()
         {
             try
             {
-                // Backend'deki session'ı sonlandır
-                await _authHttpClient.PostAsync("api/auth/logout", null);
+                // Backend'deki session'ı sonlandır - takılmaması için 3 sn timeout koy
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                await _authHttpClient.PostAsync("api/auth/logout", null, cts.Token);
             }
             catch
             {

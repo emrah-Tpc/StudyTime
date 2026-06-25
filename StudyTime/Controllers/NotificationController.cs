@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using StudyTime.Application.DTOs.Notifications;
 using StudyTime.Domain.Entities;
 using StudyTime.Infrastructure.Repositories;
 
@@ -27,14 +28,37 @@ namespace StudyTime.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<Notification>> CreateNotification(Notification notification)
+        public async Task<IActionResult> CreateNotification([FromBody] CreateNotificationDto dto)
         {
-            notification.Id = Guid.NewGuid();
-            notification.CreatedAt = DateTime.Now;
-            notification.IsRead = false;
-            
+            if (dto is null || string.IsNullOrWhiteSpace(dto.Title))
+                return BadRequest(new { message = "Başlık zorunludur." });
+
+            // Güvenli kurulum: UserId/IsRead/IsDeleted ASLA istemciden alınmaz.
+            // UserId, DbContext.ApplyUserIdToEntities tarafından geçerli kullanıcıya atanır.
+            var notification = new Notification
+            {
+                Id        = dto.Id.HasValue && dto.Id.Value != Guid.Empty ? dto.Id.Value : Guid.NewGuid(),
+                Title     = dto.Title,
+                Message   = dto.Message ?? string.Empty,
+                Category  = string.IsNullOrWhiteSpace(dto.Category) ? "System" : dto.Category!,
+                ActionUrl = dto.ActionUrl,
+                CreatedAt = dto.CreatedAt ?? DateTime.UtcNow,
+                IsRead    = false,
+                IsDeleted = false
+            };
+
             var created = await _repository.AddAsync(notification);
-            return CreatedAtAction(nameof(GetNotifications), new { id = created.Id }, created);
+
+            return Ok(new NotificationDto
+            {
+                Id        = created.Id,
+                Title     = created.Title,
+                Message   = created.Message,
+                Category  = created.Category,
+                IsRead    = created.IsRead,
+                ActionUrl = created.ActionUrl,
+                CreatedAt = created.CreatedAt
+            });
         }
 
         [HttpPut("{id}/read")]

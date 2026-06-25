@@ -1,0 +1,102 @@
+@using StudyTime.Application.DTOs.Dashboard
+@using ApexCharts
+@namespace StudyTime.WebTest.Components.Charts
+
+<div style="width: 100%; overflow: visible; max-height: 250px;">
+    <ApexChart TItem="ChartDataDto"
+               Title=""
+               Height="220"
+               Width="@("100%")"
+               @ref="chart"
+               Options="options">
+
+        <ApexPointSeries TItem="ChartDataDto"
+                         Items="Data"
+                         Name="Süre"
+                         SeriesType="SeriesType.Donut"
+                         XValue="@(e => e.Label)"
+                         YValue="@(e => e.Value)" />
+    </ApexChart>
+</div>
+
+@code {
+    [Parameter]
+    public List<ChartDataDto> Data { get; set; } = new();
+
+    private ApexChartOptions<ChartDataDto> options { get; set; } = new();
+    private ApexChart<ChartDataDto>? chart;
+
+    protected override void OnInitialized()
+    {
+        options.Chart = new Chart
+        {
+            Toolbar = new Toolbar { Show = false },
+            Selection = new Selection { Enabled = false },
+            Background = "transparent",
+            ForeColor = "#94a3b8"
+        };
+
+        options.Theme = new Theme { Mode = Mode.Dark, Palette = PaletteType.Palette1 };
+        
+        // Remove border
+        options.Stroke = new Stroke { Show = false };
+
+        // Plot options for Donut
+        options.PlotOptions = new PlotOptions
+        {
+            Pie = new PlotOptionsPie
+            {
+                
+                Donut = new PlotOptionsDonut
+                {
+                    Size = "65%",
+                    Labels = new DonutLabels
+                    {
+                        Show = true,
+                        Name = new DonutLabelName { Show = true, Color = "#94a3b8" },
+                        Value = new DonutLabelValue { Show = true, Color = "#FFFFFF" },
+                        Total = new DonutLabelTotal { Show = true, ShowAlways = true, Label = "Toplam", Color = "#94a3b8" }
+                    }
+                }
+            }
+        };
+
+        options.Legend = new Legend
+        {
+            Position = LegendPosition.Right,
+            HorizontalAlign = Align.Center,
+            Labels = new LegendLabels { Colors = "#FFFFFF" },
+            ItemMargin = new LegendItemMargin { Horizontal = 10, Vertical = 0 }
+        };
+
+        options.Responsive = new List<Responsive<ChartDataDto>>
+        {
+            new Responsive<ChartDataDto>
+            {
+                Breakpoint = 480,
+                Options = new ApexChartOptions<ChartDataDto>
+                {
+                    Legend = new Legend
+                    {
+                        Position = LegendPosition.Bottom,
+                        HorizontalAlign = Align.Center
+                    },
+                    Chart = new Chart
+                    {
+                        Height = 280
+                    }
+                }
+            }
+        };
+        options.DataLabels = new DataLabels { Enabled = false };
+        options.Tooltip = new Tooltip { Enabled = true, Theme = ApexCharts.Mode.Dark, Y = new TooltipY { Formatter = @"function(val) { return Math.round(val) + ' dk' }" } };
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (chart != null)
+        {
+            await chart.UpdateSeriesAsync(true);
+        }
+    }
+}

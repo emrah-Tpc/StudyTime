@@ -1,0 +1,283 @@
+@page "/settings"
+@using StudyTime.DesktopClient.Services
+@using StudyTime.Application.DTOs.Auth
+@inject ThemeService ThemeService
+@inject AuthService AuthService
+@inject IJSRuntime JS
+@implements IDisposable
+
+<div class="settings-container fade-in">
+    <div class="settings-header mb-4">
+        <h1 class="fw-bold text-white m-0">Ayarlar</h1>
+        <p class="text-muted small m-0">Uygulama tercihlerini yönet</p>
+    </div>
+
+    <!-- Tema Seçimi -->
+    <div class="settings-section">
+        <div class="settings-section-title">
+            <i class="bi bi-palette-fill me-2"></i>Tema
+        </div>
+        <div class="theme-cards">
+
+            <!-- Dark Mode -->
+            <div class="theme-card @(ThemeService.IsDarkMode ? "theme-card--active" : "")"
+                 @onclick="() => SetTheme(true)">
+                <div class="theme-preview theme-preview--dark">
+                    <div class="tp-bar"></div>
+                    <div class="tp-card"></div>
+                    <div class="tp-card tp-card--sm"></div>
+                </div>
+                <div class="theme-card-footer">
+                    <span class="fw-semibold">Koyu Mod</span>
+                    @if (ThemeService.IsDarkMode)
+                    {
+                        <span class="theme-active-badge"><i class="bi bi-check-circle-fill me-1"></i>Aktif</span>
+                    }
+                </div>
+            </div>
+
+            <!-- Light Mode -->
+            <div class="theme-card @(!ThemeService.IsDarkMode ? "theme-card--active" : "")"
+                 @onclick="() => SetTheme(false)">
+                <div class="theme-preview theme-preview--light">
+                    <div class="tp-bar tp-bar--light"></div>
+                    <div class="tp-card tp-card--light"></div>
+                    <div class="tp-card tp-card--sm tp-card--light"></div>
+                </div>
+                <div class="theme-card-footer">
+                    <span class="fw-semibold">Açık Mod</span>
+                    @if (!ThemeService.IsDarkMode)
+                    {
+                        <span class="theme-active-badge"><i class="bi bi-check-circle-fill me-1"></i>Aktif</span>
+                    }
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Profil Güncelleme -->
+    <div class="settings-section">
+        <div class="settings-section-title">
+            <i class="bi bi-person-fill me-2"></i>Profil
+        </div>
+        <div class="d-flex flex-column gap-3">
+            <div>
+                <label class="text-white opacity-75 small mb-1">Yeni İsim</label>
+                <input type="text" class="form-control bg-dark text-white border-secondary" @bind="newFullName" placeholder="İsminizi girin" />
+            </div>
+            <button class="btn btn-primary align-self-start" @onclick="UpdateProfile">Profili Güncelle</button>
+            @if (!string.IsNullOrEmpty(profileMessage)) {
+                <span class="text-info small">@profileMessage</span>
+            }
+        </div>
+    </div>
+
+    <!-- Şifre Değiştirme -->
+    <div class="settings-section">
+        <div class="settings-section-title">
+            <i class="bi bi-shield-lock-fill me-2"></i>Güvenlik
+        </div>
+        <div class="d-flex flex-column gap-3">
+            <div>
+                <label class="text-white opacity-75 small mb-1">Mevcut Şifre</label>
+                <input type="password" class="form-control bg-dark text-white border-secondary" @bind="currentPassword" />
+            </div>
+            <div>
+                <label class="text-white opacity-75 small mb-1">Yeni Şifre</label>
+                <input type="password" class="form-control bg-dark text-white border-secondary" @bind="newPassword" />
+            </div>
+            <button class="btn btn-warning align-self-start text-dark" @onclick="ChangePassword">Şifreyi Değiştir</button>
+            @if (!string.IsNullOrEmpty(passwordMessage)) {
+                <span class="text-info small">@passwordMessage</span>
+            }
+        </div>
+    </div>
+
+    <!-- Versiyon bilgisi -->
+    <div class="settings-footer">
+        <span class="text-muted small">StudyTime v1.0 · Beta</span>
+    </div>
+</div>
+
+@code {
+    private string newFullName = "";
+    private string currentPassword = "";
+    private string newPassword = "";
+    private string profileMessage = "";
+    private string passwordMessage = "";
+
+    protected override void OnInitialized()
+    {
+        ThemeService.OnThemeChanged += OnThemeChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // localStorage'dan mevcut temayı oku ve ThemeService'e sync et
+            // (index.html'deki JS restore scripti zaten HTML'e attribute yazdı,
+            //  ama C# ThemeService her zaman dark=true ile başlıyor)
+            var saved = await JS.InvokeAsync<string>("localStorage.getItem", "studytime-theme");
+            var isDark = saved != "light"; // default dark
+
+            if (isDark != ThemeService.IsDarkMode)
+            {
+                ThemeService.SetTheme(isDark);
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task SetTheme(bool isDark)
+    {
+        ThemeService.SetTheme(isDark);
+        var theme = isDark ? "dark" : "light";
+        await JS.InvokeVoidAsync("eval",
+            $"document.documentElement.setAttribute('data-theme', '{theme}')");
+        await JS.InvokeVoidAsync("eval",
+            $"localStorage.setItem('studytime-theme', '{theme}')");
+    }
+
+    private void OnThemeChanged() => InvokeAsync(StateHasChanged);
+
+    private async Task UpdateProfile()
+    {
+        var req = new UpdateProfileRequestDto { FullName = newFullName };
+        var ok = await AuthService.UpdateProfileAsync(req);
+        profileMessage = ok ? "Profil başarıyla güncellendi." : "Profil güncellenirken bir hata oluştu.";
+    }
+
+    private async Task ChangePassword()
+    {
+        if (string.IsNullOrWhiteSpace(currentPassword) || string.IsNullOrWhiteSpace(newPassword))
+        {
+            passwordMessage = "Lütfen mevcut ve yeni şifrenizi girin.";
+            return;
+        }
+
+        var req = new ChangePasswordRequestDto { CurrentPassword = currentPassword, NewPassword = newPassword };
+        var ok = await AuthService.ChangePasswordAsync(req);
+        passwordMessage = ok ? "Şifreniz başarıyla değiştirildi." : "Şifre değiştirilirken bir hata oluştu. Mevcut şifrenin doğruluğundan emin olun.";
+        
+        if (ok)
+        {
+            currentPassword = "";
+            newPassword = "";
+        }
+    }
+
+    public void Dispose()
+    {
+        ThemeService.OnThemeChanged -= OnThemeChanged;
+    }
+}
+
+<style>
+    .settings-container {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 2rem;
+        width: 100%;
+    }
+
+    .settings-section {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-xl);
+        padding: 24px;
+        margin-bottom: 20px;
+    }
+
+    .settings-section-title {
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-dim);
+        margin-bottom: 20px;
+    }
+
+    /* ── Tema Kartları ─────────────────────────────── */
+    .theme-cards {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .theme-card {
+        flex: 1;
+        min-width: 180px;
+        max-width: 240px;
+        border-radius: var(--radius-xl);
+        border: 2px solid var(--border-color);
+        cursor: pointer;
+        overflow: hidden;
+        transition: all 0.25s;
+        background: var(--bg-surface);
+    }
+
+    .theme-card:hover {
+        border-color: var(--border-highlight);
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+    }
+
+    .theme-card--active {
+        border-color: var(--accent-blue) !important;
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.2);
+    }
+
+    /* ── Tema Önizleme ─────────────────────────────── */
+    .theme-preview {
+        aspect-ratio: 16/9;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .theme-preview--dark { background: #09090b; }
+    .theme-preview--light { background: #f1f5f9; }
+
+    .tp-bar {
+        height: 8px;
+        border-radius: 4px;
+        background: #1e293b;
+        width: 60%;
+    }
+    .tp-bar--light { background: #e2e8f0; }
+
+    .tp-card {
+        height: 24px;
+        border-radius: 6px;
+        background: #18181b;
+        flex: 1;
+    }
+    .tp-card--sm { max-height: 14px; }
+    .tp-card--light { background: #ffffff; }
+
+    /* ── Kart Alt Bilgi ─────────────────────────────── */
+    .theme-card-footer {
+        padding: 12px 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 0.85rem;
+        color: var(--text-main);
+        border-top: 1px solid var(--border-color);
+    }
+
+    .theme-active-badge {
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: var(--accent-blue);
+    }
+
+    /* ── Footer ─────────────────────────────────────── */
+    .settings-footer {
+        text-align: center;
+        padding-top: 12px;
+    }
+</style>

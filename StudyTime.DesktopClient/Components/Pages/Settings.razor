@@ -101,7 +101,6 @@
 </div>
 
 @code {
-    private bool _firstRender = true;
     private string newFullName = "";
     private string currentPassword = "";
     private string newPassword = "";
@@ -183,6 +182,12 @@
         width: 100%;
     }
 
+    @@media (max-width: 480px) {
+        .settings-container {
+            padding: 1rem;
+        }
+    }
+
     .settings-section {
         background: var(--bg-card);
         border: 1px solid var(--border-color);
@@ -209,7 +214,7 @@
 
     .theme-card {
         flex: 1;
-        min-width: 180px;
+        min-width: 130px;
         max-width: 240px;
         border-radius: var(--radius-xl);
         border: 2px solid var(--border-color);

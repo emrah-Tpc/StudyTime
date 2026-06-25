@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using StudyTime.Application.Interfaces;
 using StudyTime.Domain.Entities;
 using StudyTime.Infrastructure.Persistence;
@@ -46,6 +46,11 @@ namespace StudyTime.Infrastructure.Repositories
         {
             _context.Lessons.Remove(lesson);
             await _context.SaveChangesAsync();
+        }
+
+        public async Task<bool> ExistsAsync(Guid id)
+        {
+            return await _context.Lessons.AnyAsync(l => l.Id == id);
         }
     }
 }

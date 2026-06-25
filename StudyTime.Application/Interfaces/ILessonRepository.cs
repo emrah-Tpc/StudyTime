@@ -1,4 +1,4 @@
-﻿using StudyTime.Domain.Entities;
+using StudyTime.Domain.Entities;
 
 namespace StudyTime.Application.Interfaces
 {
@@ -11,5 +11,6 @@ namespace StudyTime.Application.Interfaces
         // 👇 Bunları eklemen şart
         Task UpdateAsync(Lesson lesson);
         Task DeleteAsync(Lesson lesson);
+        Task<bool> ExistsAsync(Guid id);
     }
 }

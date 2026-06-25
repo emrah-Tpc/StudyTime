@@ -1,0 +1,223 @@
+@inherits DashboardBase
+@using StudyTime.Application.DTOs.Dashboard
+@using StudyTime.WebTest.Components.Charts
+@using System.Globalization
+
+<div class="dashboard-container fade-in">
+
+    @if (isLoading)
+    {
+        <!-- Skeleton Loading -->
+        <div class="db-header">
+            <div class="skeleton mb-2" style="width: 180px; height: 28px; border-radius: 8px;"></div>
+            <div class="skeleton" style="width: 130px; height: 16px; border-radius: 6px;"></div>
+        </div>
+
+        <div class="db-prod-skeleton skeleton" style="height: 160px; border-radius: 16px;"></div>
+
+        <div class="db-stats-grid">
+            @for (int i = 0; i < 4; i++)
+            {
+                <div class="skeleton" style="height: 110px; border-radius: 16px;"></div>
+            }
+        </div>
+
+        <div class="skeleton" style="height: 280px; border-radius: 16px;"></div>
+    }
+    else if (summary != null)
+    {
+        <!-- ── HEADER ─────────────────────────────── -->
+        <div class="db-header">
+            <div>
+                <h1 class="db-title">Genel Bakış</h1>
+                <p class="db-date">@DateTime.Now.ToString("dd MMMM, dddd", new CultureInfo("tr-TR"))</p>
+            </div>
+            <button class="db-add-btn" @onclick='() => Nav.NavigateTo("lessons?showAdd=true")'>
+                <i class="bi bi-plus-lg"></i>
+            </button>
+        </div>
+
+        <!-- ── PRODÜKTİVİTE KARTI ─────────────────── -->
+        <div class="db-prod-card">
+            <div class="db-prod-left">
+                <div class="db-donut-wrap">
+                    <svg viewBox="0 0 100 100" class="db-donut-svg">
+                        <circle cx="50" cy="50" r="40" fill="none" stroke="#27272a" stroke-width="9" />
+                        <circle cx="50" cy="50" r="40" fill="none" stroke="#3B82F6" stroke-width="9"
+                                stroke-dasharray="251.2"
+                                stroke-dashoffset="@((251.2 - (251.2 * Math.Clamp(summary.ProductivityScore, 0, 100) / 100)).ToString(CultureInfo.InvariantCulture))"
+                                stroke-linecap="round"
+                                transform="rotate(-90 50 50)" />
+                    </svg>
+                    <div class="db-donut-center">
+                        <span class="db-score-num">@summary.ProductivityScore</span>
+                    </div>
+                </div>
+                <div class="db-prod-info">
+                    <div class="db-prod-label">Verimlilik Skoru</div>
+                    <div class="db-prod-status @GetProdStatusClass()">@GetProdStatus()</div>
+                    <div class="db-prod-change @(summary.StudyTimeChange >= 0 ? "pos" : "neg")">
+                        <i class="bi @(summary.StudyTimeChange >= 0 ? "bi-arrow-up-short" : "bi-arrow-down-short")"></i>
+                        @(summary.StudyTimeChange >= 0 ? "+" : "")@GetHours(summary.StudyTimeChange) geçen haftaya göre
+                    </div>
+                </div>
+            </div>
+            <div class="db-prod-quote">
+                <i class="bi bi-quote db-quote-icon"></i>
+                <span>"Başarının sırrı, her gün atılan küçük adımlarda gizlidir."</span>
+            </div>
+        </div>
+
+        <!-- ── İSTATİSTİK KARTLARI ────────────────── -->
+        <div class="db-stats-grid">
+            <div class="db-stat-card">
+                <div class="db-stat-icon" style="background: rgba(59,130,246,0.18); color: #3B82F6;">
+                    <i class="bi bi-layers-fill"></i>
+                </div>
+                <div class="db-stat-val">@summary.TotalTasks</div>
+                <div class="db-stat-lbl">Toplam Görev</div>
+            </div>
+            <div class="db-stat-card">
+                <div class="db-stat-icon" style="background: rgba(16,185,129,0.18); color: #10B981;">
+                    <i class="bi bi-check-circle-fill"></i>
+                </div>
+                <div class="db-stat-val">@summary.CompletedTasks</div>
+                <div class="db-stat-lbl">Tamamlanan</div>
+            </div>
+            <div class="db-stat-card">
+                <div class="db-stat-icon" style="background: rgba(245,158,11,0.18); color: #F59E0B;">
+                    <i class="bi bi-clock-fill"></i>
+                </div>
+                <div class="db-stat-val">@GetHours(DisplayTodayStudiedMinutes)</div>
+                <div class="db-stat-lbl">Bugün Çalışma</div>
+            </div>
+            <div class="db-stat-card">
+                <div class="db-stat-icon" style="background: rgba(236,72,153,0.18); color: #EC4899;">
+                    <i class="bi bi-fire"></i>
+                </div>
+                <div class="db-stat-val">@summary.ActiveLessons</div>
+                <div class="db-stat-lbl">Aktif Alan</div>
+            </div>
+        </div>
+
+        <!-- ── ZAMAN TAKİBİ GRAFİĞİ ───────────────── -->
+        <div class="db-section-card">
+            <div class="db-section-header">
+                <div class="db-section-title">
+                    <i class="bi bi-graph-up-arrow" style="color: var(--accent-green);"></i>
+                    Verimlilik Analizi
+                </div>
+                <div class="db-tab-group">
+                    <button class="db-tab @(selectedChart == "Daily" ? "active" : "")" @onclick='() => SetChart("Daily")'>Günlük</button>
+                    <button class="db-tab @(selectedChart == "Weekly" ? "active" : "")" @onclick='() => SetChart("Weekly")'>Haftalık</button>
+                    <button class="db-tab @(selectedChart == "Category" ? "active" : "")" @onclick='() => SetChart("Category")'>Kategori</button>
+                </div>
+            </div>
+            <div class="db-chart-wrap">
+                @if (selectedChart == "Weekly" || selectedChart == "Daily")
+                {
+                    var chartData = GetActiveChartData();
+                    if (chartData.Any())
+                    {
+                        <DynamicLineChart Data="@chartData" />
+                    }
+                    else
+                    {
+                        <div class="db-empty">Henüz veri yok.</div>
+                    }
+                }
+                else if (selectedChart == "Category")
+                {
+                    @if (summary.CategoryChartData.Any())
+                    {
+                        <DynamicDonutChart Data="@summary.CategoryChartData" />
+                    }
+                    else
+                    {
+                        <div class="db-empty">Henüz veri yok.</div>
+                    }
+                }
+            </div>
+        </div>
+
+        <!-- ── ÇALIŞMA ALANLARI ───────────────────── -->
+        @if (summary.Workspaces.Any())
+        {
+            <div class="db-section-card">
+                <div class="db-section-header">
+                    <div class="db-section-title">
+                        <i class="bi bi-folder2-open" style="color: var(--accent-orange);"></i>
+                        Çalışma Alanları
+                    </div>
+                    <a href="lessons" class="db-view-all">Tümü <i class="bi bi-chevron-right"></i></a>
+                </div>
+                <div class="db-workspace-list">
+                    @foreach (var ws in summary.Workspaces)
+                    {
+                        <div class="db-ws-item">
+                            <div class="db-ws-dot" style="background:@ws.Color;"></div>
+                            <div class="db-ws-body">
+                                <div class="db-ws-row">
+                                    <span class="db-ws-name">@ws.Name</span>
+                                    <span class="db-ws-pct">@ws.ProgressPercent%</span>
+                                </div>
+                                <div class="db-ws-bar-bg">
+                                    <div class="db-ws-bar-fill" style="width:@ws.ProgressPercent%;background:@ws.Color;"></div>
+                                </div>
+                                <div class="db-ws-meta">
+                                    <span>@ws.CompletedTasks / @ws.TotalTasks görev</span>
+                                    <span>@ws.TotalTimeTracked</span>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- ── SON AKTİVİTELER ────────────────────── -->
+        @if (summary.RecentActivities.Any())
+        {
+            <div class="db-section-card">
+                <div class="db-section-header">
+                    <div class="db-section-title">
+                        <i class="bi bi-activity" style="color: var(--accent-pink);"></i>
+                        Son Aktiviteler
+                    </div>
+                    <a href="tasks" class="db-view-all">Tümü <i class="bi bi-chevron-right"></i></a>
+                </div>
+                <div class="db-activity-list">
+                    @foreach (var activity in summary.RecentActivities)
+                    {
+                        <div class="db-act-item">
+                            <div class="db-act-icon @(activity.IsCompleted ? "done" : "pending")">
+                                <i class="bi @(activity.IsCompleted ? "bi-check-lg" : "bi-circle")"></i>
+                            </div>
+                            <div class="db-act-body">
+                                <div class="db-act-title @(activity.IsCompleted ? "done" : "")">@activity.Title</div>
+                                <div class="db-act-meta">@activity.Subtitle</div>
+                            </div>
+                            <div class="db-act-badge @(activity.IsCompleted ? "done" : "pending")">
+                                @activity.StatusText
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Bottom padding for nav bar -->
+        <div style="height: 16px;"></div>
+    }
+    else
+    {
+        <div class="db-error-state">
+            <div class="db-error-icon"><i class="bi bi-wifi-off"></i></div>
+            <h3>Veriler Yüklenemedi</h3>
+            <p>API'ye bağlanılamıyor. İnternet bağlantını ve uygulamayı kontrol et.</p>
+            <button class="btn-outline mt-2" @onclick="Reload">
+                <i class="bi bi-arrow-clockwise me-2"></i>Tekrar Dene
+            </button>
+        </div>
+    }
+</div>

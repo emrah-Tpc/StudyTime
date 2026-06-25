@@ -69,6 +69,7 @@ namespace StudyTime.Controllers
                 await taskService.CompleteTaskAsync(id, updatedAt);
                 return NoContent();
             }
+            catch (StudyTime.Application.Exceptions.DataConflictException ex) { return Conflict(new { message = ex.Message }); }
             catch (Exception ex) { return BadRequest(ex.Message); }
         }
 
@@ -81,6 +82,7 @@ namespace StudyTime.Controllers
                 await taskService.CancelTaskAsync(id, updatedAt);
                 return NoContent();
             }
+            catch (StudyTime.Application.Exceptions.DataConflictException ex) { return Conflict(new { message = ex.Message }); }
             catch (Exception ex) { return BadRequest(ex.Message); }
         }
 
@@ -93,6 +95,7 @@ namespace StudyTime.Controllers
                 await taskService.DeleteTaskAsync(id, updatedAt);
                 return NoContent();
             }
+            catch (StudyTime.Application.Exceptions.DataConflictException ex) { return Conflict(new { message = ex.Message }); }
             catch (Exception ex) { return BadRequest(ex.Message); }
         }
 
@@ -105,6 +108,7 @@ namespace StudyTime.Controllers
                 await taskService.ReopenTaskAsync(id, updatedAt);
                 return NoContent();
             }
+            catch (StudyTime.Application.Exceptions.DataConflictException ex) { return Conflict(new { message = ex.Message }); }
             catch (Exception ex) { return BadRequest(ex.Message); }
         }
 
@@ -117,6 +121,7 @@ namespace StudyTime.Controllers
                 await taskService.UpdateTaskAsync(id, dto);
                 return NoContent();
             }
+            catch (StudyTime.Application.Exceptions.DataConflictException ex) { return Conflict(new { message = ex.Message }); }
             catch (Exception ex) { return BadRequest(ex.Message); }
         }
         // GET BY DATE RANGE

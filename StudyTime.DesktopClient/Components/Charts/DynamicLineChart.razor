@@ -2,7 +2,7 @@
 @using ApexCharts
 @namespace StudyTime.DesktopClient.Components.Charts
 
-<div style="width: 100%; overflow: hidden; max-height: 200px;">
+<div style="width: 100%; overflow: hidden;">
     <ApexChart TItem="ChartDataDto"
                Title=""
                Height="180"
@@ -100,17 +100,41 @@
         {
             new Responsive<ChartDataDto>
             {
+                Breakpoint = 768,
+                Options = new ApexChartOptions<ChartDataDto>
+                {
+                    Chart = new Chart
+                    {
+                        Height = 170,
+                        Width = "100%",
+                        Toolbar = new Toolbar { Show = false }
+                    },
+                    Xaxis = new XAxis
+                    {
+                        Labels = new XAxisLabels
+                        {
+                            Show = true,
+                            Rotate = -30,
+                            Style = new AxisLabelStyle { Colors = "#94a3b8", FontSize = "9px" }
+                        },
+                        TickAmount = 5
+                    }
+                }
+            },
+            new Responsive<ChartDataDto>
+            {
                 Breakpoint = 480,
                 Options = new ApexChartOptions<ChartDataDto>
                 {
                     Chart = new Chart
                     {
-                        Height = 200, // Mobilde biraz daha küçük olabilir veya aynı kalabilir
+                        Height = 150,
+                        Width = "100%",
                         Toolbar = new Toolbar { Show = false }
                     },
                     Xaxis = new XAxis
                     {
-                        Labels = new XAxisLabels { Show = false } // Mobilde X ekseni etiketlerini gizle
+                        Labels = new XAxisLabels { Show = false }
                     }
                 }
             }
@@ -118,6 +142,18 @@
     }
 
     protected override async Task OnParametersSetAsync()
+    {
+        if (chart != null)
+        {
+            await chart.UpdateSeriesAsync(true);
+        }
+    }
+
+    /// <summary>
+    /// DashboardBase.OnChartDataRefreshed tarafından çağrılır.
+    /// ApexCharts'ın Blazor state değişimini kaçırdığı durumlarda DOM'u zorla günceller.
+    /// </summary>
+    public async Task ForceUpdateAsync()
     {
         if (chart != null)
         {

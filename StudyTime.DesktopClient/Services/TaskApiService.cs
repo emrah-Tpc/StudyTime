@@ -73,7 +73,12 @@ namespace StudyTime.DesktopClient.Services
 
             if (!response.IsSuccessStatusCode)
             {
-                await _httpClient.PostAsync($"api/tasks/{id}/reopen{q}", null);
+                var reopenResp = await _httpClient.PostAsync($"api/tasks/{id}/reopen{q}", null);
+                if (!reopenResp.IsSuccessStatusCode)
+                {
+                    var error = await reopenResp.Content.ReadAsStringAsync();
+                    throw new Exception($"Görev durumu değiştirilemedi: {error}");
+                }
             }
         }
 

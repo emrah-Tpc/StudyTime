@@ -20,10 +20,13 @@ var builder = WebApplication.CreateBuilder(args);
 
 // ---------------- Controllers ----------------
 builder.Services.AddScoped<StudyTime.Filters.ActiveSessionFilter>();
+builder.Services.AddScoped<StudyTime.Filters.FluentValidationActionFilter>();
 builder.Services.AddControllers(options =>
 {
     options.Filters.Add<StudyTime.Filters.ActiveSessionFilter>();
-    
+    // FluentValidation otomatik doğrulama (kayıtlı IValidator<T>'leri çalıştırır)
+    options.Filters.Add<StudyTime.Filters.FluentValidationActionFilter>();
+
     // Global Authorization Policy (Secure by default)
     var policy = new AuthorizationPolicyBuilder()
                      .RequireAuthenticatedUser()

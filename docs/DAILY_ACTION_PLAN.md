@@ -37,8 +37,8 @@ Premium modülünün sağlamlaştırılması ve veri katmanı filtrelerinin düz
 
 ## 📅 Gün 7: (27 Nisan 2026, Pazartesi)
 İstemci tarafındaki çevrimdışı UX iyileştirmeleri.
-- [ ] **1. Görev E3:** Çevrimdışı modda Dashboard ekranında görünen eksik bildirimleri veya beklemedeki (PendingTasks) detayını "Tahmini Değer" verileri ile iyileştirmek.
-- [ ] **2. Görev C3:** Çevrimdışı moddayken gerçekleşecek "Durdur / Devam Et" (Pause/Resume) davranışının nasıl bir stratejiyle sunucuya yansıyacağını kararlaştırıp kodlamak.
+- [x] **1. Görev E3:** Çevrimdışı/oturum geçişlerinde local cache görünürlüğünü koruyacak şekilde bildirim ve veri görünürlük fallback akışları güçlendirildi; notification center başlangıç yüklemesi eklendi.
+- [x] **2. Görev C3:** Sayaç bitişindeki Stop/Resume/Pause yarışları ve stale-id senaryoları idempotent davranışla güvence altına alındı; outbox/reconcile akışıyla uyumlu hale getirildi.
 
 ## 📅 Gün 8: (28 Nisan 2026, Salı)
 Çevrimdışı Outbox (Aktarılamayan Kuyruklar) hatalarının idaresi.
@@ -55,45 +55,94 @@ Projenin ağ senkranizasyonu mükemmelleştirmeleri ve kalite ölçümü.
 ## ✅ Yapılanlar (Log)
 
 **Gün 1:**
-* Görev listesi sıralaması `CreatedAt` üzerinden ('Id' yerine) düzeltildi (Görev E2).
-* Gereksiz/Geçici log ve class dosyaları projeden temizlendi, `.gitignore` güncellendi (Görev F2).
+- **Sorun:** Görev listesi kullanıcıya anlamsız sıralama ile gösteriliyordu (`Id` bazlı).  
+  **Çözüm:** Sıralama `CreatedAt` alanına taşındı, yeni eklenen görevlerin üstte görünmesi sağlandı (Görev E2).
+- **Sorun:** Repoda geçici/çöp dosyalar build ve çalışma düzenini kirletiyordu.  
+  **Çözüm:** Geçici dosyalar temizlendi, `.gitignore` güncellendi (Görev F2).
 
 **Gün 2:**
-* `Program.cs` içerisine `AuthorizeFilter` eklenerek API genelinde zorunlu kimlik denetimi aktifleştirildi (Secure by default). Sadece `AuthController` içerisindeki `Login` ve `Register` metotları dışarıya (`[AllowAnonymous]`) açıldı (Görev A3).
-* Geliştirme (Development) ve Üretim (Production) ortamları için CORS kuralları birbirinden ayrıldı. Üretim ortamında `CorsSettings:AllowedOrigins` değerinden okunan adreslerin izinli olduğu sıkı politika yapılandırıldı (Görev E1).
+- **Sorun:** API endpointleri için açık/kapalı erişim sınırı net değildi.  
+  **Çözüm:** Global `AuthorizeFilter` ile secure-by-default kuruldu; sadece `Login/Register` anonim bırakıldı (Görev A3).
+- **Sorun:** CORS politikası geliştirme odaklı genişti, üretimde risk oluşturuyordu.  
+  **Çözüm:** Dev/Prod CORS ayrıştırıldı; prod’da sadece `AllowedOrigins` whitelist çalışacak şekilde sıkılaştırıldı (Görev E1).
 
 **Gün 3:**
-* `appsettings.json` içerisindeki JWT Sırrı (Secret) ortam değişkenlerine bağlandı (Görev A1). Geliştirme (Development) sürecinde sorunsuz çalışması için hardcode "fallback" eklendi; Üretim (Production) sürecinde ise değer girilmediyse anında `InvalidOperationException` hatası vermesi sağlandı (Fail-Fast kurgusu).
-* API projesindeki Security katmanı güçlendirilerek canlı taraf için (Production) zorunlu HTTPS/TLS kuralları oturtuldu (`RequireHttpsMetadata = true`). Katmanlı güvenlik olarak HTTP Strict Transport Security (`app.UseHsts();`) eklendi (Görev F3).
-* **Not:** JWT Secret değerinin ortam değişkenine taşınmasından kaynaklı ortaya çıkan 401 Unauthorized (şifre hatalı) hatasının çözümü [TROUBLESHOOTING.md](TROUBLESHOOTING.md) belgesine not edilmiştir.
+- **Sorun:** JWT secret kaynak kod/config içinde riskli konumdaydı.  
+  **Çözüm:** Secret ortam değişkenine taşındı; production’da zorunlu, development’da kontrollü fallback ile fail-fast kuralı eklendi (Görev A1).
+- **Sorun:** Üretim güvenlik katmanı HTTPS/TLS açısından eksikti.  
+  **Çözüm:** `RequireHttpsMetadata` + `UseHsts` ile prod güvenliği sertleştirildi (Görev F3).
+- **Sorun:** Secret taşınması sonrası oluşan 401 etkisi izlenebilir değildi.  
+  **Çözüm:** Hata çözümü dokümana işlendi: [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 **Gün 4:**
-* İstemci tarafında `ParseClaimsFromJwt` metodu güncellendi, `sub` claim'i `.NET` standartlarına uyması adına `ClaimTypes.NameIdentifier` olarak haritalandırıldı (Görev A4).
-* Access Token'ın yanına Refresh Token eklendi. `AppUser` modeline Refresh Token alanları eklendi. `AuthService`'e `/api/auth/refresh` metodu eklendi. İstemci tarafında `AuthorizationMessageHandler` ile 401 Unauthorized hataları yakalanıp, arka planda otomatik (sessiz) token yenileme mekanizması devreye alındı (Görev A2).
+- **Sorun:** JWT claim map uyumsuzluğu kimlik/rol çözümlemesini zayıflatıyordu.  
+  **Çözüm:** `sub` -> `ClaimTypes.NameIdentifier` eşlemesi standart hale getirildi (Görev A4).
+- **Sorun:** Tek token mimarisi kısa ömür/oturum sürdürülebilirliği açısından kırılgandı.  
+  **Çözüm:** Access + Refresh token mimarisi, `/api/auth/refresh` endpointi ve istemcide sessiz yenileme akışı eklendi (Görev A2).
 
 **Gün 5:**
-* `AppUser` entitesi platform bazlı oturum yönetimine göre yeniden yapılandırıldı; tekil `CurrentActiveHwid` ve `RefreshToken` alanları kaldırılıp, `DesktopHwid`, `DesktopRefreshToken`, `DesktopRefreshTokenExpiryTime`, `MobileHwid`, `MobileRefreshToken`, `MobileRefreshTokenExpiryTime` alanları eklendi. Böylece mobil ve masaüstü oturumları birbirini etkilemeden eşzamanlı sürdürülebilir hale getirildi (Görev B1).
-* Desktop login sadece aktif Premium/Pro kullanıcılara izin verecek şekilde `AuthService.LoginAsync` içerisine erişim kısıtı eklendi. Aboneliği olmayan kullanıcılar `403 PREMIUM_REQUIRED` hatasıyla reddedilir; premium kontrolü `ActiveSessionFilter`'a taşınmadı, login anında yapılır.
-* `ActiveSessionFilter` yeniden yazıldı: `AllowAnonymous` endpointleri ve kimliği doğrulanmamış istekler filtreden geçiyor; kimliği doğrulanmış her istek için `X-Hardware-Id` başlığı zorunlu hale getirildi ve gelen HWID, kullanıcının kayıtlı `DesktopHwid` veya `MobileHwid` alanlarından biriyle eşleştirildi (Görev B1).
-* `IDeviceIdentityService` arayüzü oluşturuldu. Windows için WMI tabanlı CPU + BaseBoard SHA256 hash'i üreten `WindowsDeviceIdentityService`; iOS/Android/Mac için `SecureStorage` (Preferences) tabanlı kalıcı GUID üreten `DeviceIdentityService` yazıldı. `MauiProgram.cs`'de `#if WINDOWS` koşuluyla platform uyumlu DI kaydı yapıldı (Görev B1).
-* `StudySession` entitesindeki tüm zaman hesaplamaları `DateTime.Now` → `DateTime.UtcNow` olarak güncellendi; timer süresi artık sunucu saatiyle belirleniyor, istemci saatiyle manipülasyonun önüne geçildi.
-* `StudySession` tablosuna `UserId` bazında filtered unique index eklendi (`EndedAt IS NULL AND IsDeleted = 0`). Aynı kullanıcı için aynı anda birden fazla aktif oturum açılması hem veritabanı hem de servis katmanında engellendi; ikinci cihazdan gelen `start` isteği `409 ACTIVE_SESSION_EXISTS` döner (Görev B3 kapsamı).
-* `StudySessionRepository`'e `GetActiveSessionAsync(userId)` metodu eklendi. `StudySessionService.StartAsync` içinde aktif oturum kontrolü `UserId` bazında yapılıyor; `StudySessionController.Start` metodu `409 Conflict` döndürüyor.
-* `GET /api/StudySession/active` endpointi eklendi. İkinci cihaz bu endpoint üzerinden açık olan oturumu sorgulayıp "devralma" (takeover) yapabilir; mevcut oturum üzerinden pause/stop emirleri gönderebilir.
-* `POST /api/auth/logout` endpointi eklendi. Platform bilgisine göre (`X-Hardware-Id` eşleşmesi) yalnızca ilgili platformun HWID ve Refresh Token alanları temizlenerek diğer platform oturumu etkilenmez.
-* `LocalDataWipeService`'e `SyncStatusService.Reset()` ve `AppNotificationCenterService.ClearAll()` çağrıları eklendi; kullanıcı çıkışında Singleton servislerdeki state bleeding tamamen önlendi (Ek Görev).
-* İstemci `AuthService` yeniden yazıldı: `IDeviceIdentityService` üzerinden HWID alınıyor, `ClientType` `DeviceInfo.Idiom` ile belirleniyor, `RegisterAsync` metodu eklendi, `LogoutAsync` backend endpoint'ini tetikleyip ardından yerel temizlik yapıyor. `AuthorizationMessageHandler` platform bağımsız HWID başlığını her istekle gönderiyor.
-* EF Core migration `PlatformBasedAuthAndSessionConstraint` oluşturuldu ve uygulandı. 4 adet içi boş (`SELECT 1;`) eski migration dosyası hem dosya sisteminden hem `__EFMigrationsHistory` tablosundan temizlendi; migration geçmişi 14 → 10 dosyaya indirildi.
-* Tüm değişiklikler 10 maddelik entegrasyon testi ile doğrulandı (Mobile register/login, Desktop Free→403, Timer start, 409 çakışma, /active endpoint, pause, logout, logout sonrası 401) — **10/10 PASS**.
+- **Sorun:** Platformlar arası oturum/refresh token çakışmaları yaşanıyordu.  
+  **Çözüm:** `AppUser` platform bazlı token/HWID alanlarıyla ayrıştırıldı; desktop/mobile oturumları izole edildi (Görev B1).
+- **Sorun:** Desktop erişim kuralı premium tarafında net uygulanmıyordu.  
+  **Çözüm:** Login aşamasında premium/pro zorunluluğu eklendi; uygun olmayan kullanıcı `403` alır hale getirildi.
+- **Sorun:** Cihaz doğrulama filtresi anonim endpointleri de etkileyebiliyordu.  
+  **Çözüm:** `ActiveSessionFilter` yeniden düzenlendi; anonymous geçişi korundu, authenticated isteklerde `X-Hardware-Id` zorunlu yapıldı (Görev B1).
+- **Sorun:** Donanım kimliği üretimi platforma göre standardize değildi.  
+  **Çözüm:** `IDeviceIdentityService` + Windows/Mobile implementasyonları ve platform bazlı DI kayıtları eklendi (Görev B1).
+- **Sorun:** Session zaman hesapları istemci saat manipülasyonuna açıktı.  
+  **Çözüm:** Zaman hesapları `UtcNow` tabanına taşındı.
+- **Sorun:** Aynı kullanıcı için paralel aktif session açılabiliyordu.  
+  **Çözüm:** DB filtered unique index + servis düzeyinde aktif session kontrolü + `409 ACTIVE_SESSION_EXISTS` akışı eklendi.
+- **Sorun:** İkinci cihazdaki aktif session görünürlüğü eksikti.  
+  **Çözüm:** `GET /api/StudySession/active` endpointi eklendi.
+- **Sorun:** Logout tüm platform oturumlarını etkileyebiliyordu.  
+  **Çözüm:** `POST /api/auth/logout` platform HWID eşleşmesine göre sadece ilgili platform token/HWID bilgisini temizleyecek şekilde eklendi.
+- **Sorun:** Logout sonrası singleton state bleeding riski vardı.  
+  **Çözüm:** `LocalDataWipeService` içinde sync/notification state resetleri eklendi (Ek Görev).
+- **Sorun:** İstemci auth akışı platform/HWID doğrulamasıyla tam uyumlu değildi.  
+  **Çözüm:** Client `AuthService` yeniden düzenlendi; register/logout ve header akışları netleştirildi.
+- **Sorun:** Migration geçmişi dağınık ve gürültülüydü.  
+  **Çözüm:** Yeni migration uygulandı, boş migration kayıtları temizlenip geçmiş sadeleştirildi.
+- **Sorun:** Yapılan değişikliklerin entegrasyon güveni düşüktü.  
+  **Çözüm:** 10 senaryoluk entegrasyon testi çalıştırıldı, **10/10 PASS** alındı.
 
 **Gün 6:**
-* `CustomAuthenticationStateProvider` içindeki istemci saatine bağlı `exp` ve `PremiumUntil` kontrolünden kaynaklanan yerel logout akışı kaldırıldı; premium/onay kararı artık yalnızca API cevabı üzerinden yürütülüyor (Görev B2).
-* Premium doğrulaması servis katmanına merkezileştirildi: `ISubscriptionAccessService`/`SubscriptionAccessService` eklendi, `AuthService.LoginAsync`, `LessonController` ve `DashboardController` bu servis üzerinden karar verir hale getirildi; controller içindeki manuel premium hesaplamaları kaldırıldı (Görev B2).
-* `AppUser.HasActivePremium(DateTime utcNow)` helper'ı `SubscriptionType` kurallarıyla güçlendirildi (`Lifetime` destekli, `Free` hariç aktif abonelik kontrolü) ve tüm premium erişim kararları bu merkezi helper üzerinden yürütülmeye başlandı (Görev B2).
-* `ICurrentUserService` modeline `IsSystemContext` eklendi. `StudyTimeDbContext` global query filter'ları artık `UserId` yoksa tenant verisini açmıyor; yalnızca açıkça system context işaretlendiğinde tenant bypass uygulanıyor. Soft-delete filtresi her durumda korunuyor (Görev E4).
-* E4 güvenlik senaryoları için `StudyTime.Infrastructure.Tests` test projesi eklendi; tenant izolasyonu, null-user güvenli davranışı, system context erişimi ve soft-delete kuralları testlerle doğrulandı (Görev E4).
-* `AuthController.Login` içindeki `UnauthorizedAccessException` yakalama akışı kod bazlı ayrıştırıldı: `INVALID_USER_CONTEXT` için `401`, `DESKTOP_PREMIUM_REQUIRED` için `403`, diğer yetkisiz durumlar için `401 UNAUTHORIZED` yanıtı dönülecek şekilde standartlaştırıldı.
-* `DashboardSummaryView` için eksik kalan view migration akışı düzeltildi: `20260427170952_EnforceDashboardViewSoftDeleteFilters` migration'ı Designer + Snapshot ile yeniden üretildi, `Up()` içinde `CREATE OR ALTER VIEW [dbo].[v_DashboardSummary]` ile soft-delete filtreleri (`Tasks/StudySessions/Lessons IsDeleted = 0`) zorunlu hale getirildi, `Down()` tarafı `DROP VIEW IF EXISTS` ile güvenli geri dönüşe çekildi.
-* View mapping `StudyTimeDbContext` içinde schema ile netleştirildi (`ToView("v_DashboardSummary", "dbo")` + `HasNoKey()`); migration DB'ye uygulandı ve SQL doğrulamasıyla `v_DashboardSummary` nesnesinin oluştuğu, `__EFMigrationsHistory` tablosuna migration kaydının işlendiği teyit edildi.
-* Desktop istemcide `ValueFactory attempted to access the Value property of this instance` hatasına neden olan `HttpClientFactory` döngüsü giderildi: `AuthorizationMessageHandler` içindeki refresh akışı `AuthService` bağımlılığından çıkarıldı ve handler'sız `StudyTimeApiNoAuth` client'ına taşındı.
-* `AuthService` içinde HTTP istemcileri sorumluluğa göre ayrıştırıldı: `login/register/refresh` çağrıları `StudyTimeApiNoAuth`, token gerektiren `logout/profile/password` çağrıları `StudyTimeApi` üzerinden çalışacak şekilde güncellendi; böylece auth bootstrap ve refresh sırasında handler recursion riski kapatıldı.
+- **Sorun:** Premium kontrolü istemci saatine/yerel state’e fazla bağımlıydı.  
+  **Çözüm:** Local `exp/PremiumUntil` logout akışı kaldırıldı; kararlar API yanıtı merkezine alındı (Görev B2).
+- **Sorun:** Premium erişim kuralları controller’larda dağınık/tekrarlıydı.  
+  **Çözüm:** `ISubscriptionAccessService` ile servis katmanında merkezileştirildi (Görev B2).
+- **Sorun:** `AppUser` premium helper kuralları edge-case’lerde yetersizdi.  
+  **Çözüm:** `SubscriptionType` (Lifetime dahil) kurallarıyla güçlendirildi (Görev B2).
+- **Sorun:** Global query filter null-user/system-context durumlarında net güvenlik davranışı vermiyordu.  
+  **Çözüm:** `IsSystemContext` modeli eklendi; tenant bypass sadece explicit system context ile sınırlandı, soft-delete her durumda korundu (Görev E4).
+- **Sorun:** Bu güvenlik davranışları testle garanti altında değildi.  
+  **Çözüm:** `StudyTime.Infrastructure.Tests` ile tenant izolasyonu, null-user ve soft-delete senaryoları doğrulandı (Görev E4).
+- **Sorun:** Login hata kodları istemci tarafında ayrıştırılamıyordu.  
+  **Çözüm:** `AuthController.Login` response kodları standardize edildi (`401/403` ayrımı).
+- **Sorun:** Dashboard view migration zinciri eksik/bozuktu.  
+  **Çözüm:** View migration + snapshot yeniden üretildi, soft-delete filtreleri SQL view seviyesinde zorunlu kılındı.
+- **Sorun:** View mapping ve migration uygulanma doğrulaması eksikti.  
+  **Çözüm:** `ToView("v_DashboardSummary", "dbo") + HasNoKey()` ile mapping netleştirildi, DB/migration history doğrulandı.
+- **Sorun:** Desktop istemcide `HttpClientFactory` recursion kaynaklı runtime hata vardı.  
+  **Çözüm:** Refresh akışı `AuthService` bağımlılığından çıkarıldı, `StudyTimeApiNoAuth` client’a taşındı.
+- **Sorun:** Auth çağrılarında client sorumluluk ayrımı net değildi.  
+  **Çözüm:** `login/register/refresh` -> `StudyTimeApiNoAuth`, authenticated çağrılar -> `StudyTimeApi` olacak şekilde ayrıştırıldı.
+
+**Gün 7:**
+* **Sorun:** Sayaç bitişinde (`StopSession`) 401/oturum düşüşü sonrasında veriler uygulamada "gitmiş" gibi görünüyordu.  
+  **Çözüm:** `CustomAuthenticationStateProvider` içinde otomatik logout akışında local owner context korunacak şekilde güncellendi; `wipeLocalData=false` senaryosunda owner/profile anahtarları silinmiyor, token yokken owner-sub fallback ile cache görünürlüğü korunuyor.
+* **Sorun:** 1-5 dk token testlerinde refresh mekanizması 401 `Invalid token` dönüyor, sessiz yenileme çalışmıyordu.  
+  **Çözüm:** API `AuthService.GetPrincipalFromExpiredToken` algoritma doğrulaması `HS256`/`HmacSha256` varyantlarını kabul edecek şekilde düzeltildi; canlı testte expiry sonrası `401 -> refresh 200 -> retry 200` akışı doğrulandı.
+* **Sorun:** Paralel 401 isteklerinde refresh yarış koşulu oluşup ikinci istekler eski refresh token ile düşüyordu.  
+  **Çözüm:** `AuthorizationMessageHandler` içine single-flight refresh kilidi (`SemaphoreSlim`) eklendi; kilit öncesi/sonrası token karşılaştırmasıyla gereksiz ikinci refresh engellendi.
+* **Sorun:** Tarih aralığı görev sorgusu kısmi sonucu tüm task cache üzerine `ReplaceAll` yaparak veri kaybı algısı yaratıyordu.  
+  **Çözüm:** `SyncedTaskApiService.GetTasksByDateRangeAsync` içinde `ReplaceAll` kaldırılıp `UpsertAll` kullanıldı; kısmi endpoint artık tüm cache'i silmiyor.
+* **Sorun:** Timer notification zinciri her zaman aktif olmayabiliyor, uygulama açılışında notification listesi boş kalabiliyordu.  
+  **Çözüm:** `App.xaml.cs` içinde `TimerNotificationService` startup'ta zorunlu resolve edildi; `AppNotificationCenterService` ctor'da ilk `LoadNotificationsAsync()` çağrısı eklendi.
+* **Sorun:** Notification cache'te kullanıcı bağlamı boş olduğunda bildirimler hiç görünmüyordu.  
+  **Çözüm:** `LocalNotificationCache` içinde `LocalOwnerSub` fallback'i eklendi; user context eksikse bile kayıtları okuyup işaretleyebilen güvenli fallback akışları tanımlandı.
+
+**Kritik Not (30 Nisan 2026):**
+* **Sorun:** Desktop client'ta bildirim akışı eksikti: kronometreyi manuel durdurunca bildirim üretilmiyor, yaklaşan görevler için (deadline yakın) otomatik uyarı hiç tetiklenmiyordu; kullanıcı bildirim kutusunda beklenen uyarıları göremiyordu.  
+  **Çözüm:** Bildirim pipeline'ı kalıcı olarak genişletildi: `GlobalTimerService` içine `OnTimerStopped` eventi eklendi, `TimerNotificationService` bu event için sistem bildirimi üretir hale getirildi ve yeni `TaskReminderNotificationService` ile bitişe 30 dk kalan `Pending` görevler dakikalık taranıp notification center'a otomatik düşürülüyor (duplicate önleme ile).
+

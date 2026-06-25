@@ -1,4 +1,4 @@
-﻿using StudyTime.Domain.Entities;
+using StudyTime.Domain.Entities;
 
 namespace StudyTime.Application.Interfaces
 {
@@ -13,6 +13,7 @@ namespace StudyTime.Application.Interfaces
         // Soft delete yapacağımız için Hard Delete metoduna (DeleteAsync) aslında gerek kalmadı
         // ama interface'de durabilir, implementasyonda kullanmayacağız.
         Task DeleteAsync(TaskItem task);
+        Task<List<TaskItem>> GetPendingTasksAsync();
 
         Task<(List<TaskItem> Items, int TotalCount)> GetFilteredAsync(
            string? status,
