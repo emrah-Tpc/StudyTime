@@ -212,7 +212,7 @@
         <div class="st-card mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <span class="card-title text-white small text-uppercase fw-bold ls-1">En Uzun Süren Görevler (Top 5)</span>
-                <span class="badge bg-secondary bg-opacity-25 text-white">Tamamlanan</span>
+                <span class="badge bg-secondary bg-opacity-25 text-white">Süreye göre</span>
             </div>
             <div class="table-responsive">
                 <table class="table table-dark table-borderless table-hover align-middle mb-0" style="background: transparent;">
@@ -231,9 +231,18 @@
                                 <tr style="background-color: transparent;">
                                     <td class="ps-4" style="background-color: transparent;">
                                         <div class="d-flex align-items-center">
-                                            <div class="rounded-circle bg-success bg-opacity-25 p-1 me-3 d-flex justify-content-center align-items-center" style="width: 24px; height: 24px;">
-                                                <i class="bi bi-check text-success small"></i>
-                                            </div>
+                                            @if (task.IsCompleted)
+                                            {
+                                                <div class="rounded-circle bg-success bg-opacity-25 p-1 me-3 d-flex justify-content-center align-items-center" style="width: 24px; height: 24px;">
+                                                    <i class="bi bi-check text-success small"></i>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <div class="rounded-circle bg-primary bg-opacity-25 p-1 me-3 d-flex justify-content-center align-items-center" style="width: 24px; height: 24px;">
+                                                    <i class="bi bi-hourglass-split text-primary small"></i>
+                                                </div>
+                                            }
                                             <span class="text-white fw-medium">@task.Title</span>
                                         </div>
                                     </td>

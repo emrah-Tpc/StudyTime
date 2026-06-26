@@ -67,14 +67,16 @@ namespace StudyTime.Application.Services
                 .GroupBy(s => s.TaskId!.Value)
                 .ToDictionary(g => g.Key, g => g.Sum(s => s.CurrentDuration.TotalMinutes));
 
+            // Top 5: çalışma süresi olan görevler (tamamlanma şartı kaldırıldı — "En Uzun Süren Görevler").
+            // Eski hâlde yalnız "tamamlanmış VE TaskId ile başlatılmış" görevler geldiğinden grafik genelde boştu.
             summary.TaskStatistics = tasks
-                .Where(t => t.Status == TaskStatus.Completed && taskDurations.ContainsKey(t.Id))
+                .Where(t => taskDurations.ContainsKey(t.Id))
                 .Select(t => new TaskStatisticDto
                 {
                     Title           = t.Title,
                     LessonName      = t.Lesson?.Name ?? "-",
                     DurationMinutes = taskDurations.GetValueOrDefault(t.Id, 0),
-                    IsCompleted     = true
+                    IsCompleted     = t.Status == TaskStatus.Completed
                 })
                 .OrderByDescending(t => t.DurationMinutes)
                 .Take(5)

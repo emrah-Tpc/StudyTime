@@ -22,6 +22,13 @@ namespace StudyTime.DesktopClient.Services
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
+            // POST/PUT gövdesini önceden tampona al: 401 sonrası refresh + retry'da istek klonlanıp
+            // yeniden gönderildiğinde gövdenin tekrar okunabilmesi gerekir. Aksi halde ilk gönderimde
+            // tüketilen gövde retry'da boş gider ve istek başarısız olur (özellikle ders ekleme gibi POST'larda
+            // "bazen unauthorize" görülmesinin kök nedeni budur).
+            if (request.Content != null)
+                await request.Content.LoadIntoBufferAsync();
+
             var authStateProvider = _serviceProvider.GetService<CustomAuthenticationStateProvider>();
             if (authStateProvider == null)
                 return await base.SendAsync(request, cancellationToken);

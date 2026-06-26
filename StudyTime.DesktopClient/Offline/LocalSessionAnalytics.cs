@@ -195,13 +195,22 @@ namespace StudyTime.DesktopClient.Offline
                 .OrderByDescending(l => l.TotalDurationMinutes)
                 .ToList();
 
+            // Offline'da oturum TaskId'si geçici (temp) olabilir; reconciliation sonrası görev cache'i
+            // sunucu Id'sine geçtiğinden eşleşmenin kopmaması için temp→server eşlemesi uygulanır.
+            var conn = await db.GetAsync();
+            var taskTempMap = new Dictionary<Guid, Guid>();
+            foreach (var m in await conn.Table<TempIdMapEntry>().Where(x => x.EntityType == "Task").ToListAsync())
+                taskTempMap[m.TempId] = m.ServerId;
+            Guid ResolveTaskId(Guid id) => taskTempMap.TryGetValue(id, out var sid) ? sid : id;
+
             var taskDurations = workSessions
                 .Where(i => i.TaskId.HasValue)
-                .GroupBy(i => i.TaskId!.Value)
+                .GroupBy(i => ResolveTaskId(i.TaskId!.Value))
                 .ToDictionary(g => g.Key, g => g.Sum(Minutes));
 
+            // Top 5: çalışma süresi olan görevler (tamamlanma şartı kaldırıldı — server ile tutarlı).
             summary.TaskStatistics = tasks
-                .Where(t => t.Status == TaskStatus.Completed && taskDurations.ContainsKey(t.Id))
+                .Where(t => taskDurations.ContainsKey(t.Id))
                 .Select(t =>
                 {
                     var ln = "-";
@@ -212,7 +221,7 @@ namespace StudyTime.DesktopClient.Offline
                         Title = t.Title,
                         LessonName = ln,
                         DurationMinutes = taskDurations.GetValueOrDefault(t.Id, 0),
-                        IsCompleted = true,
+                        IsCompleted = t.Status == TaskStatus.Completed,
                     };
                 })
                 .OrderByDescending(t => t.DurationMinutes)
