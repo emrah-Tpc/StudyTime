@@ -13,11 +13,16 @@ namespace StudyTime.Application.Services
         ILessonRepository lessonRepository,
         IStudySessionRepository studySessionRepository,
         ITaskRepository taskRepository,
+        ICurrentUserService currentUserService,
         ProductivityCalculator productivityCalculator)
     {
         public async Task<DashboardSummaryDto> GetSummaryAsync()
         {
-            var today     = DateTime.Today;
+            // F11: Kullanıcı offset'i ile yerel "bugün"/gün hesabı (sunucu saat dilimi değil).
+            var offset  = currentUserService.UtcOffsetMinutes;
+            var nowUser = DateTime.UtcNow.AddMinutes(offset);
+            DateTime ToUserLocal(DateTime utc) => utc.AddMinutes(offset);
+            var today   = nowUser.Date;
 
             // ── Sequential Repository Calls (Thread-safe for DbContext) ─────────────────
             var viewRows = await dashboardRepository.GetDashboardSummariesAsync();
@@ -89,23 +94,20 @@ namespace StudyTime.Application.Services
             // burada local-time karşılaştırması ile kesin filtreleme yapılır.
             int todayMinutes = StudyDurationMetrics.SumChartMinutes(
                 workSessions
-                    .Where(s => s.StartedAt.ToLocalTime().Date == today)
+                    .Where(s => ToUserLocal(s.StartedAt).Date == today)
                     .Select(s => s.CurrentDuration));
 
-            // Geçen haftanın aynı günü vs bugün çalışma farkı
-            var lastWeekSameDay        = today.AddDays(-7);
-            var lastWeekSameDayUtcStart = lastWeekSameDay.Kind == DateTimeKind.Utc ? lastWeekSameDay : lastWeekSameDay.ToUniversalTime();
-            var lastWeekSameDayUtcEnd = lastWeekSameDay.AddDays(1).AddTicks(-1).Kind == DateTimeKind.Utc ? lastWeekSameDay.AddDays(1).AddTicks(-1) : lastWeekSameDay.AddDays(1).AddTicks(-1).ToUniversalTime();
-            
+            // Geçen haftanın aynı günü vs bugün çalışma farkı (kullanıcı yerel günü)
+            var lastWeekSameDay = today.AddDays(-7);
             var lastWeekSameDayMinutes = StudyDurationMetrics.SumChartMinutes(
                 workSessions
-                    .Where(s => s.StartedAt >= lastWeekSameDayUtcStart && s.StartedAt <= lastWeekSameDayUtcEnd)
+                    .Where(s => ToUserLocal(s.StartedAt).Date == lastWeekSameDay)
                     .Select(s => s.CurrentDuration));
             int timeChange = todayMinutes - lastWeekSameDayMinutes;
 
             // Haftalık grafik (son 7 gün, mola hariç — workSessions'dan)
             var sessionByDate = workSessions
-                .GroupBy(s => s.StartedAt.ToLocalTime().Date)
+                .GroupBy(s => ToUserLocal(s.StartedAt).Date)
                 .ToDictionary(g => g.Key, g => g.Sum(s => s.CurrentDuration.TotalMinutes));
 
             // FIX [Minör]: Label'a gün adı + tarih numarası eklendi ("Pzt 28")
@@ -125,8 +127,8 @@ namespace StudyTime.Application.Services
 
             // Saatlik grafik (bugün, mola hariç — workSessions'dan)
             var sessionByHour = workSessions
-                .Where(s => s.StartedAt.ToLocalTime().Date == today)
-                .GroupBy(s => s.StartedAt.ToLocalTime().Hour)
+                .Where(s => ToUserLocal(s.StartedAt).Date == today)
+                .GroupBy(s => ToUserLocal(s.StartedAt).Hour)
                 .ToDictionary(g => g.Key, g => g.Sum(s => s.CurrentDuration.TotalMinutes));
 
             // FIX [Minör]: Anlamlı saat aralığı — hiç çalışılmadıysa 08-20, çalışıldıysa ±1 saat pad
@@ -181,14 +183,14 @@ namespace StudyTime.Application.Services
 
             // ── 5. SON AKTİVİTELER + GÖREV İSTATİSTİKLERİ ───────────────────
             // Sadece bugünle alakalı olan görevleri al (Bugün oluşturulan, bugün biten veya bugün tamamlanan)
-            var todayTasks = combinedTasks.Where(t => 
-                (t.StartDate.HasValue && t.StartDate.Value.ToLocalTime().Date == today) || 
-                (t.EndDate.HasValue && t.EndDate.Value.ToLocalTime().Date == today) ||
-                (t.Status == AppTaskStatus.Completed && t.UpdatedAt.HasValue && t.UpdatedAt.Value.ToLocalTime().Date == today)
+            var todayTasks = combinedTasks.Where(t =>
+                (t.StartDate.HasValue && ToUserLocal(t.StartDate.Value).Date == today) ||
+                (t.EndDate.HasValue && ToUserLocal(t.EndDate.Value).Date == today) ||
+                (t.Status == AppTaskStatus.Completed && t.UpdatedAt.HasValue && ToUserLocal(t.UpdatedAt.Value).Date == today)
             ).ToList();
 
             int productivityScore = productivityCalculator.CalculateScore(
-                workSessions.Where(s => s.StartedAt.ToLocalTime().Date == today),
+                workSessions.Where(s => ToUserLocal(s.StartedAt).Date == today),
                 todayTasks,
                 today,
                 today.AddDays(1).AddTicks(-1));
@@ -197,9 +199,9 @@ namespace StudyTime.Application.Services
             var startOfWeek  = today.AddDays(-diff).Date;
             var startOfMonth = new DateTime(today.Year, today.Month, 1);
 
-            int tasksCreatedThisWeek = combinedTasks.Count(t => (t.StartDate ?? DateTime.MinValue).ToLocalTime().Date >= startOfWeek);
-            int completedThisWeek    = combinedTasks.Count(t => t.Status == AppTaskStatus.Completed && (t.StartDate ?? DateTime.MinValue).ToLocalTime().Date >= startOfWeek);
-            int completedThisMonth   = combinedTasks.Count(t => t.Status == AppTaskStatus.Completed && (t.StartDate ?? DateTime.MinValue).ToLocalTime().Date >= startOfMonth);
+            int tasksCreatedThisWeek = combinedTasks.Count(t => ToUserLocal(t.StartDate ?? DateTime.MinValue).Date >= startOfWeek);
+            int completedThisWeek    = combinedTasks.Count(t => t.Status == AppTaskStatus.Completed && ToUserLocal(t.StartDate ?? DateTime.MinValue).Date >= startOfWeek);
+            int completedThisMonth   = combinedTasks.Count(t => t.Status == AppTaskStatus.Completed && ToUserLocal(t.StartDate ?? DateTime.MinValue).Date >= startOfMonth);
             int cancelledTasks       = combinedTasks.Count(t => t.Status == AppTaskStatus.Cancelled);
 
             var recentActivities = combinedTasks
@@ -210,7 +212,7 @@ namespace StudyTime.Application.Services
                 {
                     bool isCompleted = t.Status == AppTaskStatus.Completed;
                     bool isPending   = t.Status == AppTaskStatus.Pending;
-                    var  timeSpan    = DateTime.Now - t.StartDate!.Value;
+                    var  timeSpan    = DateTime.UtcNow - t.StartDate!.Value;
 
                     string timeAgo = timeSpan.TotalMinutes < 60 ? $"{Math.Max(1, Math.Ceiling(timeSpan.TotalMinutes))}dk önce"
                                    : timeSpan.TotalHours   < 24 ? $"{Math.Ceiling(timeSpan.TotalHours)}s önce"

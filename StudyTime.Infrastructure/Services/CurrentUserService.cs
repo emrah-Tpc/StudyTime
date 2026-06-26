@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using StudyTime.Application.Interfaces;
+using System.Globalization;
 using System.Security.Claims;
 
 namespace StudyTime.Infrastructure.Services
@@ -22,5 +23,20 @@ namespace StudyTime.Infrastructure.Services
         public bool IsSystemContext => _systemContextState.IsSystemContext;
 
         public string? Email => _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.Email);
+
+        public int UtcOffsetMinutes
+        {
+            get
+            {
+                var header = _httpContextAccessor.HttpContext?.Request.Headers["X-Timezone-Offset"].FirstOrDefault();
+                // Mantıklı sınırlar: -14h..+14h. Geçersizse 0 (UTC).
+                if (int.TryParse(header, NumberStyles.Integer, CultureInfo.InvariantCulture, out var minutes)
+                    && minutes >= -840 && minutes <= 840)
+                {
+                    return minutes;
+                }
+                return 0;
+            }
+        }
     }
 }

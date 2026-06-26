@@ -6,43 +6,58 @@ using StudyTime.Domain.Services;
 namespace StudyTime.Infrastructure.Tests;
 
 /// <summary>
-/// Bug: "Top 5 görev grafiği boş geliyordu." Kök neden — grafik yalnız TAMAMLANMIŞ +
-/// TaskId ile başlatılmış oturuma sahip görevleri gösteriyordu. Düzeltme: çalışma süresi
-/// olan görevleri (tamamlanma şartı olmadan) süreye göre göster.
+/// F11 — İstatistik gün-gruplaması sunucu saat dilimi yerine kullanıcının UTC offset'ine göre yapılır.
+/// 22:30 UTC'deki bir oturum: offset 0 (UTC) → o gün; offset +120 (UTC+2) → ertesi gün (00:30).
 /// </summary>
-public class TopTasksStatisticsTests
+public class TimezoneOffsetTests
 {
     [Fact]
-    public async Task TaskStatistics_IncludesNonCompletedTask_WithStudyTime()
+    public async Task DailyTrend_GroupsByUserLocalDay_NotServerTime()
     {
-        var lessonId = Guid.NewGuid();
-        var task = new TaskItem("Analiz", lessonId); // Pending (tamamlanmamış)
-        var session = MakeSession(lessonId, task.Id, minutes: 25);
+        // 2026-06-20 22:30 UTC, 60 dk çalışma
+        var startUtc = new DateTime(2026, 6, 20, 22, 30, 0, DateTimeKind.Utc);
+        var session = MakeSession(startUtc, minutes: 60);
 
-        var service = new StatisticsService(
+        var rangeStart = new DateTime(2026, 6, 19);
+        var rangeEnd   = new DateTime(2026, 6, 22);
+        // StudyTrends sırası: [0]=19, [1]=20, [2]=21, [3]=22
+
+        var utc = new StatisticsService(
             new FakeSessionRepo(new List<StudySession> { session }),
-            new FakeTaskRepo(new List<TaskItem> { task }),
-            new FakeLessonRepo(),
-            new FakeCurrentUser(),
-            new ProductivityCalculator());
+            new FakeTaskRepo(), new FakeLessonRepo(), new FakeCurrentUser(0), new ProductivityCalculator());
+        var rUtc = await utc.GetStatisticsAsync(rangeStart, rangeEnd);
 
-        var result = await service.GetStatisticsAsync(DateTime.Today.AddDays(-6), DateTime.Today);
+        Assert.True(rUtc.StudyTrends[1].Value >= 60); // 20 Haz (UTC günü)
+        Assert.Equal(0, rUtc.StudyTrends[2].Value);    // 21 Haz boş
 
-        var top = Assert.Single(result.TaskStatistics);
-        Assert.Equal("Analiz", top.Title);
-        Assert.False(top.IsCompleted);        // tamamlanmamış ama yine de listede
-        Assert.True(top.DurationMinutes >= 25);
+        var plus2 = new StatisticsService(
+            new FakeSessionRepo(new List<StudySession> { session }),
+            new FakeTaskRepo(), new FakeLessonRepo(), new FakeCurrentUser(120), new ProductivityCalculator());
+        var rPlus2 = await plus2.GetStatisticsAsync(rangeStart, rangeEnd);
+
+        Assert.True(rPlus2.StudyTrends[2].Value >= 60); // UTC+2 → 21 Haz'a kayar
+        Assert.Equal(0, rPlus2.StudyTrends[1].Value);    // 20 Haz artık boş
     }
 
-    private static StudySession MakeSession(Guid lessonId, Guid taskId, int minutes)
+    private static StudySession MakeSession(DateTime startedAtUtc, int minutes)
     {
-        var s = new StudySession(lessonId, taskId, isBreak: false);
+        var s = new StudySession(Guid.NewGuid(), null, isBreak: false);
         s.Start();
         s.Stop();
+        typeof(StudySession).GetProperty("StartedAt")!.SetValue(s, startedAtUtc);
         typeof(StudySession).GetProperty("TotalActiveDuration")!.SetValue(s, TimeSpan.FromMinutes(minutes));
-        typeof(StudySession).GetProperty("EndedAt")!.SetValue(s, DateTime.UtcNow);
+        typeof(StudySession).GetProperty("EndedAt")!.SetValue(s, startedAtUtc.AddMinutes(minutes));
         typeof(StudySession).GetProperty("LastResumedAt")!.SetValue(s, null);
         return s;
+    }
+
+    private sealed class FakeCurrentUser(int offset) : ICurrentUserService
+    {
+        public string? UserId => null;
+        public bool IsAuthenticated => false;
+        public bool IsSystemContext => false;
+        public string? Email => null;
+        public int UtcOffsetMinutes => offset;
     }
 
     private sealed class FakeSessionRepo(List<StudySession> sessions) : IStudySessionRepository
@@ -57,9 +72,9 @@ public class TopTasksStatisticsTests
         public Task<List<StudySession>> GetAllAsync() => Task.FromResult(new List<StudySession>());
     }
 
-    private sealed class FakeTaskRepo(List<TaskItem> tasks) : ITaskRepository
+    private sealed class FakeTaskRepo : ITaskRepository
     {
-        public Task<List<TaskItem>> GetByDateRangeAsync(DateTime s, DateTime e) => Task.FromResult(tasks);
+        public Task<List<TaskItem>> GetByDateRangeAsync(DateTime s, DateTime e) => Task.FromResult(new List<TaskItem>());
         public Task AddAsync(TaskItem task) => Task.CompletedTask;
         public Task<TaskItem?> GetByIdAsync(Guid id) => Task.FromResult<TaskItem?>(null);
         public Task<List<TaskItem>> GetAllAsync() => Task.FromResult(new List<TaskItem>());
@@ -80,14 +95,5 @@ public class TopTasksStatisticsTests
         public Task UpdateAsync(Lesson lesson) => Task.CompletedTask;
         public Task DeleteAsync(Lesson lesson) => Task.CompletedTask;
         public Task<bool> ExistsAsync(Guid id) => Task.FromResult(true);
-    }
-
-    private sealed class FakeCurrentUser : ICurrentUserService
-    {
-        public string? UserId => null;
-        public bool IsAuthenticated => false;
-        public bool IsSystemContext => false;
-        public string? Email => null;
-        // UtcOffsetMinutes => 0 (interface default)
     }
 }

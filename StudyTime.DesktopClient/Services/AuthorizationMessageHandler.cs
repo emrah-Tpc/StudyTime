@@ -51,6 +51,14 @@ namespace StudyTime.DesktopClient.Services
                 }
             }
 
+            // Sunucunun "bugün"/yerel gün hesabını kullanıcının saat dilimine göre yapması için
+            // UTC offset'ini (dakika) gönder. (F11)
+            if (!request.Headers.Contains("X-Timezone-Offset"))
+            {
+                request.Headers.Add("X-Timezone-Offset",
+                    ((int)DateTimeOffset.Now.Offset.TotalMinutes).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+
             var response = await base.SendAsync(request, cancellationToken);
 
             // Sunucu oturumu yokken (yerel-only / Bearer yok) 401 — yerel veriyi silme

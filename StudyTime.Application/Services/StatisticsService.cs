@@ -11,10 +11,15 @@ namespace StudyTime.Application.Services
         IStudySessionRepository studySessionRepository,
         ITaskRepository taskRepository,
         ILessonRepository lessonRepository,
+        ICurrentUserService currentUserService,
         ProductivityCalculator productivityCalculator) : IStatisticsService
     {
         public async Task<StatisticsSummaryDto> GetStatisticsAsync(DateTime startDate, DateTime endDate)
         {
+            // F11: Sunucu saat dilimi yerine kullanıcının offset'i ile yerel gün/saat hesapla.
+            var offset = currentUserService.UtcOffsetMinutes;
+            DateTime ToUserLocal(DateTime utc) => utc.AddMinutes(offset);
+
             var allSessions = await studySessionRepository.GetByDateRangeAsync(startDate, endDate);
             var tasks       = await taskRepository.GetByDateRangeAsync(startDate, endDate);
             var allLessons  = await lessonRepository.GetAllAsync();
@@ -84,7 +89,7 @@ namespace StudyTime.Application.Services
 
             // 5. Günlük Çalışma Trendi (mola hariç) — local-time ile grupla (UTC kayması önlenir)
             var dailyWork = workSessions
-                .GroupBy(s => s.StartedAt.ToLocalTime().Date)
+                .GroupBy(s => ToUserLocal(s.StartedAt).Date)
                 .ToDictionary(g => g.Key, g => g.Sum(s => s.CurrentDuration.TotalMinutes));
 
             var trCulture = new CultureInfo("tr-TR");
@@ -102,7 +107,7 @@ namespace StudyTime.Application.Services
             // 6. Sliding Window (3-hour blocks) Peak Productivity
             var minutesByHour = new double[24];
             foreach (var s in workSessions)
-                minutesByHour[s.StartedAt.ToLocalTime().Hour] += s.CurrentDuration.TotalMinutes;
+                minutesByHour[ToUserLocal(s.StartedAt).Hour] += s.CurrentDuration.TotalMinutes;
 
             var windows = new List<ProductivityDto>();
             for (var h = 0; h <= 21; h++)
@@ -133,7 +138,7 @@ namespace StudyTime.Application.Services
             if (workSessions.Any())
             {
                 var bestDayGroup = workSessions
-                    .GroupBy(s => s.StartedAt.ToLocalTime().DayOfWeek)
+                    .GroupBy(s => ToUserLocal(s.StartedAt).DayOfWeek)
                     .OrderByDescending(g => g.Sum(s => s.CurrentDuration.TotalMinutes))
                     .FirstOrDefault();
 
@@ -147,7 +152,7 @@ namespace StudyTime.Application.Services
 
             // 8. Günlük Seans Heatmap (mola hariç)
             var dailySessionGroups = workSessions
-                .GroupBy(s => s.StartedAt.ToLocalTime().Date)
+                .GroupBy(s => ToUserLocal(s.StartedAt).Date)
                 .ToDictionary(
                     g => g.Key,
                     g =>
