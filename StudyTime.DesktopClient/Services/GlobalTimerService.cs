@@ -388,6 +388,8 @@ namespace StudyTime.DesktopClient.Services
             _timer = new Timer(1000);
             _timer.Elapsed += async (s, e) =>
             {
+              try
+              {
                 // Süre kontrolü: ElapsedTime property'si timestamp'ten hesaplar
                 if (IsCountdown && ElapsedTime >= InitialDuration)
                 {
@@ -424,6 +426,12 @@ namespace StudyTime.DesktopClient.Services
 
                 // Normal tick — sadece UI'yı yenile
                 OnTick?.Invoke();
+              }
+              catch (Exception ex)
+              {
+                // F14: async void timer handler'da gözlemlenmeyen exception app'i çökertmesin.
+                System.Diagnostics.Debug.WriteLine($"Timer Elapsed handler failed: {ex.Message}");
+              }
             };
             _timer.Start();
         }

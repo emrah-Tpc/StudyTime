@@ -1,6 +1,7 @@
 @page "/login"
 @attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
 @layout StudyTime.DesktopClient.Components.Layout.AuthLayout
+@using System.ComponentModel.DataAnnotations
 @using StudyTime.DesktopClient.Services
 @inject AuthService AuthService
 @inject NavigationManager NavigationManager
@@ -31,11 +32,13 @@
             <div class="mb-3">
                 <label class="form-label" style="color: var(--st-text-color);">E-Posta</label>
                 <InputText @bind-Value="LoginModel.Email" class="form-control" style="background-color: var(--st-input-bg); color: var(--st-text-color); border: 1px solid var(--st-border-color);" placeholder="ornek@email.com" />
+                <ValidationMessage For="@(() => LoginModel.Email)" class="text-danger small" />
             </div>
 
             <div class="mb-4">
                 <label class="form-label" style="color: var(--st-text-color);">Şifre</label>
                 <InputText @bind-Value="LoginModel.Password" type="password" class="form-control" style="background-color: var(--st-input-bg); color: var(--st-text-color); border: 1px solid var(--st-border-color);" placeholder="******" />
+                <ValidationMessage For="@(() => LoginModel.Password)" class="text-danger small" />
             </div>
 
             <button type="submit" class="btn btn-primary w-100 py-2 fw-bold" disabled="@IsLoading">
@@ -143,7 +146,11 @@
 
     public class LoginViewModel
     {
+        [Required(ErrorMessage = "E-posta zorunludur.")]
+        [EmailAddress(ErrorMessage = "Geçerli bir e-posta adresi giriniz.")]
         public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Şifre zorunludur.")]
         public string Password { get; set; } = string.Empty;
     }
 }

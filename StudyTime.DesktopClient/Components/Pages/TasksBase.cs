@@ -16,6 +16,7 @@ public abstract class TasksBase : ComponentBase
     
     protected List<CalendarDay> CalendarDays = new();
     protected bool isLoading = true;
+    protected string? loadError;
     protected CalendarDay? selectedDay;
     protected TaskDto? selectedDetailTask;
 
@@ -30,11 +31,12 @@ public abstract class TasksBase : ComponentBase
     protected async Task LoadCalendar()
     {
         isLoading = true;
+        loadError = null;
         CalendarDays.Clear();
-        
+
         var firstDayOfMonth = new DateTime(CurrentDate.Year, CurrentDate.Month, 1);
         var lastDayOfMonth = firstDayOfMonth.AddMonths(1).AddDays(-1);
-        
+
         var startGridDate = firstDayOfMonth;
         while (startGridDate.DayOfWeek != DayOfWeek.Monday)
         {
@@ -47,21 +49,32 @@ public abstract class TasksBase : ComponentBase
              endGridDate = endGridDate.AddDays(1);
         }
 
-        var allTasks = await TaskService.GetTasksByDateRangeAsync(startGridDate, endGridDate);
-
-        for (var date = startGridDate; date <= endGridDate; date = date.AddDays(1))
+        try
         {
-            var dayTasks = allTasks.Where(t => t.StartDate.HasValue && t.StartDate.Value.Date == date.Date).ToList();
+            var allTasks = await TaskService.GetTasksByDateRangeAsync(startGridDate, endGridDate);
 
-            CalendarDays.Add(new CalendarDay
+            for (var date = startGridDate; date <= endGridDate; date = date.AddDays(1))
             {
-                Date = date,
-                IsCurrentMonth = date.Month == CurrentDate.Month,
-                Tasks = dayTasks
-            });
-        }
+                var dayTasks = allTasks.Where(t => t.StartDate.HasValue && t.StartDate.Value.Date == date.Date).ToList();
 
-        isLoading = false;
+                CalendarDays.Add(new CalendarDay
+                {
+                    Date = date,
+                    IsCurrentMonth = date.Month == CurrentDate.Month,
+                    Tasks = dayTasks
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            // F13: Hata yutulmasın/spinner takılmasın; kullanıcıya bildirilebilir bir durum bırak.
+            loadError = "Takvim yüklenemedi. Lütfen tekrar deneyin.";
+            System.Diagnostics.Debug.WriteLine($"LoadCalendar failed: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
     }
 
     protected async Task PreviousMonth()

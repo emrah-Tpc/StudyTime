@@ -19,6 +19,7 @@ public abstract class DashboardBase : ComponentBase, IDisposable
 
     protected DashboardSummaryDto? summary;
     protected bool isLoading = true;
+    protected string? loadError;
     protected string selectedChart = "Weekly";
 
     /// <summary>
@@ -104,7 +105,7 @@ public abstract class DashboardBase : ComponentBase, IDisposable
             var newSummary = await DashboardService.GetSummaryAsync();
             if (newSummary != null) ApplySummary(newSummary);
         }
-        catch { }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Dashboard soft reload failed: {ex.Message}"); }
         finally { StateHasChanged(); }
     }
 
@@ -115,7 +116,7 @@ public abstract class DashboardBase : ComponentBase, IDisposable
             var newSummary = await DashboardService.GetSummaryAsync();
             if (newSummary != null) ApplySummary(newSummary);
         }
-        catch { }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Dashboard chart reload failed: {ex.Message}"); }
         finally
         {
             StateHasChanged();
@@ -135,6 +136,7 @@ public abstract class DashboardBase : ComponentBase, IDisposable
     {
         try
         {
+            loadError = null;
             var cached = await DashboardService.TryGetCachedSummaryAsync();
             if (cached != null)
             {
@@ -147,7 +149,13 @@ public abstract class DashboardBase : ComponentBase, IDisposable
             var fresh = await DashboardService.GetSummaryAsync();
             if (fresh != null) ApplySummary(fresh);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            // F45: Sessizce yutma — ilk yüklemede her iki kaynak da başarısızsa kullanıcıya durum bırak.
+            if (summary == null)
+                loadError = "Pano yüklenemedi. Lütfen tekrar deneyin.";
+            System.Diagnostics.Debug.WriteLine($"Dashboard load failed: {ex.Message}");
+        }
         finally { isLoading = false; }
     }
 
