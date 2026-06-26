@@ -91,10 +91,13 @@ namespace StudyTime.Application.Services
         // 📊 TODAY TOTAL
         public async Task<TodayStudyTotalDto> GetTodayTotalAsync()
         {
-            var today = DateTime.Now.Date;
+            // F04: UTC gün + mola hariç (IsBreak) + CurrentDuration (diğer servislerle tutarlı).
+            var today = DateTime.UtcNow.Date;
             var sessions = await _studySessionRepository.GetByDateAsync(today);
 
-            var totalMinutes = sessions.Sum(s => (int)s.TotalActiveDuration.TotalMinutes);
+            var totalMinutes = sessions
+                .Where(s => !s.IsBreak)
+                .Sum(s => (int)s.CurrentDuration.TotalMinutes);
 
             return new TodayStudyTotalDto
             {

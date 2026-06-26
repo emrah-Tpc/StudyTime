@@ -98,8 +98,11 @@ namespace StudyTime.Domain.Entities
 
         public void Reopen()
         {
-            if (Status != TaskStatus.Cancelled)
-                throw new InvalidOperationException("Only cancelled tasks can be reopened.");
+            // F05: İptal edilmiş VEYA tamamlanmış görev yeniden Pending'e alınabilir.
+            // (Önceden yalnız Cancelled açılabiliyordu; bu yüzden "tamamlandı"yı geri almak
+            //  istemcide sessizce başarısız oluyordu.)
+            if (Status == TaskStatus.Pending)
+                throw new InvalidOperationException("Task is already pending.");
             Status = TaskStatus.Pending;
         }
 

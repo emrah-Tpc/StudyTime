@@ -67,5 +67,6 @@ public class NotificationOverPostingTests
         public Task UpdateAsync(Notification notification) => Task.CompletedTask;
         public Task MarkAllAsReadAsync() => Task.CompletedTask;
         public Task DeleteOldNotificationsAsync(int daysToKeep) => Task.CompletedTask;
+        public Task DeleteAllAsync() => Task.CompletedTask;
     }
 }

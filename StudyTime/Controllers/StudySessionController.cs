@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using StudyTime.Application.DTOs.StudySessions;
 using StudyTime.Application.Services;
 using System.Security.Claims;
@@ -36,6 +37,12 @@ namespace StudyTime.Controllers
             catch (KeyNotFoundException ex) when (ex.Message == "LESSON_NOT_FOUND")
             {
                 return BadRequest(new { message = "LESSON_NOT_FOUND" });
+            }
+            catch (DbUpdateException)
+            {
+                // F06: Eşzamanlı iki "start" servis kontrolünü birlikte geçip insert ettiğinde
+                // tek-aktif-oturum unique filtered index ihlali olur. 500 yerine 409 döndürülür.
+                return Conflict(new { message = "ACTIVE_SESSION_EXISTS" });
             }
         }
 

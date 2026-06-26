@@ -52,9 +52,26 @@ namespace StudyTime.Infrastructure.Repositories
 
         public async Task DeleteOldNotificationsAsync(int daysToKeep)
         {
-            var cutoff = DateTime.Now.AddDays(-daysToKeep);
+            // F08: Hard-delete yerine soft-delete + UtcNow (entity'de IsDeleted var, tutarlılık).
+            var cutoff = DateTime.UtcNow.AddDays(-daysToKeep);
             var old = await _context.Notifications.Where(n => n.CreatedAt < cutoff).ToListAsync();
-            _context.Notifications.RemoveRange(old);
+            foreach (var n in old)
+            {
+                n.IsDeleted = true;
+                n.UpdatedAt = DateTime.UtcNow;
+            }
+            await _context.SaveChangesAsync();
+        }
+
+        // F46: Geçerli kullanıcının tüm bildirimlerini soft-delete eder (query filter ile user-scoped).
+        public async Task DeleteAllAsync()
+        {
+            var all = await _context.Notifications.ToListAsync();
+            foreach (var n in all)
+            {
+                n.IsDeleted = true;
+                n.UpdatedAt = DateTime.UtcNow;
+            }
             await _context.SaveChangesAsync();
         }
     }

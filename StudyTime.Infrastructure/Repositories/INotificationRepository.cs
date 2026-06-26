@@ -13,5 +13,6 @@ namespace StudyTime.Infrastructure.Repositories
         Task UpdateAsync(Notification notification);
         Task MarkAllAsReadAsync();
         Task DeleteOldNotificationsAsync(int daysToKeep);
+        Task DeleteAllAsync();
     }
 }

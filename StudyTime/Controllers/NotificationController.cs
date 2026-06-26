@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using StudyTime.Application.DTOs.Notifications;
@@ -21,10 +22,11 @@ namespace StudyTime.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Notification>>> GetNotifications()
+        public async Task<ActionResult<IEnumerable<NotificationDto>>> GetNotifications()
         {
             var notifications = await _repository.GetAllAsync();
-            return Ok(notifications);
+            // F17: Domain entity (UserId/IsDeleted gibi iç alanlar) sızdırma — DTO'ya projeksiyon.
+            return Ok(notifications.Select(ToDto));
         }
 
         [HttpPost]
@@ -48,17 +50,7 @@ namespace StudyTime.Controllers
             };
 
             var created = await _repository.AddAsync(notification);
-
-            return Ok(new NotificationDto
-            {
-                Id        = created.Id,
-                Title     = created.Title,
-                Message   = created.Message,
-                Category  = created.Category,
-                IsRead    = created.IsRead,
-                ActionUrl = created.ActionUrl,
-                CreatedAt = created.CreatedAt
-            });
+            return Ok(ToDto(created));
         }
 
         [HttpPut("{id}/read")]
@@ -88,5 +80,24 @@ namespace StudyTime.Controllers
             await _repository.DeleteOldNotificationsAsync(days);
             return NoContent();
         }
+
+        // F46: İstemci 'DELETE api/notification/all' çağırıyordu; endpoint eksikti (404).
+        [HttpDelete("all")]
+        public async Task<IActionResult> DeleteAll()
+        {
+            await _repository.DeleteAllAsync();
+            return NoContent();
+        }
+
+        private static NotificationDto ToDto(Notification n) => new()
+        {
+            Id        = n.Id,
+            Title     = n.Title,
+            Message   = n.Message,
+            Category  = n.Category,
+            IsRead    = n.IsRead,
+            ActionUrl = n.ActionUrl,
+            CreatedAt = n.CreatedAt
+        };
     }
 }
