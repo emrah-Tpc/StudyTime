@@ -84,7 +84,10 @@ namespace StudyTime.DesktopClient.Services
                 var content = await response.Content.ReadAsStringAsync();
                 await authStateProvider.MarkUserAsLoggedOut(wipeLocalData: false);
                 
-                bool isMismatch = content.Contains("SESSION_MISMATCH");
+                // Kullanıcı kendi çıkış yaptıysa, çıkış sonrası arka plan isteklerinden gelen
+                // SESSION_MISMATCH'i "başka cihazda açıldı" olarak GÖSTERME (yanlış mesaj).
+                bool isMismatch = content.Contains("SESSION_MISMATCH")
+                                  && !CustomAuthenticationStateProvider.UserInitiatedLogout;
                 bool isPremiumExpired = content.Contains("PREMIUM_EXPIRED");
 
                 if (isMismatch)

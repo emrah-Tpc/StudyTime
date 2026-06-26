@@ -114,6 +114,9 @@ namespace StudyTime.DesktopClient.Services
 
         public async Task LogoutAsync()
         {
+            // Manuel çıkış: çıkıştan sonra gelen SESSION_MISMATCH 401'lerini "başka cihaz" sayma.
+            CustomAuthenticationStateProvider.UserInitiatedLogout = true;
+
             try
             {
                 // Backend'deki session'ı sonlandır - takılmaması için 3 sn timeout koy
@@ -126,6 +129,9 @@ namespace StudyTime.DesktopClient.Services
             }
 
             await _authStateProvider.MarkUserAsLoggedOut();
+
+            // Yarış halindeki/önceki "başka cihaz" mesajını temizle (manuel çıkışta gösterme).
+            try { Microsoft.Maui.Storage.SecureStorage.Default.Remove("LoginError"); } catch { }
         }
 
         public async Task<bool> RefreshTokensAsync()

@@ -66,6 +66,7 @@ namespace StudyTime.DesktopClient.Services
 
         public async Task MarkUserAsAuthenticated(string token, string refreshToken)
         {
+            UserInitiatedLogout = false; // Yeni giriş → "başka cihaz" tespitini tekrar etkinleştir.
             SafeRemove(LocalProfileSubKey);
 
             var claims = ParseClaimsFromJwt(token);
@@ -194,6 +195,13 @@ namespace StudyTime.DesktopClient.Services
 
         private static string? _cachedToken;
         private static string? _cachedRefreshToken;
+
+        /// <summary>
+        /// Kullanıcı KENDİ isteğiyle çıkış yaptığında true olur. Çıkıştan sonra arka plan/gecikmeli
+        /// isteklerden gelen SESSION_MISMATCH 401'lerinin "başka cihazda açıldı" mesajıyla
+        /// gösterilmesini engellemek için kullanılır. Bir sonraki başarılı girişte sıfırlanır.
+        /// </summary>
+        public static bool UserInitiatedLogout { get; set; }
 
         private static async Task<string?> SafeGetAsync(string key)
         {
