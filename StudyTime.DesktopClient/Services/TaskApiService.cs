@@ -69,16 +69,18 @@ namespace StudyTime.DesktopClient.Services
         public async Task ToggleCompleteAsync(Guid id, DateTime? updatedAt = null)
         {
             string q = updatedAt.HasValue ? $"?updatedAt={updatedAt.Value:O}" : "";
-            var response = await _httpClient.PostAsync($"api/tasks/{id}/complete{q}", null);
 
+            // Mevcut durumu öğrenip hedef endpoint'i belirle (exception'ı akış kontrolü olarak KULLANMA).
+            TaskDetailDto? current = null;
+            try { current = await _httpClient.GetFromJsonAsync<TaskDetailDto>($"api/tasks/{id}"); }
+            catch { /* durum okunamazsa varsayılan: complete */ }
+
+            var endpoint = current?.Status == StudyTime.Domain.Enums.TaskStatus.Completed ? "reopen" : "complete";
+            var response = await _httpClient.PostAsync($"api/tasks/{id}/{endpoint}{q}", null);
             if (!response.IsSuccessStatusCode)
             {
-                var reopenResp = await _httpClient.PostAsync($"api/tasks/{id}/reopen{q}", null);
-                if (!reopenResp.IsSuccessStatusCode)
-                {
-                    var error = await reopenResp.Content.ReadAsStringAsync();
-                    throw new Exception($"Görev durumu değiştirilemedi: {error}");
-                }
+                var error = await response.Content.ReadAsStringAsync();
+                throw new Exception($"Görev durumu değiştirilemedi: {error}");
             }
         }
 
@@ -97,17 +99,12 @@ namespace StudyTime.DesktopClient.Services
         public async Task UpdateTaskStatusAsync(Guid id, StudyTime.Domain.Enums.TaskStatus newStatus, DateTime? updatedAt = null)
         {
             string q = updatedAt.HasValue ? $"?updatedAt={updatedAt.Value:O}" : "";
-            if (newStatus == StudyTime.Domain.Enums.TaskStatus.Completed)
-            {
-                var response = await _httpClient.PostAsync($"api/tasks/{id}/complete{q}", null);
-                if (!response.IsSuccessStatusCode)
-                {
-                }
-            }
-            else
-            {
-                await _httpClient.PostAsync($"api/tasks/{id}/reopen", null);
-            }
+            var endpoint = newStatus == StudyTime.Domain.Enums.TaskStatus.Completed ? "complete" : "reopen";
+            // İdempotent endpoint'ler sayesinde "zaten o durumda" artık hata değil (no-op 204).
+            // Kalan hata (404/ağ) nadir; çağıran (Workspace) try/catch'siz olduğundan loglanır (sessiz değil).
+            var response = await _httpClient.PostAsync($"api/tasks/{id}/{endpoint}{q}", null);
+            if (!response.IsSuccessStatusCode)
+                System.Diagnostics.Debug.WriteLine($"UpdateTaskStatus({endpoint}) failed: {(int)response.StatusCode}");
         }
     }
 }

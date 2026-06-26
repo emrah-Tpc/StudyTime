@@ -82,15 +82,20 @@ namespace StudyTime.Domain.Entities
             LessonId = lessonId;
         }
 
+        // Durum geçişleri IDEMPOTENT'tir: zaten hedef durumdaysa no-op (exception fırlatmaz).
+        // Böylece istemci toggle'ı exception'ı akış kontrolü olarak kullanmaz ve sunucu
+        // normal işlemler için sahte hata logu üretmez. Yalnız GERÇEKTEN geçersiz geçişler fırlatır.
         public void Complete()
         {
-            if (Status != TaskStatus.Pending)
-                throw new InvalidOperationException("Only pending tasks can be completed.");
+            if (Status == TaskStatus.Completed) return;          // idempotent
+            if (Status == TaskStatus.Cancelled)
+                throw new InvalidOperationException("Cancelled task cannot be completed.");
             Status = TaskStatus.Completed;
         }
 
         public void Cancel()
         {
+            if (Status == TaskStatus.Cancelled) return;          // idempotent
             if (Status == TaskStatus.Completed)
                 throw new InvalidOperationException("Completed task cannot be cancelled.");
             Status = TaskStatus.Cancelled;
@@ -98,11 +103,8 @@ namespace StudyTime.Domain.Entities
 
         public void Reopen()
         {
-            // F05: İptal edilmiş VEYA tamamlanmış görev yeniden Pending'e alınabilir.
-            // (Önceden yalnız Cancelled açılabiliyordu; bu yüzden "tamamlandı"yı geri almak
-            //  istemcide sessizce başarısız oluyordu.)
-            if (Status == TaskStatus.Pending)
-                throw new InvalidOperationException("Task is already pending.");
+            // İptal edilmiş VEYA tamamlanmış görev yeniden Pending'e alınabilir (F05).
+            if (Status == TaskStatus.Pending) return;            // idempotent
             Status = TaskStatus.Pending;
         }
 
