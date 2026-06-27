@@ -60,6 +60,7 @@
                     <div class="db-prod-change @(summary.StudyTimeChange >= 0 ? "pos" : "neg")">
                         <i class="bi @(summary.StudyTimeChange >= 0 ? "bi-arrow-up-short" : "bi-arrow-down-short")"></i>
                         @(summary.StudyTimeChange >= 0 ? "+" : "")@GetHours(summary.StudyTimeChange)
+                        <span class="db-prod-change-ref">geçen haftaya göre</span>
                     </div>
                 </div>
             </div>

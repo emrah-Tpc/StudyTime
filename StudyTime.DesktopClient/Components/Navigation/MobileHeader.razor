@@ -2,6 +2,7 @@
 @inject NavigationManager Nav
 @inject AuthService AuthService
 @inject ThemeService ThemeService
+@inject AppNotificationCenterService Notifications
 @inject IJSRuntime JS
 @implements IDisposable
 
@@ -10,8 +11,15 @@
         <i class="bi bi-stopwatch-fill text-primary"></i>
         <span>StudyTime</span>
     </div>
-    
+
     <div class="mobile-actions">
+        <button class="header-icon-btn notif-btn" @onclick="() => Notifications.ToggleCenter()" title="Bildirimler">
+            <i class="bi bi-bell-fill"></i>
+            @if (Notifications.UnreadCount > 0)
+            {
+                <span class="notif-badge">@(Notifications.UnreadCount > 9 ? "9+" : Notifications.UnreadCount.ToString())</span>
+            }
+        </button>
         <button class="header-icon-btn theme-toggle-btn" @onclick="ToggleTheme" title="@(isDark ? "Açık Tema" : "Koyu Tema")">
             <i class="bi @(isDark ? "bi-sun-fill" : "bi-moon-fill")"></i>
         </button>
@@ -51,7 +59,10 @@
     {
         isDark = ThemeService.IsDarkMode;
         ThemeService.OnThemeChanged += OnThemeUpdated;
+        Notifications.OnNotificationsChanged += OnNotificationsUpdated;
     }
+
+    private void OnNotificationsUpdated() => InvokeAsync(StateHasChanged);
 
     private void OnThemeUpdated()
     {
@@ -76,6 +87,7 @@
     public void Dispose()
     {
         ThemeService.OnThemeChanged -= OnThemeUpdated;
+        Notifications.OnNotificationsChanged -= OnNotificationsUpdated;
     }
 }
 
@@ -150,4 +162,23 @@
     /* Tema butonu biraz özel — aktifken renk tonu */
     .theme-toggle-btn .bi-sun-fill { color: #f59e0b; }
     .theme-toggle-btn .bi-moon-fill { color: #818cf8; }
+
+    /* Bildirim çanı + okunmamış rozeti */
+    .notif-btn { position: relative; }
+    .notif-badge {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        min-width: 16px;
+        height: 16px;
+        padding: 0 4px;
+        background: #ef4444;
+        color: #fff;
+        font-size: 0.62rem;
+        font-weight: 800;
+        line-height: 16px;
+        text-align: center;
+        border-radius: 8px;
+        box-shadow: 0 0 0 2px var(--bg-app, #09090b);
+    }
 </style>

@@ -300,14 +300,17 @@
                             ? Math.Max(0.12, (double)day.SessionCount / maxCount)
                             : 0.0;
                         var hasData = day.SessionCount > 0;
+                        // Lejant tek renk (mavi) yogunlugu anlattigindan, hucreleri de
+                        // tek tonda tutuyoruz: koyuluk = seans sayisi. (Ders rengini
+                        // kucuk karede ikinci boyut olarak karistirmak okunmuyordu.)
                         var bgStyle = hasData
-                            ? $"background: {day.DominantColor}; opacity: {intensity.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)};"
+                            ? $"background: rgba(59,130,246,{intensity.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)});"
                             : "background: rgba(255,255,255,0.05);";
                         var label = $"{day.Date:dd MMM} — {day.SessionCount} seans";
 
                         <div class="heatmap-cell heatmap-cell--day @(hasData ? "has-data" : "")"
                              title="@label"
-                             style="@bgStyle; --cell-color: @day.DominantColor">
+                             style="@bgStyle; --cell-color: #3b82f6">
                             @if (hasData)
                             {
                                 <span class="heatmap-count">@day.SessionCount</span>
@@ -487,7 +490,16 @@
                 Breakpoint = 480,
                 Options = new ApexChartOptions<LessonStatisticDto>
                 {
-                    Legend = new Legend { Show = false }
+                    // Dar ekranda legend'i GIZLEME; alta kucuk fontla al ki
+                    // hangi rengin hangi ders oldugu anlasilabilsin.
+                    Legend = new Legend
+                    {
+                        Show = true,
+                        Position = LegendPosition.Bottom,
+                        HorizontalAlign = Align.Center,
+                        FontSize = "10px",
+                        ItemMargin = new LegendItemMargin { Horizontal = 6, Vertical = 2 }
+                    }
                 }
             }
         };

@@ -10,7 +10,14 @@
             <div>
                 <h1 class="text-xl fw-bold text-white m-0">Görevler</h1>
             </div>
-            <button class="btn-primary btn-sm" @onclick="GoToToday">Bugün</button>
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn-icon-sm" @onclick="GoToToday" title="Bugüne git">
+                    <i class="bi bi-calendar-event"></i>
+                </button>
+                <button class="btn-primary btn-sm" @onclick="() => OpenCreateTask(selectedDay?.Date)">
+                    <i class="bi bi-plus-lg me-1"></i>Görev
+                </button>
+            </div>
         </div>
         <div class="d-flex align-items-center justify-content-center gap-3 w-100">
              <button class="btn-icon-sm" @onclick="PreviousMonth"><i class="bi bi-chevron-left"></i></button>
@@ -96,7 +103,6 @@
                                         <div class="d-flex align-items-center gap-3">
                                             <div class="form-check m-0">
                                                 <input class="form-check-input" type="checkbox" checked="@IsTaskCompleted(task)"
-                                                       disabled="@IsTaskCompleted(task)"
                                                        @onchange="(e) => ToggleTaskStatus(task, e.Value)">
                                             </div>
                                             <div>
@@ -147,9 +153,13 @@
                     {
                         <div class="text-center py-5 text-white opacity-50">
                             <i class="bi bi-calendar-x fs-1 mb-2"></i>
-                            <p>Bugün için planlanmış görev yok.</p>
+                            <p>Bu gün için planlanmış görev yok.</p>
                         </div>
                     }
+
+                    <button class="btn-outline w-100 mt-3" @onclick="() => OpenCreateTask(selectedDay.Date)">
+                        <i class="bi bi-plus-lg me-2"></i>Bu güne görev ekle
+                    </button>
                 </div>
             </div>
         </div>
@@ -162,7 +172,7 @@
     <div class="modal-backdrop fade show" style="z-index: 1060;"></div>
     <div class="modal fade show d-block" tabindex="-1" style="z-index: 1065;">
         <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
-            <div class="modal-content border-0 shadow-lg" style="background: linear-gradient(145deg, #2b2b2b, #1f1f1f); border-radius: 16px 16px 0 0; min-height: 60vh;">
+            <div class="modal-content border-0 shadow-lg" style="background: var(--bg-card); border-radius: 16px 16px 0 0; min-height: 60vh;">
                 <div class="modal-header border-0 pb-0">
                     <h5 class="modal-title fw-bold text-white d-flex align-items-center">
                         <i class="bi bi-list-task me-2" style="color: @(selectedDetailTask.Lesson?.Color ?? "#fff")"></i> 
@@ -173,7 +183,7 @@
                     </button>
                 </div>
                 <div class="modal-body">
-                    <div class="p-3 mb-3" style="background: rgba(255,255,255,0.05); border-radius: 8px;">
+                    <div class="p-3 mb-3" style="background: var(--bg-surface); border-radius: 8px;">
                         <h6 class="text-white opacity-75 small text-uppercase mb-2"><i class="bi bi-card-text me-1"></i>Açıklama</h6>
                         <p class="text-white m-0" style="font-size: 0.95rem; white-space: pre-wrap;">
                             @(string.IsNullOrWhiteSpace(selectedDetailTask.Note) ? "Bu görev için açıklama bulunmuyor." : selectedDetailTask.Note)
@@ -182,7 +192,7 @@
 
                     <div class="row g-2">
                          <div class="col-6">
-                            <div class="p-2 h-100" style="background: rgba(255,255,255,0.03); border-radius: 8px;">
+                            <div class="p-2 h-100" style="background: var(--bg-surface); border-radius: 8px;">
                                 <div class="text-white opacity-50 small mb-1"><i class="bi bi-clock-history"></i> Süre</div>
                                 <div class="fw-bold text-white fs-6">
                                     @(selectedDetailTask.PlannedDuration.HasValue ? GetFormattedDuration(selectedDetailTask.PlannedDuration.Value) : "-")
@@ -190,7 +200,7 @@
                             </div>
                          </div>
                          <div class="col-6">
-                            <div class="p-2 h-100" style="background: rgba(255,255,255,0.03); border-radius: 8px;">
+                            <div class="p-2 h-100" style="background: var(--bg-surface); border-radius: 8px;">
                                 <div class="text-white opacity-50 small mb-1"><i class="bi bi-tag"></i> Ders</div>
                                 <div class="fw-bold fs-6" style="color: @(selectedDetailTask.Lesson?.Color ?? "#fff")">
                                     @(selectedDetailTask.Lesson?.Name ?? "Genel")
@@ -198,7 +208,7 @@
                             </div>
                          </div>
                          <div class="col-12 mt-2">
-                             <div class="d-flex justify-content-between p-2" style="background: rgba(255,255,255,0.03); border-radius: 8px;">
+                             <div class="d-flex justify-content-between p-2" style="background: var(--bg-surface); border-radius: 8px;">
                                  <div>
                                      <div class="text-white opacity-50 small">Başlangıç</div>
                                      <div class="text-white small fw-medium mt-1">@(selectedDetailTask.StartDate?.ToString("dd MMM HH:mm", CurrentCulture) ?? "-")</div>
@@ -215,6 +225,81 @@
         </div>
     </div>
 }
+<!-- Yeni Görev Oluşturma Modalı -->
+@if (showCreateTask)
+{
+    <div class="modal-backdrop fade show" style="z-index: 1070;"></div>
+    <div class="modal fade show d-block" tabindex="-1" style="z-index: 1075;">
+        <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+            <div class="modal-content custom-modal" style="border-radius: 16px 16px 0 0;">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title fw-bold text-white">Yeni Görev</h5>
+                    <button type="button" class="modal-close-adaptive" @onclick="CloseCreateTask" aria-label="Kapat">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(createError))
+                    {
+                        <div class="alert alert-warning py-2 small mb-3" role="alert">@createError</div>
+                    }
+
+                    @if (!Lessons.Any())
+                    {
+                        <div class="text-center py-4 text-white opacity-50">
+                            <i class="bi bi-collection fs-3 d-block mb-2"></i>
+                            <p class="mb-2 small">Görev eklemek için önce bir alan (ders) oluşturmalısın.</p>
+                            <a href="lessons?showAdd=true" class="btn-outline d-inline-block mt-1">Alan Oluştur</a>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="d-flex flex-column gap-3">
+                            <div>
+                                <label class="form-label text-muted small">GÖREV ADI</label>
+                                <input class="form-control custom-input" @bind="newTask.Title" placeholder="Örn: Bölüm 3 tekrarı" />
+                            </div>
+                            <div>
+                                <label class="form-label text-muted small">ALAN</label>
+                                <select class="form-select custom-input" @bind="SelectedLessonId">
+                                    @foreach (var l in Lessons)
+                                    {
+                                        <option value="@l.Id">@l.Name</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-7">
+                                    <label class="form-label text-muted small">BAŞLANGIÇ</label>
+                                    <input type="date" class="form-control custom-input" @bind="newTask.StartDate" />
+                                </div>
+                                <div class="col-5">
+                                    <label class="form-label text-muted small">HEDEF (dk)</label>
+                                    <input type="number" min="0" max="600" class="form-control custom-input" @bind="newTask.PlannedDurationMinutes" placeholder="60" />
+                                </div>
+                            </div>
+                            <div>
+                                <label class="form-label text-muted small">AÇIKLAMA</label>
+                                <textarea class="form-control custom-input" rows="2" maxlength="400" @bind="newTask.Note" placeholder="İsteğe bağlı"></textarea>
+                            </div>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-link text-muted text-decoration-none" @onclick="CloseCreateTask">İptal</button>
+                    <button type="button" class="btn-primary px-4" @onclick="SaveNewTask" disabled="@(isSavingTask || !Lessons.Any())">
+                        @if (isSavingTask)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        }
+                        Ekle
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 <style>
     .calendar-grid {
         display: flex;

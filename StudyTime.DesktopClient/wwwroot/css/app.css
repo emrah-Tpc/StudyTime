@@ -700,6 +700,7 @@ main {
 .db-prod-change { font-size: 0.72rem; margin-top: 5px; display: flex; align-items: center; gap: 2px; }
 .db-prod-change.pos { color: #10B981; }
 .db-prod-change.neg { color: #ef4444; }
+.db-prod-change-ref { color: var(--text-dim); font-weight: 500; margin-left: 3px; }
 .db-prod-quote { display: flex; align-items: flex-start; gap: 8px; font-size: 0.8rem; color: var(--text-dim); font-style: italic; line-height: 1.5; border-top: 1px solid var(--border-color); padding-top: 14px; }
 .db-quote-icon { font-size: 1.2rem; color: var(--accent-blue); flex-shrink: 0; margin-top: 2px; }
 .db-stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
@@ -2683,6 +2684,41 @@ main {
         justify-content: center;
         padding: 16px !important;
         border-radius: 16px !important;
+    }
+}
+
+
+/* =========================================
+   YATAY EKRAN (LANDSCAPE) — kisa viewport
+   Telefonu yan cevirince dikey alan azalir; ust/alt
+   kromu ve grafik yuksekliklerini kucultup, genis
+   alani yatay yerlesimle degerlendir.
+   ========================================= */
+@media (orientation: landscape) and (max-height: 600px) {
+    :root {
+        --bottom-bar-height: 58px; /* yatayda daha ince alt bar */
+    }
+
+    /* Dikey bosluklari sik */
+    .main-content-scrollable {
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+    }
+
+    /* Panel istatistik kartlari: genislik bol oldugu icin tek satir (4 sutun) */
+    .db-stats-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+
+    /* Grafik sarmalayicisi daha kisa olsun ki tek ekrana daha cok sigsin */
+    .db-chart-wrap {
+        height: 160px !important;
+    }
+
+    /* Bottom-sheet modallar yatayda tasmasin */
+    .modal-content.custom-modal {
+        max-height: 92vh;
+        overflow-y: auto;
     }
 }
 

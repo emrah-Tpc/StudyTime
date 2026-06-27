@@ -132,9 +132,19 @@
                         Width = "100%",
                         Toolbar = new Toolbar { Show = false }
                     },
+                    // Dar ekranda da X eksenini GIZLEME; etiket sayisini azaltip
+                    // dondurerek okunur tut (aksi halde hangi nokta hangi gun belirsiz kalir).
                     Xaxis = new XAxis
                     {
-                        Labels = new XAxisLabels { Show = false }
+                        Labels = new XAxisLabels
+                        {
+                            Show = true,
+                            Rotate = -45,
+                            RotateAlways = true,
+                            HideOverlappingLabels = true,
+                            Style = new AxisLabelStyle { Colors = "#94a3b8", FontSize = "8px" }
+                        },
+                        TickAmount = 4
                     }
                 }
             }

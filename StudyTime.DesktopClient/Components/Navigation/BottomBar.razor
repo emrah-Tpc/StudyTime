@@ -1,7 +1,8 @@
 @using Microsoft.AspNetCore.Components.Routing
 @using StudyTime.DesktopClient.Services
 @inject NavigationManager Nav
-@inject AppNotificationCenterService NotificationService
+@inject GlobalTimerService GlobalTimer
+@implements IDisposable
 
 <div class="bottom-bar">
     <nav class="bottom-nav">
@@ -15,14 +16,12 @@
             <span>Dersler</span>
         </NavLink>
 
+        <!-- Birincil eylem: Çalışma. Aktif oturum varsa ona gider, yoksa alan seçimine. -->
         <div class="bottom-nav-action-wrapper">
-            <button class="main-action-btn" @onclick='() => NotificationService.ToggleCenter()' title="Bildirimler ve Duyurular">
+            <button class="main-action-btn @(IsSessionActive ? "session-live" : "")" @onclick="GoToStudy"
+                    title="@(IsSessionActive ? "Aktif oturuma dön" : "Çalışmaya başla")">
                 <div class="action-btn-inner">
-                    <i class="bi bi-bell-fill"></i>
-                    @if (NotificationService.UnreadCount > 0)
-                    {
-                        <span class="action-badge">@NotificationService.UnreadCount</span>
-                    }
+                    <i class="bi @(IsSessionActive ? "bi-hourglass-split" : "bi-play-fill")"></i>
                 </div>
             </button>
         </div>
@@ -40,7 +39,41 @@
 </div>
 
 @code {
-    
+    private bool IsSessionActive => GlobalTimer.IsRunning || GlobalTimer.IsPaused;
+    private bool _lastActive;
+
+    protected override void OnInitialized()
+    {
+        _lastActive = IsSessionActive;
+        GlobalTimer.OnTick += OnTimerStateMaybeChanged;
+        GlobalTimer.OnTimerStopped += OnTimerStateMaybeChanged;
+        GlobalTimer.OnTimerFinished += OnTimerStateMaybeChanged;
+        GlobalTimer.OnBreakFinished += OnTimerStateMaybeChanged;
+    }
+
+    // OnTick saniyede bir tetiklenir; yalnız aktif/pasif durumu DEĞİŞİNCE render et.
+    private void OnTimerStateMaybeChanged()
+    {
+        if (IsSessionActive == _lastActive) return;
+        _lastActive = IsSessionActive;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void GoToStudy()
+    {
+        if (IsSessionActive && GlobalTimer.ActiveLessonId is Guid lessonId && lessonId != Guid.Empty)
+            Nav.NavigateTo($"workspace/{lessonId}");
+        else
+            Nav.NavigateTo("lessons");
+    }
+
+    public void Dispose()
+    {
+        GlobalTimer.OnTick -= OnTimerStateMaybeChanged;
+        GlobalTimer.OnTimerStopped -= OnTimerStateMaybeChanged;
+        GlobalTimer.OnTimerFinished -= OnTimerStateMaybeChanged;
+        GlobalTimer.OnBreakFinished -= OnTimerStateMaybeChanged;
+    }
 }
 
 <style>
@@ -77,21 +110,16 @@
         box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3), 0 0 0 3px var(--bg-app);
     }
 
-    .action-badge {
-        position: absolute;
-        top: 2px;
-        right: 2px;
-        min-width: 20px;
-        height: 20px;
-        background: #ef4444;
-        color: white;
-        font-size: 0.7rem;
-        font-weight: 800;
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: 2px solid #2563eb;
+    /* Aktif oturum: merkez buton yesile doner ve nabiz atar */
+    .main-action-btn.session-live .action-btn-inner {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        box-shadow: 0 8px 20px rgba(16, 185, 129, 0.45), 0 0 0 5px var(--bg-app);
+        animation: actionPulse 1.8s ease-in-out infinite;
+    }
+
+    @@keyframes actionPulse {
+        0%, 100% { box-shadow: 0 8px 20px rgba(16, 185, 129, 0.45), 0 0 0 5px var(--bg-app); }
+        50%      { box-shadow: 0 8px 26px rgba(16, 185, 129, 0.75), 0 0 0 5px var(--bg-app); }
     }
 
     /* Active indicator glow */
