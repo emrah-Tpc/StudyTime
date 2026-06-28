@@ -311,9 +311,9 @@
         </div>
 
         <div class="st-card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card-header d-flex justify-content-between align-items-center gap-3">
                 <span class="card-title text-white small text-uppercase fw-bold ls-1">En Uzun Süren Görevler (Top 5)</span>
-                <span class="badge bg-secondary bg-opacity-25 text-white">Süreye göre</span>
+                <span class="badge bg-secondary bg-opacity-25 text-white flex-shrink-0">Süreye göre</span>
             </div>
             <div class="top-task-list">
                 @if (summary.TaskStatistics.Any())
@@ -554,7 +554,13 @@
         pieOptions.Chart = new Chart { Toolbar = new Toolbar { Show = false }, Background = "transparent", ForeColor = "#94a3b8", Width = "100%", ParentHeightOffset = 0, Zoom = new Zoom { Enabled = false } };
         pieOptions.Theme = new Theme { Mode = Mode.Dark, Palette = PaletteType.Palette1 };
         pieOptions.Stroke = new Stroke { Show = false };
-        pieOptions.Legend = new Legend { Position = LegendPosition.Bottom, HorizontalAlign = Align.Center };
+        // Legend'da ders adının yaninda TOPLAM SURE goster (dilime dokunmaya gerek kalmadan).
+        pieOptions.Legend = new Legend
+        {
+            Position = LegendPosition.Bottom,
+            HorizontalAlign = Align.Center,
+            Formatter = "function(seriesName, opts){ return seriesName + ' — ' + Math.round(opts.w.globals.series[opts.seriesIndex]) + ' dk'; }"
+        };
         pieOptions.PlotOptions = new PlotOptions { Pie = new PlotOptionsPie { Donut = new PlotOptionsDonut { Size = "70%" } } };
         pieOptions.Tooltip = new Tooltip { Theme = Mode.Dark, Y = new TooltipY { Formatter = @"function(val) { return Math.round(val) + ' dk' }" } };
         pieOptions.Responsive = new List<Responsive<LessonStatisticDto>>
@@ -565,7 +571,11 @@
                 Options = new ApexChartOptions<LessonStatisticDto>
                 {
                     Chart = new Chart { Height = 260, Width = "100%" },
-                    Legend = new Legend { Position = LegendPosition.Bottom }
+                    Legend = new Legend
+                    {
+                        Position = LegendPosition.Bottom,
+                        Formatter = "function(seriesName, opts){ return seriesName + ' — ' + Math.round(opts.w.globals.series[opts.seriesIndex]) + ' dk'; }"
+                    }
                 }
             },
             new Responsive<LessonStatisticDto>
@@ -574,14 +584,15 @@
                 Options = new ApexChartOptions<LessonStatisticDto>
                 {
                     // Dar ekranda legend'i GIZLEME; alta kucuk fontla al ki
-                    // hangi rengin hangi ders oldugu anlasilabilsin.
+                    // hangi rengin hangi ders + toplam suresi anlasilabilsin.
                     Legend = new Legend
                     {
                         Show = true,
                         Position = LegendPosition.Bottom,
                         HorizontalAlign = Align.Center,
                         FontSize = "10px",
-                        ItemMargin = new LegendItemMargin { Horizontal = 6, Vertical = 2 }
+                        ItemMargin = new LegendItemMargin { Horizontal = 6, Vertical = 2 },
+                        Formatter = "function(seriesName, opts){ return seriesName + ' — ' + Math.round(opts.w.globals.series[opts.seriesIndex]) + ' dk'; }"
                     }
                 }
             }
@@ -668,7 +679,7 @@
         letter-spacing: -0.02em;
         line-height: 1.05;
         color: #f1f5f9;
-        text-shadow: 0 0 24px rgba(59,130,246,0.35);
+        text-shadow: 0 0 12px rgba(59,130,246,0.22);
     }
     :root[data-theme="light"] .peak-hero-range { color: #0f172a; text-shadow: none; }
     .peak-hero-sub { font-size: 0.85rem; color: #64748b; margin-top: 6px; }
@@ -702,7 +713,7 @@
         position: absolute; top: 0; bottom: 0;
         background: linear-gradient(90deg, #3b82f6, #2563eb);
         border-radius: 99px;
-        box-shadow: 0 0 14px rgba(59,130,246,0.6);
+        box-shadow: 0 0 6px rgba(59,130,246,0.35);
     }
     .peak-track-ticks { display: flex; justify-content: space-between; }
     .peak-track-ticks span { font-size: 0.62rem; color: #64748b; font-variant-numeric: tabular-nums; }
@@ -873,7 +884,7 @@
     .trend-hm-cell.has-data { cursor: default; }
     .trend-hm-cell.has-data:hover {
         transform: scale(1.12);
-        box-shadow: 0 0 12px rgba(59, 130, 246, 0.6);
+        box-shadow: 0 0 6px rgba(59, 130, 246, 0.3);
     }
     .trend-hm-day {
         font-size: 0.55rem;

@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Components;
 using StudyTime.Application.DTOs.Tasks;
-using StudyTime.Application.DTOs.Lessons;
 using StudyTime.Domain.Enums;
 using StudyTime.DesktopClient.Offline;
 using System.Globalization;
@@ -22,100 +21,14 @@ public abstract class TasksBase : ComponentBase
     protected CalendarDay? selectedDay;
     protected TaskDto? selectedDetailTask;
 
-    // ── Görev oluşturma (Görevler sayfasından doğrudan ekleme) ──────────────
-    protected List<LessonListItemDto> Lessons = new();
-    protected bool showCreateTask;
-    protected bool isSavingTask;
-    protected string? createError;
-    protected CreateTaskDto newTask = new();
-
-    // <select> Guid? binding'i icin guvenli string proxy.
-    protected string? SelectedLessonId
-    {
-        get => newTask.LessonId?.ToString();
-        set => newTask.LessonId = Guid.TryParse(value, out var g) ? g : (Guid?)null;
-    }
-
     protected string CurrentMonthName => CurrentDate.ToString("MMMM", CurrentCulture);
     protected int CurrentYear => CurrentDate.Year;
 
+    // NOT: Görev EKLEME yalnız Çalışma Odası'nda (Workspace) yapılır.
+    // Görevler sayfası sadece görüntüleme + tamamla/geri-al içindir.
     protected override async Task OnInitializedAsync()
     {
         await LoadCalendar();
-        await LoadLessons();
-    }
-
-    protected async Task LoadLessons()
-    {
-        try
-        {
-            var all = await LessonService.GetAllAsync();
-            // Yeni görev yalnız aktif alanlara atanabilsin (arşivlenmişi gizle).
-            Lessons = all.Where(l => l.Status == LessonStatus.Active).ToList();
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"LoadLessons failed: {ex.Message}");
-        }
-    }
-
-    protected void OpenCreateTask(DateTime? date = null)
-    {
-        var start = (date ?? DateTime.Today).Date.AddHours(9);
-        newTask = new CreateTaskDto
-        {
-            Title = "",
-            StartDate = start,
-            LessonId = Lessons.FirstOrDefault()?.Id,
-            Status = StudyTime.Domain.Enums.TaskStatus.Pending
-        };
-        createError = null;
-        showCreateTask = true;
-    }
-
-    protected void CloseCreateTask()
-    {
-        showCreateTask = false;
-        createError = null;
-    }
-
-    protected async Task SaveNewTask()
-    {
-        if (isSavingTask) return;
-
-        if (string.IsNullOrWhiteSpace(newTask.Title))
-        {
-            createError = "Lütfen görev adı girin.";
-            return;
-        }
-        if (newTask.LessonId == null || newTask.LessonId == Guid.Empty)
-        {
-            createError = "Lütfen bir alan (ders) seçin.";
-            return;
-        }
-
-        isSavingTask = true;
-        createError = null;
-        try
-        {
-            newTask.Title = newTask.Title.Trim();
-            await TaskService.CreateAsync(newTask);
-            showCreateTask = false;
-            await LoadCalendar();
-
-            // Eklenen görevin gününü açık tut ki kullanıcı sonucu görsün.
-            if (newTask.StartDate.HasValue)
-                selectedDay = CalendarDays.FirstOrDefault(d => d.Date.Date == newTask.StartDate.Value.Date);
-        }
-        catch (Exception ex)
-        {
-            createError = "Görev eklenemedi. Lütfen tekrar deneyin.";
-            System.Diagnostics.Debug.WriteLine($"SaveNewTask failed: {ex.Message}");
-        }
-        finally
-        {
-            isSavingTask = false;
-        }
     }
 
     protected async Task LoadCalendar()

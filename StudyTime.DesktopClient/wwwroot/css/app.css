@@ -671,6 +671,8 @@ main {
     gap: 12px;
     padding-bottom: 4px;
 }
+.db-greeting { font-size: 0.85rem; color: var(--text-dim); margin: 0 0 2px; font-weight: 500; }
+.db-greeting span { color: var(--accent-blue, #3b82f6); font-weight: 700; }
 .db-title { font-size: 1.5rem; font-weight: 700; color: var(--text-main); margin: 0; line-height: 1.2; }
 .db-date { font-size: 0.8rem; color: var(--text-dim); margin: 4px 0 0; }
 .db-add-btn {
@@ -763,9 +765,9 @@ main {
 .db-vbar-gl { position: absolute; left: 0; right: 0; border-top: 1px dashed rgba(148,163,184,0.18); }
 .db-vbar-cols { position: absolute; inset: 0; display: flex; align-items: flex-end; gap: 4px; padding: 0 2px; }
 .db-vbar-col { flex: 1; min-width: 0; display: flex; align-items: flex-end; justify-content: center; height: 100%; }
-.db-vbar-bar { width: 72%; max-width: 20px; min-height: 2px; border-radius: 5px 5px 0 0; background: linear-gradient(180deg, #22d3ee, #0891b2); box-shadow: 0 0 8px rgba(34,211,238,0.35); }
+.db-vbar-bar { width: 72%; max-width: 20px; min-height: 2px; border-radius: 5px 5px 0 0; background: linear-gradient(180deg, #22d3ee, #0891b2); box-shadow: 0 0 4px rgba(34,211,238,0.18); }
 .db-vbar-xrow { display: flex; gap: 4px; padding: 6px 2px 0; margin-left: 38px; }
-.db-vbar-xlabel { flex: 1; min-width: 0; text-align: center; font-size: 0.62rem; color: #cbd5e1; white-space: nowrap; overflow: hidden; }
+.db-vbar-xlabel { flex: 1; min-width: 0; text-align: center; font-size: 0.62rem; color: #cbd5e1; white-space: nowrap; overflow: visible; }
 
 .db-activity-list { display: flex; flex-direction: column; gap: 14px; }
 .db-act-item { display: flex; align-items: center; gap: 12px; }

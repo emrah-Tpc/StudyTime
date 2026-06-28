@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.JSInterop;
 using StudyTime.Application;
 using StudyTime.Application.DTOs.Dashboard;
@@ -16,11 +17,15 @@ public abstract class DashboardBase : ComponentBase, IDisposable
     [Inject] protected SyncStatusService SyncStatusService { get; set; } = default!;
     [Inject] protected NavigationManager Nav { get; set; } = default!;
     [Inject] protected IJSRuntime JS { get; set; } = default!;
+    [Inject] protected AuthenticationStateProvider AuthProvider { get; set; } = default!;
 
     protected DashboardSummaryDto? summary;
     protected bool isLoading = true;
     protected string? loadError;
     protected string selectedChart = "Weekly";
+
+    /// <summary>Karşılama için kullanıcının kayıtlı adının ilk kelimesi (JWT "FullName" claim'i).</summary>
+    protected string? UserFirstName;
 
     /// <summary>
     /// Donut/Line chart bileşenleri bu event'i dinleyerek kendi UpdateSeriesAsync()
@@ -35,6 +40,17 @@ public abstract class DashboardBase : ComponentBase, IDisposable
         GlobalTimerService.OnTimerStopped  += OnTimerStopped;
         GlobalTimerService.OnTick          += OnGlobalTick;
         SyncStatusService.OnChange         += OnSyncStatusChanged;
+
+        try
+        {
+            var authState = await AuthProvider.GetAuthenticationStateAsync();
+            var fullName = authState.User.FindFirst("FullName")?.Value
+                           ?? authState.User.Identity?.Name;
+            if (!string.IsNullOrWhiteSpace(fullName))
+                UserFirstName = fullName.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
+        }
+        catch { /* karşılama adı kritik değil */ }
+
         await LoadAsync();
     }
 

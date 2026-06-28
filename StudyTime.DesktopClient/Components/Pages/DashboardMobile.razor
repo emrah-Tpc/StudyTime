@@ -30,6 +30,10 @@
         <!-- ── HEADER ─────────────────────────────── -->
         <div class="db-header">
             <div>
+                @if (!string.IsNullOrWhiteSpace(UserFirstName))
+                {
+                    <p class="db-greeting">Hoş geldin, <span>@UserFirstName</span> 👋</p>
+                }
                 <h1 class="db-title">Genel Bakış</h1>
                 <p class="db-date">@DateTime.Now.ToString("dd MMMM, dddd", new CultureInfo("tr-TR"))</p>
             </div>
@@ -60,7 +64,7 @@
                     <div class="db-prod-change @(summary.StudyTimeChange >= 0 ? "pos" : "neg")">
                         <i class="bi @(summary.StudyTimeChange >= 0 ? "bi-arrow-up-short" : "bi-arrow-down-short")"></i>
                         @(summary.StudyTimeChange >= 0 ? "+" : "")@GetHours(summary.StudyTimeChange)
-                        <span class="db-prod-change-ref">geçen haftaya göre</span>
+                        <span class="db-prod-change-ref">geçen hafta bugüne göre</span>
                     </div>
                 </div>
             </div>
