@@ -35,9 +35,7 @@
     padding: 10px 16px;
     border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
-    background: rgba(15,15,18,0.92);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    background: transparent;
     min-height: 52px;
 }
 .wsp-back {
@@ -151,7 +149,7 @@
 }
 .wsp-svg { width:100%; height:100%; transform:rotate(-90deg); overflow:visible; }
 .wsp-ring-bg { fill:none; stroke:rgba(255,255,255,0.05); stroke-width:7; }
-.wsp-ring-fill { fill:none; stroke-width:9; stroke-linecap:round; transition:stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1); filter:drop-shadow(0 0 14px currentColor); }
+.wsp-ring-fill { fill:none; stroke-width:9; stroke-linecap:round; transition:stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1); filter:drop-shadow(0 0 5px currentColor); opacity:0.95; }
 .wsp-time { position:absolute; font-size:clamp(2.2rem,8vw,3.5rem); font-weight:800; font-family:'JetBrains Mono',monospace; color:white; letter-spacing:-2px; }
 
 /* Controls */
@@ -176,27 +174,45 @@
     z-index: 50;
 }
 .wsp-fab {
-    width: 52px; height: 52px;
+    min-width: 60px; height: 56px;
+    padding: 0 16px;
     border-radius: 16px;
     background: rgba(24,24,27,0.95);
     border: 1px solid var(--border-color);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     color: var(--text-muted);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.2rem;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
     cursor: pointer;
     transition: 0.2s;
     pointer-events: all;
     box-shadow: 0 4px 16px rgba(0,0,0,0.4);
 }
+.wsp-fab i { font-size: 1.2rem; line-height: 1; }
+.wsp-fab-label { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.02em; line-height: 1; }
 .wsp-fab:hover, .wsp-fab:active { color: white; border-color: var(--border-highlight); }
-.wsp-fab.open { background: rgba(59,130,246,0.2); border-color: #3b82f6; color: #3b82f6; }
+.wsp-fab.open {
+    background: color-mix(in srgb, var(--lesson-color, #3b82f6) 18%, transparent);
+    border-color: var(--lesson-color, #3b82f6);
+    color: var(--lesson-color, #3b82f6);
+}
+
+[data-theme="light"] .wsp-fab {
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    color: #475569;
+}
+[data-theme="light"] .wsp-fab:hover, [data-theme="light"] .wsp-fab:active {
+    color: #0f172a;
+}
+[data-theme="light"] .wsp-fab.open {
+    background: color-mix(in srgb, var(--lesson-color, #3b82f6) 10%, white);
+}
 
 /* ── SLIDE-IN OVERLAY PANELS ── */
 .wsp-overlay-panel {
     position: absolute;
-    top: 0; bottom: 0;
+    top: 0; bottom: var(--bottom-bar-height, 70px); /* alt navbar'in altinda kalmasin */
     width: min(300px, 80vw);
     background: rgba(15,15,18,0.97);
     backdrop-filter: blur(20px);
@@ -223,30 +239,71 @@
 
 .wsp-panel-title { font-size:0.72rem; text-transform:uppercase; letter-spacing:0.09em; color:var(--text-dim); font-weight:700; margin-bottom:14px; }
 
-/* Task items */
-.wsp-task-item {
+/* Task cards */
+.wsp-task-list { display:flex; flex-direction:column; gap:8px; }
+.wsp-task-card {
     display:flex; align-items:center; gap:10px;
-    padding:10px 12px; border-radius:12px;
-    background:rgba(255,255,255,0.03); border:1px solid transparent;
-    margin-bottom:8px; transition:0.15s;
+    padding:10px 12px; border-radius:14px;
+    background:rgba(255,255,255,0.035); border:1px solid var(--border-color);
+    transition:0.15s;
 }
-.wsp-task-item:hover { background:rgba(255,255,255,0.05); border-color:var(--border-color); }
-.wsp-task-item.active-task { border-color:var(--lesson-color,#3b82f6); background:rgba(59,130,246,0.08); }
-.wsp-task-play { background:none; border:none; padding:4px; cursor:pointer; font-size:1.1rem; display:flex; align-items:center; flex-shrink:0; transition:opacity 0.15s; }
-.wsp-task-play:hover { opacity:0.8; }
-.wsp-task-title { flex:1; font-size:0.85rem; color:var(--text-main); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.wsp-task-check { background:none; border:none; color:#94a3b8; cursor:pointer; padding:6px; font-size:1rem; transition:0.15s; border-radius:6px; flex-shrink:0; }
-.wsp-task-check:hover { color:#10b981; background:rgba(16,185,129,0.1); }
+.wsp-task-card.is-active { border-color:var(--lesson-color,#3b82f6); background:color-mix(in srgb, var(--lesson-color,#3b82f6) 10%, transparent); }
+.wsp-task-card.done, .wsp-task-card.cancelled { opacity:0.5; }
+.wsp-task-play {
+    background:none; border:none; padding:0; cursor:pointer; font-size:1.5rem;
+    display:flex; align-items:center; flex-shrink:0; color:var(--lesson-color,#3b82f6);
+    transition:transform 0.15s, opacity 0.15s;
+}
+.wsp-task-play:hover { transform:scale(1.08); }
+.wsp-task-play:disabled { color:var(--text-dim); opacity:0.4; cursor:default; }
+.wsp-task-main { flex:1; min-width:0; display:flex; flex-direction:column; gap:5px; }
+.wsp-task-title { font-size:0.88rem; font-weight:600; color:var(--text-main); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.wsp-task-card.done .wsp-task-title { text-decoration:line-through; }
+.wsp-task-meta { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.wsp-task-status { font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; padding:2px 8px; border-radius:99px; white-space:nowrap; }
+.wsp-task-status.planned { color:#60a5fa; background:rgba(59,130,246,0.14); }
+.wsp-task-status.active  { color:#f59e0b; background:rgba(245,158,11,0.16); }
+.wsp-task-status.done    { color:#10b981; background:rgba(16,185,129,0.16); }
+.wsp-task-status.cancelled { color:#94a3b8; background:rgba(148,163,184,0.16); }
+.wsp-task-chip { display:inline-flex; align-items:center; gap:3px; font-size:0.66rem; color:var(--text-dim); }
+.wsp-task-chip .bi { font-size:0.66rem; }
+.wsp-task-checkbox {
+    width:26px; height:26px; flex-shrink:0; border-radius:8px; cursor:pointer;
+    border:2px solid var(--border-color); background:transparent; color:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:0.9rem; transition:0.15s;
+}
+.wsp-task-checkbox:hover { border-color:#10b981; }
+.wsp-task-checkbox.checked { background:#10b981; border-color:#10b981; }
+.wsp-task-empty { text-align:center; color:var(--text-dim); font-size:0.82rem; padding:30px 10px; display:flex; flex-direction:column; align-items:center; gap:10px; }
+.wsp-task-empty .bi { font-size:2rem; opacity:0.6; }
+.wsp-task-list { margin-top:12px; }
+.wsp-task-alldone { text-align:center; color:#10b981; font-size:0.8rem; padding:16px 0 4px; }
+.wsp-task-alldone .bi { margin-right:4px; }
+
+/* Tamamlananlar — varsayilan kapali acilir bolum (dipte birikmeyi onler) */
+.wsp-completed-toggle {
+    width:100%; display:flex; align-items:center; gap:8px;
+    margin-top:14px; padding:9px 12px; border-radius:10px;
+    background:transparent; border:1px solid var(--border-color);
+    color:var(--text-dim); font-size:0.78rem; font-weight:600; cursor:pointer; transition:0.15s;
+}
+.wsp-completed-toggle:hover { background:rgba(255,255,255,0.04); color:var(--text-main); }
+.wsp-completed-toggle .bi { font-size:0.8rem; }
+.wsp-completed-count { margin-left:auto; background:rgba(148,163,184,0.18); color:var(--text-dim); font-size:0.7rem; font-weight:700; padding:1px 8px; border-radius:99px; }
+/* Tamamlananlar: sinirli yukseklik + Virtualize ile sabit maliyetli kaydirma */
+.wsp-completed-scroll { max-height:40vh; overflow-y:auto; margin-top:8px; padding-right:2px; }
+.wsp-completed-scroll .wsp-task-card { margin-bottom:8px; }
 
 /* Add Task */
 .wsp-add-task-btn {
     width:100%; display:flex; align-items:center; justify-content:center; gap:8px;
-    padding:10px 12px; border-radius:12px; margin-top:8px;
-    background:rgba(59,130,246,0.08); border:1px dashed rgba(59,130,246,0.3);
-    color:#3b82f6; font-size:0.82rem; font-weight:600;
-    cursor:pointer; transition:0.2s;
+    padding:12px; border-radius:12px; margin-top:12px;
+    background:var(--lesson-color,#3b82f6); border:none;
+    color:#fff; font-size:0.85rem; font-weight:700;
+    cursor:pointer; transition:0.2s; box-shadow:0 4px 14px rgba(0,0,0,0.25);
 }
-.wsp-add-task-btn:hover { background:rgba(59,130,246,0.14); border-color:rgba(59,130,246,0.5); }
+.wsp-add-task-btn:hover { filter:brightness(1.08); transform:translateY(-1px); }
+.wsp-add-task-btn:active { transform:translateY(0); }
 .wsp-add-task-row {
     display:flex; align-items:center; gap:6px; margin-top:8px;
 }
@@ -269,10 +326,23 @@
 }
 .wsp-add-task-cancel:hover { background:rgba(255,255,255,0.06); color:white; }
 
-/* Note textarea */
-.wsp-note { background:rgba(0,0,0,0.35); border:1px solid var(--border-color); border-radius:12px; padding:14px; color:#d1d5db; font-size:0.875rem; resize:none; outline:none; width:100%; flex:1; min-height:180px; transition:border-color 0.2s; line-height:1.6; }
-.wsp-note:focus { border-color:rgba(255,255,255,0.2); }
-.wsp-autosave { font-size:0.65rem; color:#22c55e; text-align:right; margin-top:8px; height:16px; transition:opacity 0.3s; }
+/* Notes header + status */
+.wsp-notes-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; }
+.wsp-notes-head .wsp-panel-title { margin-bottom:0; }
+.wsp-note-status { display:inline-flex; align-items:center; gap:5px; font-size:0.62rem; font-weight:600; color:var(--text-dim); white-space:nowrap; }
+.wsp-note-status.saved { color:#10b981; }
+.wsp-note-status.saving { color:var(--lesson-color,#3b82f6); }
+.wsp-note-status .spinner-border { width:0.7rem; height:0.7rem; border-width:2px; }
+
+/* Note textarea — premium */
+.wsp-note {
+    background:rgba(0,0,0,0.28); border:1px solid var(--border-color); border-radius:16px;
+    padding:18px; color:var(--text-main); font-size:0.9rem; resize:none; outline:none;
+    width:100%; flex:1; min-height:200px; line-height:1.65;
+    transition:border-color 0.2s, box-shadow 0.2s; font-family:inherit;
+}
+.wsp-note::placeholder { color:var(--text-dim); }
+.wsp-note:focus { border-color:var(--lesson-color,#3b82f6); box-shadow:0 0 0 3px color-mix(in srgb, var(--lesson-color,#3b82f6) 18%, transparent); }
 
 /* Conflict overlay */
 .wsp-conflict { position:absolute; inset:0; background:rgba(9,9,11,0.97); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:30px; z-index:200; }
@@ -285,6 +355,7 @@
     .wsp-fab-bar { bottom: 30px; left: 30px; right: 30px; }
     .wsp-center { padding-bottom: 90px; }
     .wsp-circle-wrap { width:clamp(200px,30vw,260px); height:clamp(200px,30vw,260px); }
+    .wsp-overlay-panel { bottom: 0; } /* masaustunde alt navbar yok */
 }
 
 @@keyframes wFadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
@@ -373,30 +444,43 @@ else if (workspace != null)
 
         <!-- Left: Tasks overlay panel -->
         <div class="wsp-overlay-panel left @(tasksOpen ? "open" : "")">
-            <div class="wsp-panel-title">📋 Görevler</div>
+            @{
+                RenderFragment<TaskListItemDto> taskCard = (TaskListItemDto t) =>
+                @<div class="wsp-task-card @TaskStatusClass(t) @(activeTaskId == t.Id ? "is-active" : "")">
+                    <button class="wsp-task-play" @onclick="() => SelectTask(t.Id)" title="Başlat" disabled="@t.IsCompleted">
+                        <i class="bi @(activeTaskId == t.Id && GlobalTimer.IsRunning && !GlobalTimer.IsBreak ? "bi-pause-circle-fill" : "bi-play-circle-fill")"></i>
+                    </button>
+                    <div class="wsp-task-main">
+                        <div class="wsp-task-title">@t.Title</div>
+                        <div class="wsp-task-meta">
+                            <span class="wsp-task-status @TaskStatusClass(t)">@TaskStatusLabel(t)</span>
+                            @if (t.PlannedDurationMinutes.HasValue && t.PlannedDurationMinutes > 0)
+                            {
+                                <span class="wsp-task-chip"><i class="bi bi-clock"></i> @FmtDuration(t.PlannedDurationMinutes.Value)</span>
+                            }
+                            @if (t.EndDate.HasValue)
+                            {
+                                <span class="wsp-task-chip"><i class="bi bi-calendar-event"></i> @t.EndDate.Value.ToString("dd MMM", CultureTr)</span>
+                            }
+                        </div>
+                    </div>
+                    <button class="wsp-task-checkbox @(t.IsCompleted ? "checked" : "")"
+                            @onclick="() => ToggleTaskStatus(t)" @onclick:stopPropagation="true" @ontouchstart:stopPropagation="true"
+                            title="@(t.IsCompleted ? "Geri al" : "Tamamla")">
+                        @if (t.IsCompleted)
+                        {
+                            <i class="bi bi-check-lg"></i>
+                        }
+                    </button>
+                </div>;
 
-            @foreach (var task in workspace.Tasks.Where(t => !t.IsCompleted))
-            {
-                <div class="wsp-task-item @(activeTaskId == task.Id ? "active-task" : "")">
-                    <button class="wsp-task-play" @onclick="() => SelectTask(task.Id)" title="Başlat">
-                        <i class="bi @(activeTaskId == task.Id && GlobalTimer.IsRunning ? "bi-pause-circle-fill" : "bi-play-circle")" style="color:var(--lesson-color,#3b82f6)"></i>
-                    </button>
-                    <span class="wsp-task-title">@task.Title</span>
-                    <button class="wsp-task-check" @onclick="() => ToggleTaskStatus(task)" @onclick:stopPropagation="true" @ontouchstart:stopPropagation="true" title="Tamamla">
-                        <i class="bi @(task.IsCompleted ? "bi-check2" : "bi-square")"></i>
-                    </button>
-                </div>
+                var pending = workspace.Tasks.Where(t => !t.IsCompleted).OrderBy(t => t.EndDate ?? DateTime.MaxValue).ToList();
+                var completed = workspace.Tasks.Where(t => t.IsCompleted).ToList();
             }
 
-            @if (!workspace.Tasks.Any(t => !t.IsCompleted))
-            {
-                <div style="text-align:center;color:var(--text-dim);font-size:0.8rem;padding:20px 0;">
-                    <i class="bi bi-check-all d-block mb-2" style="font-size:1.8rem;color:#10b981;"></i>
-                    Tüm görevler tamamlandı!
-                </div>
-            }
+            <div class="wsp-panel-title"><i class="bi bi-card-checklist me-2"></i>Görevler</div>
 
-            <!-- Görev Ekle -->
+            <!-- Görev Ekle: panel üstünde, her zaman ulaşılabilir -->
             @if (addingTask)
             {
                 <div class="wsp-task-form">
@@ -449,15 +533,72 @@ else if (workspace != null)
                     <span>Görev Ekle</span>
                 </button>
             }
+
+            @if (!workspace.Tasks.Any())
+            {
+                <div class="wsp-task-empty">
+                    <i class="bi bi-clipboard-plus"></i>
+                    <span>Bu ders için henüz görev yok.</span>
+                </div>
+            }
+            else
+            {
+                <div class="wsp-task-list">
+                    @foreach (var task in pending)
+                    {
+                        @taskCard(task)
+                    }
+                </div>
+
+                @if (!pending.Any())
+                {
+                    <div class="wsp-task-alldone">
+                        <i class="bi bi-check-all"></i> Tüm görevler tamamlandı!
+                    </div>
+                }
+
+                @if (completed.Any())
+                {
+                    <button class="wsp-completed-toggle" @onclick="() => showCompleted = !showCompleted">
+                        <i class="bi @(showCompleted ? "bi-chevron-down" : "bi-chevron-right")"></i>
+                        <span>Tamamlananlar</span>
+                        <span class="wsp-completed-count">@completed.Count</span>
+                    </button>
+                    @if (showCompleted)
+                    {
+                        <!-- Çok sayıda tamamlanan görevde DOM şişmesin: Virtualize yalnız
+                             görünür satırları render eder (100+ olsa da sabit maliyet). -->
+                        <div class="wsp-completed-scroll">
+                            <Virtualize Items="completed" Context="task" ItemSize="66" OverscanCount="4">
+                                @taskCard(task)
+                            </Virtualize>
+                        </div>
+                    }
+                }
+            }
         </div>
 
         <!-- Right: Notes overlay panel -->
         <div class="wsp-overlay-panel right @(notesOpen ? "open" : "")" style="display:flex;flex-direction:column;">
-            <div class="wsp-panel-title">📝 Notlar</div>
-            <textarea class="wsp-note" @bind="noteContent" @oninput="OnNoteInput" placeholder="Düşüncelerini yaz..."></textarea>
-            <div class="wsp-autosave" style="opacity:@(isSaving ? 1 : 0)">
-                <i class="bi bi-check-circle-fill me-1"></i>Kaydedildi
+            <div class="wsp-notes-head">
+                <div class="wsp-panel-title"><i class="bi bi-journal-text me-2"></i>Notlar</div>
+                <div class="wsp-note-status @(isSaving ? "saving" : (noteSavedAt.HasValue ? "saved" : ""))">
+                    @if (isSaving)
+                    {
+                        <span class="spinner-border spinner-border-sm"></span><span>Kaydediliyor…</span>
+                    }
+                    else if (noteSavedAt.HasValue)
+                    {
+                        <i class="bi bi-check-circle-fill"></i><span>Kaydedildi</span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-cloud-arrow-up"></i><span>Otomatik kaydedilir</span>
+                    }
+                </div>
             </div>
+            <textarea class="wsp-note" @bind="noteContent" @oninput="OnNoteInput"
+                      placeholder="Bu ders için notlarını yaz…"></textarea>
         </div>
 
         <!-- CENTER: Timer (always full width, never pushed) -->
@@ -535,7 +676,7 @@ else if (workspace != null)
                 <svg class="wsp-svg" viewBox="0 0 200 200">
                     <circle cx="100" cy="100" r="90" class="wsp-ring-bg" />
                     <circle cx="100" cy="100" r="90" class="wsp-ring-fill"
-                            style="stroke:@(GlobalTimer.IsBreak?"#10b981":workspace.Color);stroke-dasharray:565;stroke-dashoffset:@timerDashOffset;color:@(GlobalTimer.IsBreak?"#10b981":workspace.Color)" />
+                            style="stroke:@(GlobalTimer.IsBreak?"#10b981":workspace.Color);stroke-dasharray:565;stroke-dashoffset:@timerDashOffset.ToString(System.Globalization.CultureInfo.InvariantCulture);color:@(GlobalTimer.IsBreak?"#10b981":workspace.Color)" />
                 </svg>
                 <div class="wsp-time">@DisplayTime.ToString(DisplayTime.TotalHours>=1?@"hh\:mm\:ss":@"mm\:ss")</div>
             </div>
@@ -599,10 +740,12 @@ else if (workspace != null)
         <!-- FAB buttons — bottom corners, thumb-reachable -->
         <div class="wsp-fab-bar">
             <button class="wsp-fab @(tasksOpen?"open":"")" @onclick="ToggleTasks" title="Görevler">
-                <i class="bi bi-list-check"></i>
+                <i class="bi bi-card-checklist"></i>
+                <span class="wsp-fab-label">Görevler</span>
             </button>
             <button class="wsp-fab @(notesOpen?"open":"")" @onclick="ToggleNotes" title="Notlar">
-                <i class="bi bi-pencil-square"></i>
+                <i class="bi bi-journal-text"></i>
+                <span class="wsp-fab-label">Notlar</span>
             </button>
         </div>
 
@@ -622,6 +765,8 @@ else if (workspace != null)
     private int customBreakMin = 5;
     private string noteContent = "";
     private bool isSaving = false;
+    private DateTime? noteSavedAt;
+    private bool showCompleted = false;
     private bool isSubmittingTask = false;
     private bool isTimerActionRunning = false;
     private bool tasksOpen = false;
@@ -812,9 +957,38 @@ else if (workspace != null)
         isSaving = true;
         await InvokeAsync(StateHasChanged);
         await LessonService.UpdateNotesAsync(Id, noteContent);
-        await Task.Delay(2000);
         isSaving = false;
+        noteSavedAt = DateTime.Now;
         await InvokeAsync(StateHasChanged);
+    }
+
+    // ── Görev kartı yardımcıları ───────────────────────────────────────────
+    private static readonly System.Globalization.CultureInfo CultureTr = new("tr-TR");
+
+    private bool IsTaskActive(TaskListItemDto t) =>
+        activeTaskId == t.Id && GlobalTimer.IsRunning && GlobalTimer.ActiveLessonId == Id && !GlobalTimer.IsBreak;
+
+    private string TaskStatusClass(TaskListItemDto t)
+    {
+        if (t.IsCompleted || t.Status == StudyTime.Domain.Enums.TaskStatus.Completed) return "done";
+        if (t.Status == StudyTime.Domain.Enums.TaskStatus.Cancelled) return "cancelled";
+        if (IsTaskActive(t)) return "active";
+        return "planned";
+    }
+
+    private string TaskStatusLabel(TaskListItemDto t) => TaskStatusClass(t) switch
+    {
+        "done" => "Tamamlandı",
+        "cancelled" => "İptal",
+        "active" => "Devam",
+        _ => "Planlandı"
+    };
+
+    private static string FmtDuration(int minutes)
+    {
+        if (minutes < 60) return $"{minutes} dk";
+        int h = minutes / 60, m = minutes % 60;
+        return m == 0 ? $"{h} sa" : $"{h} sa {m} dk";
     }
 
     public void Dispose()
