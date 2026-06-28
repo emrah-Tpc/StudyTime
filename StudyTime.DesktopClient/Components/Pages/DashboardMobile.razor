@@ -111,13 +111,66 @@
                     <button class="db-tab @(selectedChart == "Category" ? "active" : "")" @onclick='() => SetChart("Category")'>Alan</button>
                 </div>
             </div>
-            <div class="db-chart-wrap">
-                @if (selectedChart == "Weekly" || selectedChart == "Daily")
+            <div class="db-chart-wrap @(selectedChart == "Daily" ? "" : "db-chart-auto")">
+                @if (selectedChart == "Daily")
                 {
-                    var chartData = GetActiveChartData();
-                    if (chartData.Any())
+                    var dd = GetActiveChartData();
+                    if (dd.Any(x => x.Value > 0))
                     {
-                        <DynamicLineChart Data="@chartData" @ref="lineChartRef" />
+                        var dmax = dd.Max(x => x.Value);
+                        int niceMax = dmax <= 0 ? 60 : (dmax < 60 ? (int)(Math.Ceiling(dmax / 15.0) * 15) : (int)(Math.Ceiling(dmax / 60.0) * 60));
+                        var step = (int)Math.Ceiling(dd.Count / 6.0);
+                        var idx = 0;
+                        <div class="db-vbar">
+                            <div class="db-vbar-grid">
+                                <div class="db-vbar-yaxis">
+                                    <span>@GetHours(niceMax)</span>
+                                    <span>@GetHours(niceMax / 2)</span>
+                                    <span>0</span>
+                                </div>
+                                <div class="db-vbar-plot">
+                                    <div class="db-vbar-gl" style="top:0;"></div>
+                                    <div class="db-vbar-gl" style="top:50%;"></div>
+                                    <div class="db-vbar-cols">
+                                        @foreach (var h in dd)
+                                        {
+                                            var hp = niceMax > 0 ? (h.Value / (double)niceMax * 100).ToString("0.##", CultureInfo.InvariantCulture) : "0";
+                                            <div class="db-vbar-col" title="@h.Label — @h.Value dk">
+                                                <div class="db-vbar-bar" style="height:@(hp)%;"></div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="db-vbar-xrow">
+                                @foreach (var h in dd)
+                                {
+                                    <span class="db-vbar-xlabel">@(idx++ % step == 0 ? h.Label : "")</span>
+                                }
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="db-empty">Henüz veri yok.</div>
+                    }
+                }
+                else if (selectedChart == "Weekly")
+                {
+                    @if (summary.WeeklyChartData.Any(x => x.Value > 0))
+                    {
+                        var wmax = summary.WeeklyChartData.Max(x => x.Value);
+                        <div class="db-wbar-list">
+                            @foreach (var d in summary.WeeklyChartData)
+                            {
+                                var wpct = wmax > 0 ? (d.Value / (double)wmax * 100).ToString("0.##", CultureInfo.InvariantCulture) : "0";
+                                <div class="db-wbar-row">
+                                    <span class="db-wbar-label">@d.Label</span>
+                                    <div class="db-wbar-track"><div class="db-wbar-fill" style="width:@(wpct)%"></div></div>
+                                    <span class="db-wbar-val">@GetHours(d.Value)</span>
+                                </div>
+                            }
+                        </div>
                     }
                     else
                     {
@@ -128,7 +181,24 @@
                 {
                     @if (summary.CategoryChartData.Any())
                     {
-                        <DynamicDonutChart Data="@summary.CategoryChartData" @ref="donutChartRef" />
+                        var catTotal = summary.CategoryChartData.Sum(c => c.Value);
+                        <div class="db-cat-list">
+                            @foreach (var c in summary.CategoryChartData.OrderByDescending(c => c.Value))
+                            {
+                                var pct = catTotal > 0 ? (int)Math.Round(100.0 * c.Value / catTotal) : 0;
+                                <div class="db-cat-item">
+                                    <div class="db-cat-top">
+                                        <span class="db-cat-name">
+                                            <span class="db-cat-dot" style="background:@c.Color"></span>@c.Label
+                                        </span>
+                                        <span class="db-cat-val">@GetHours(c.Value) <span class="db-cat-pct">%@pct</span></span>
+                                    </div>
+                                    <div class="db-cat-bar-bg">
+                                        <div class="db-cat-bar-fill" style="width:@pct%;background:@c.Color"></div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
                     }
                     else
                     {
@@ -150,7 +220,7 @@
                     <a href="lessons" class="db-view-all">Tümü <i class="bi bi-chevron-right"></i></a>
                 </div>
                 <div class="db-workspace-list">
-                    @foreach (var ws in summary.Workspaces)
+                    @foreach (var ws in summary.Workspaces.Take(5))
                     {
                         <div class="db-ws-item">
                             <div class="db-ws-dot" style="background:@ws.Color;"></div>
@@ -221,28 +291,7 @@
 </div>
 
 @code {
-    private DynamicDonutChart? donutChartRef;
-    private DynamicLineChart? lineChartRef;
-
-    protected override void OnAfterRender(bool firstRender)
-    {
-        if (firstRender)
-        {
-            OnChartDataRefreshed += RefreshChartsAsync;
-        }
-    }
-
-    private async Task RefreshChartsAsync()
-    {
-        if (donutChartRef != null)
-            await donutChartRef.ForceUpdateAsync();
-        if (lineChartRef != null)
-            await lineChartRef.ForceUpdateAsync();
-    }
-
-    public new void Dispose()
-    {
-        OnChartDataRefreshed -= RefreshChartsAsync;
-        base.Dispose();
-    }
+    // Panel mobil grafikleri artık tamamen özel HTML/CSS (ApexChart yok).
+    // Veri güncellemeleri DashboardBase'in StateHasChanged'i ile otomatik yansır;
+    // ayrı chart-ref/refresh gerekmez. Temizlik base DashboardBase.Dispose ile yapılır.
 }

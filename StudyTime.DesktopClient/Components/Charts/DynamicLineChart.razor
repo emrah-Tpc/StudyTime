@@ -5,7 +5,7 @@
 <div style="width: 100%; overflow: hidden;">
     <ApexChart TItem="ChartDataDto"
                Title=""
-               Height="180"
+               Height="230"
                Width="@("100%")"
                @ref="chart"
                Options="options">
@@ -35,7 +35,9 @@
             Selection = new Selection { Enabled = false },
             Background = "transparent",
             ForeColor = "#94a3b8", // Text color
-            Zoom = new Zoom { Enabled = false }
+            Zoom = new Zoom { Enabled = false },
+            // Mobil WebView'de akicilik icin animasyon kapali (algilanan performans artar).
+            Animations = new Animations { Enabled = false }
         };
 
         options.Theme = new Theme { Mode = ApexCharts.Mode.Dark };
@@ -57,26 +59,12 @@
         {
             AxisBorder = new AxisBorder { Show = false },
             AxisTicks = new AxisTicks { Show = false },
-            Labels = new XAxisLabels { Style = new AxisLabelStyle { Colors = "#94a3b8" } },
+            Labels = new XAxisLabels { Style = new AxisLabelStyle { Colors = "#cbd5e1", FontSize = "12px" } },
             Tooltip = new AxisTooltip { Enabled = false }
         };
 
-        // Y-Axis
-        options.Yaxis = new List<YAxis>
-        {
-            new YAxis
-            {
-                Labels = new YAxisLabels
-                {
-                    Style = new AxisLabelStyle { Colors = "#94a3b8" },
-                    Formatter = @"function (value) {
-                        if (value == 0) return '0';
-                        if (value < 60) return value + 'dk';
-                        return (value / 60).toFixed(1) + 's';
-                    }"
-                }
-            }
-        };
+        // Y-Axis: veri aralığına göre TEK birim + YUVARLAK adımlar (ConfigureYAxis).
+        ConfigureYAxis();
 
         // Fill / Area Gradient
         options.Fill = new Fill
@@ -105,7 +93,7 @@
                 {
                     Chart = new Chart
                     {
-                        Height = 170,
+                        Height = 220,
                         Width = "100%",
                         Toolbar = new Toolbar { Show = false }
                     },
@@ -114,10 +102,10 @@
                         Labels = new XAxisLabels
                         {
                             Show = true,
-                            Rotate = -30,
-                            Style = new AxisLabelStyle { Colors = "#94a3b8", FontSize = "9px" }
+                            Rotate = 0,
+                            Style = new AxisLabelStyle { Colors = "#cbd5e1", FontSize = "11px" }
                         },
-                        TickAmount = 5
+                        TickAmount = 6
                     }
                 }
             },
@@ -128,23 +116,22 @@
                 {
                     Chart = new Chart
                     {
-                        Height = 150,
+                        Height = 210,
                         Width = "100%",
                         Toolbar = new Toolbar { Show = false }
                     },
-                    // Dar ekranda da X eksenini GIZLEME; etiket sayisini azaltip
-                    // dondurerek okunur tut (aksi halde hangi nokta hangi gun belirsiz kalir).
+                    // Dar ekranda da X eksenini GIZLEME; etiketleri okunur tut.
                     Xaxis = new XAxis
                     {
                         Labels = new XAxisLabels
                         {
                             Show = true,
-                            Rotate = -45,
+                            Rotate = -30,
                             RotateAlways = true,
                             HideOverlappingLabels = true,
-                            Style = new AxisLabelStyle { Colors = "#94a3b8", FontSize = "8px" }
+                            Style = new AxisLabelStyle { Colors = "#cbd5e1", FontSize = "10px" }
                         },
-                        TickAmount = 4
+                        TickAmount = 5
                     }
                 }
             }
@@ -153,10 +140,61 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        ConfigureYAxis();
         if (chart != null)
         {
+            // Eksen aralığı verilere göre değiştiği için önce seçenekleri, sonra seriyi güncelle.
+            await chart.UpdateOptionsAsync(false, false, false);
             await chart.UpdateSeriesAsync(true);
         }
+    }
+
+    /// <summary>
+    /// Y eksenini verinin maksimumuna göre TEK birimle ve YUVARLAK adımlarla kurar.
+    /// Karışık "50dk → 1.7s → 2.5s" yerine ya tam saat (0s,2s,4s) ya da düzgün dakika.
+    /// </summary>
+    private void ConfigureYAxis()
+    {
+        double max = Data.Count > 0 ? Data.Max(d => d.Value) : 0;
+
+        YAxis yaxis;
+        if (max < 60)
+        {
+            // Dakika modu: 15'in katı, en çok 2 aralık → 0 / orta / üst
+            int niceMax = Math.Max(30, (int)(Math.Ceiling(max / 15.0) * 15));
+            yaxis = new YAxis
+            {
+                Min = 0,
+                Max = niceMax,
+                TickAmount = 2,
+                Labels = new YAxisLabels
+                {
+                    Style = new AxisLabelStyle { Colors = "#cbd5e1", FontSize = "11px" },
+                    Formatter = "function (v) { return Math.round(v) + 'dk'; }"
+                }
+            };
+        }
+        else
+        {
+            // Saat modu: eksen üstü tam saatlerin katı olacak şekilde seçilir,
+            // böylece tick'ler 60'ın katına düşer ve etiketler tam saat olur (0s,2s,4s...).
+            int hoursMax = (int)Math.Ceiling(max / 60.0);
+            int step = hoursMax <= 4 ? 1 : (int)Math.Ceiling(hoursMax / 4.0);
+            int niceHours = step * (int)Math.Ceiling(hoursMax / (double)step);
+            yaxis = new YAxis
+            {
+                Min = 0,
+                Max = niceHours * 60,
+                TickAmount = niceHours / step,
+                Labels = new YAxisLabels
+                {
+                    Style = new AxisLabelStyle { Colors = "#cbd5e1", FontSize = "11px" },
+                    Formatter = "function (v) { return (v / 60) + 's'; }"
+                }
+            };
+        }
+
+        options.Yaxis = new List<YAxis> { yaxis };
     }
 
     /// <summary>

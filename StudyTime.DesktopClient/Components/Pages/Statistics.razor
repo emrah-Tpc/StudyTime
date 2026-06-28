@@ -37,34 +37,139 @@
     {
         <div class="row g-3 mb-4">
             <div class="col-12 col-lg-8">
-                        <div class="st-card h-100">
-                    <div class="card-header py-2">
-                        <span class="card-title text-white small text-uppercase fw-bold ls-1">Çalışma Geçmişi</span>
-                    </div>
-                    <div style="height: 220px; overflow: hidden; max-width: 100%;">
-                        @if(summary.StudyTrends.Any())
+                <div class="st-card h-100" style="overflow: @(selectedRange == "7days" ? "visible" : "hidden");">
+                    <div class="card-header py-2 d-flex justify-content-between align-items-start">
+                        <div>
+                            <span class="card-title text-white small text-uppercase fw-bold ls-1">Çalışma Geçmişi</span>
+                            @if (selectedRange == "3months" && summary.StudyTrends.Any(t => t.Value > 0))
+                            {
+                                <div class="trend-daterange"><i class="bi bi-calendar3 me-1"></i>@MonthlyTrendData().Range</div>
+                            }
+                        </div>
+                        @if (selectedRange == "30days" && summary.StudyTrends.Any(t => t.Value > 0))
                         {
-                             <ApexChart TItem="TimeTrendDto"
-                                   Title=""
-                                   Height="200" 
-                                   Width="@("100%")"
-                                   Options="trendOptions">
+                            <div class="heatmap-legend d-flex align-items-center gap-2">
+                                <span class="text-white opacity-40 small">Az</span>
+                                <div class="heatmap-legend-cells">
+                                    <div class="heatmap-cell" style="background: rgba(59,130,246,0.15)"></div>
+                                    <div class="heatmap-cell" style="background: rgba(59,130,246,0.4)"></div>
+                                    <div class="heatmap-cell" style="background: rgba(59,130,246,0.7)"></div>
+                                    <div class="heatmap-cell" style="background: #3b82f6"></div>
+                                </div>
+                                <span class="text-white opacity-40 small">Çok</span>
+                            </div>
+                        }
+                        else if (selectedRange == "3months" && summary.StudyTrends.Any(t => t.Value > 0))
+                        {
+                            <div class="trend-avg-badge"><i class="bi bi-activity me-1"></i>Ortalama @Thousands(MonthlyTrendData().Avg) dk</div>
+                        }
+                    </div>
+
+                    @if (!summary.StudyTrends.Any(t => t.Value > 0))
+                    {
+                        <div class="d-flex align-items-center justify-content-center text-white opacity-50" style="height: 220px;">
+                            Veri yok
+                        </div>
+                    }
+                    else if (selectedRange == "7days")
+                    {
+                        <!-- 7 Gün: günlük dikey bar -->
+                        <div style="height: 300px; overflow: hidden; max-width: 100%;">
+                            <ApexChart @key="@("trend-7days")" TItem="TimeTrendDto" Title="" Height="280" Width="@("100%")" Options="trendOptions">
                                 <ApexPointSeries TItem="TimeTrendDto"
                                                  Items="summary.StudyTrends"
-                                                 Name="Süre (dk)"
+                                                 Name="Süre"
                                                  SeriesType="SeriesType.Bar"
                                                  XValue="@(e => e.Label)"
                                                  YValue="@(e => (decimal)Math.Round(e.Value))"
                                                  Color="#3b82f6"/>
                             </ApexChart>
-                        }
-                        else
-                        {
-                            <div class="d-flex align-items-center justify-content-center h-100 text-white opacity-50">
-                                Veri yok
+                        </div>
+                    }
+                    else if (selectedRange == "30days")
+                    {
+                        // 30 Gün: takvim heatmap (günlük çalışma süresi)
+                        var hmMax = summary.StudyTrends.Max(t => t.Value);
+                        <div class="trend-heatmap" @key="@($"hm-{summary.StudyTrends.Count}")">
+                            @foreach (var d in summary.StudyTrends)
+                            {
+                                var has = d.Value > 0;
+                                var intensity = hmMax > 0 && has ? Math.Max(0.15, d.Value / hmMax) : 0.0;
+                                var dayNum = d.Label.Split(' ').FirstOrDefault();
+                                var bg = has
+                                    ? $"rgba(59,130,246,{intensity.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)})"
+                                    : "rgba(255,255,255,0.05)";
+                                <div class="trend-hm-cell @(has ? "has-data" : "")"
+                                     style="background:@bg"
+                                     title="@d.Label — @Math.Round(d.Value) dk">
+                                    <span class="trend-hm-day">@dayNum</span>
+                                    @if (has)
+                                    {
+                                        <span class="trend-hm-val">@FormatCompactDuration(d.Value)</span>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        // 3 Ay: aylık özet (özel tasarım — ortalama çizgisi, değerler, KPI'lar)
+                        var mt = MonthlyTrendData();
+                        var ci = System.Globalization.CultureInfo.InvariantCulture;
+                        var avgRatio = mt.AxisMax > 0 ? (double)mt.Avg / mt.AxisMax : 0;
+                        var avgLeftCalc = $"calc(60px + (100% - 150px) * {avgRatio.ToString("0.####", ci)})";
+                        <div class="mtrend">
+                            <div class="mtrend-bars">
+                                <div class="mtrend-avg-label" style="left:@avgLeftCalc">Ortalama @Thousands(mt.Avg) dk</div>
+                                <div class="mtrend-avgline" style="left:@avgLeftCalc"></div>
+                                @foreach (var m in mt.Months)
+                                {
+                                    var wpct = mt.AxisMax > 0 ? (m.Value / mt.AxisMax * 100).ToString("0.##", ci) : "0";
+                                    <div class="mtrend-row">
+                                        <span class="mtrend-rowlabel">@m.Label</span>
+                                        <div class="mtrend-track"><div class="mtrend-fill" style="width:@(wpct)%"></div></div>
+                                        <span class="mtrend-rowval">@Thousands(m.Value)<span class="mtrend-unit"> dk</span></span>
+                                    </div>
+                                }
                             </div>
-                        }
-                    </div>
+                            <div class="mtrend-xaxis">
+                                @for (int t = 0; t <= mt.AxisMax; t += Math.Max(1, mt.AxisMax / 4))
+                                {
+                                    <span>@Thousands(t)</span>
+                                }
+                            </div>
+                            <div class="mtrend-xlabel">Dakika</div>
+                        </div>
+
+                        <div class="mtrend-kpis">
+                            <div class="mtrend-kpi">
+                                <div class="mtrend-kpi-icon"><i class="bi bi-pie-chart-fill"></i></div>
+                                <div class="mtrend-kpi-body">
+                                    <div class="mtrend-kpi-label">Toplam</div>
+                                    <div class="mtrend-kpi-val">@Thousands(mt.Total)<span class="mtrend-unit"> dk</span></div>
+                                </div>
+                            </div>
+                            <div class="mtrend-kpi">
+                                <div class="mtrend-kpi-icon"><i class="bi bi-bullseye"></i></div>
+                                <div class="mtrend-kpi-body">
+                                    <div class="mtrend-kpi-label">Ortalama</div>
+                                    <div class="mtrend-kpi-val">@Thousands(mt.Avg)<span class="mtrend-unit"> dk</span></div>
+                                </div>
+                            </div>
+                            <div class="mtrend-kpi">
+                                <div class="mtrend-kpi-icon"><i class="bi bi-graph-up-arrow"></i></div>
+                                <div class="mtrend-kpi-body">
+                                    <div class="mtrend-kpi-label">En yüksek ay</div>
+                                    <div class="mtrend-kpi-val">@Thousands(mt.Max)<span class="mtrend-unit"> dk</span></div>
+                                    <div class="mtrend-kpi-sub">@mt.MaxMonth</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mtrend-foot">
+                            <i class="bi bi-info-circle me-1"></i>Veriler oturum sürelerinin toplamını temsil eder.
+                        </div>
+                    }
                  </div>
             </div>
             <div class="col-12 col-lg-4">
@@ -141,6 +246,9 @@
                         var peakScore      = totalMinsAll > 0 ? (int)Math.Round((double)totalPeakMins / totalMinsAll * 100) : 0;
                         var peakStartHour  = peakWindow?.Hour ?? -1;
                         var peakEndHour    = peakStartHour >= 0 ? peakStartHour + 3 : -1;
+                        var inv            = System.Globalization.CultureInfo.InvariantCulture;
+                        var peakLeftPct    = peakStartHour >= 0 ? (peakStartHour / 24.0 * 100).ToString("0.##", inv) : "0";
+                        var peakWidthPct   = peakStartHour >= 0 ? ((peakEndHour - peakStartHour) / 24.0 * 100).ToString("0.##", inv) : "0";
                     }
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <span class="card-title text-white small text-uppercase fw-bold ls-1">En Verimli Aralık</span>
@@ -155,47 +263,40 @@
                     <div class="peak-body">
                         @if (peakWindow != null && peakWindow.Score > 0)
                         {
-                            <div class="peak-kpi-row">
-                                <div class="peak-kpi-card peak-kpi-card--gold">
-                                    <div class="peak-kpi-label">⚡ Altın Saatler</div>
-                                    <div class="peak-kpi-value">@peakWindow.Label</div>
+                            <div class="peak-hero">
+                                <div class="peak-hero-range">@peakWindow.Label</div>
+                                <div class="peak-hero-sub">En verimli çalışma aralığın</div>
+                            </div>
+
+                            <div class="peak-stats">
+                                <div class="peak-stat">
+                                    <div class="peak-stat-icon"><i class="bi bi-clock"></i></div>
+                                    <div>
+                                        <div class="peak-stat-label">Toplam Odak</div>
+                                        <div class="peak-stat-value">@totalPeakMins <span class="peak-stat-unit">dk</span></div>
+                                    </div>
                                 </div>
-                                <div class="peak-kpi-card">
-                                    <div class="peak-kpi-label">Toplam Odak</div>
-                                    <div class="peak-kpi-value">@totalPeakMins <span class="peak-kpi-unit">dk</span></div>
-                                </div>
-                                <div class="peak-kpi-card">
-                                    <div class="peak-kpi-label">Yoğunluk</div>
-                                    <div class="peak-kpi-value">%@peakScore</div>
+                                <div class="peak-stat-divider"></div>
+                                <div class="peak-stat">
+                                    <div class="peak-stat-icon"><i class="bi bi-bullseye"></i></div>
+                                    <div>
+                                        <div class="peak-stat-label">Yoğunluk</div>
+                                        <div class="peak-stat-value">%@peakScore</div>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div style="height: 140px; width: 100%; margin-top: 16px; margin-bottom: 8px;">
-                                <ApexChart TItem="ProductivityDto" Title="" Height="120" Width="@("100%")" Options="barOptions">
-                                    <ApexPointSeries TItem="ProductivityDto" Items="summary.PeakProductivity" Name="Odak (dk)" SeriesType="SeriesType.Bar" XValue="@(e => e.Label)" YValue="@(e => (decimal)Math.Round(e.Score))" />
-                                </ApexChart>
+                            <div class="peak-track-wrap">
+                                <div class="peak-track">
+                                    <div class="peak-track-fill" style="left:@(peakLeftPct)%;width:@(peakWidthPct)%;"></div>
+                                </div>
+                                <div class="peak-track-ticks">
+                                    <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span>
+                                </div>
                             </div>
 
-                            <div class="peak-timeline-wrap">
-                                <div class="peak-timeline">
-                                    @for (int h = 0; h < 24; h++)
-                                    {
-                                        bool isPeak = h >= peakStartHour && h < peakEndHour;
-                                        <div class="peak-segment @(isPeak ? "peak-segment--active" : "")"
-                                             title="@(isPeak ? $"{peakWindow.Label} — {totalPeakMins} dk odak" : $"{h:D2}:00")">
-                                            @if (isPeak && h == peakStartHour)
-                                            {
-                                                <div class="peak-glow-label">@peakWindow.Label</div>
-                                            }
-                                        </div>
-                                    }
-                                </div>
-                                <div class="peak-timeline-labels">
-                                    @for (int h = 0; h <= 24; h += 3)
-                                    {
-                                        <span>@($"{h:D2}:00")</span>
-                                    }
-                                </div>
+                            <div class="peak-foot">
+                                <i class="bi bi-info-circle me-1"></i>Verilerine göre bu aralıkta en yüksek odaklanma sağlıyorsun.
                             </div>
                         }
                         else
@@ -214,125 +315,30 @@
                 <span class="card-title text-white small text-uppercase fw-bold ls-1">En Uzun Süren Görevler (Top 5)</span>
                 <span class="badge bg-secondary bg-opacity-25 text-white">Süreye göre</span>
             </div>
-            <div class="table-responsive">
-                <table class="table table-dark table-borderless table-hover align-middle mb-0" style="background: transparent;">
-                    <thead class="border-bottom border-secondary border-opacity-25">
-                        <tr>
-                            <th class="text-white opacity-50 fw-normal py-3 ps-4" style="background-color: transparent;">GÖREV</th>
-                            <th class="text-white opacity-50 fw-normal py-3" style="background-color: transparent;">DERS</th>
-                            <th class="text-white opacity-50 fw-normal py-3 text-end pe-4" style="background-color: transparent;">SÜRE</th>
-                        </tr>
-                    </thead>
-                    <tbody style="border-top: none;">
-                        @if(summary.TaskStatistics.Any())
-                        {
-                            @foreach(var task in summary.TaskStatistics)
-                            {
-                                <tr style="background-color: transparent;">
-                                    <td class="ps-4" style="background-color: transparent;">
-                                        <div class="d-flex align-items-center">
-                                            @if (task.IsCompleted)
-                                            {
-                                                <div class="rounded-circle bg-success bg-opacity-25 p-1 me-3 d-flex justify-content-center align-items-center" style="width: 24px; height: 24px;">
-                                                    <i class="bi bi-check text-success small"></i>
-                                                </div>
-                                            }
-                                            else
-                                            {
-                                                <div class="rounded-circle bg-primary bg-opacity-25 p-1 me-3 d-flex justify-content-center align-items-center" style="width: 24px; height: 24px;">
-                                                    <i class="bi bi-hourglass-split text-primary small"></i>
-                                                </div>
-                                            }
-                                            <span class="text-white fw-medium">@task.Title</span>
-                                        </div>
-                                    </td>
-                                    <td style="background-color: transparent;">
-                                        <span class="badge bg-dark border border-secondary border-opacity-25 text-white fw-normal px-3 py-2 rounded-pill">
-                                            @task.LessonName
-                                        </span>
-                                    </td>
-                                    <td class="text-end pe-4" style="background-color: transparent;">
-                                        <span class="text-white fw-bold font-monospace">@Math.Round(task.DurationMinutes) dk</span>
-                                    </td>
-                                </tr>
-                            }
-                        }
-                        else
-                        {
-                            <tr>
-                                <td colspan="3" class="text-center py-4 text-white opacity-50" style="background-color: transparent;">
-                                    Kayıt bulunamadı
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <div class="st-card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <div>
-                    <span class="card-title text-white small text-uppercase fw-bold ls-1">Günlük Seans Analizi</span>
-                    <span class="text-white opacity-40 small ms-2">— her kare bir güne ait</span>
-                </div>
-                <div class="heatmap-legend d-flex align-items-center gap-2">
-                    <span class="text-white opacity-40 small">Az</span>
-                    <div class="heatmap-legend-cells">
-                        <div class="heatmap-cell" style="background: rgba(59,130,246,0.1)"></div>
-                        <div class="heatmap-cell" style="background: rgba(59,130,246,0.3)"></div>
-                        <div class="heatmap-cell" style="background: rgba(59,130,246,0.55)"></div>
-                        <div class="heatmap-cell" style="background: rgba(59,130,246,0.8)"></div>
-                        <div class="heatmap-cell" style="background: #3b82f6"></div>
-                    </div>
-                    <span class="text-white opacity-40 small">Çok</span>
-                </div>
-            </div>
-
-            @if (summary.DailySessionCounts.Any())
-            {
-                var maxCount = summary.DailySessionCounts.Max(d => d.SessionCount);
-
-                <div class="heatmap-grid">
-                    @foreach (var day in summary.DailySessionCounts)
+            <div class="top-task-list">
+                @if (summary.TaskStatistics.Any())
+                {
+                    @foreach (var task in summary.TaskStatistics)
                     {
-                        var intensity = maxCount > 0 && day.SessionCount > 0
-                            ? Math.Max(0.12, (double)day.SessionCount / maxCount)
-                            : 0.0;
-                        var hasData = day.SessionCount > 0;
-                        // Lejant tek renk (mavi) yogunlugu anlattigindan, hucreleri de
-                        // tek tonda tutuyoruz: koyuluk = seans sayisi. (Ders rengini
-                        // kucuk karede ikinci boyut olarak karistirmak okunmuyordu.)
-                        var bgStyle = hasData
-                            ? $"background: rgba(59,130,246,{intensity.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)});"
-                            : "background: rgba(255,255,255,0.05);";
-                        var label = $"{day.Date:dd MMM} — {day.SessionCount} seans";
-
-                        <div class="heatmap-cell heatmap-cell--day @(hasData ? "has-data" : "")"
-                             title="@label"
-                             style="@bgStyle; --cell-color: #3b82f6">
-                            @if (hasData)
-                            {
-                                <span class="heatmap-count">@day.SessionCount</span>
-                            }
+                        <div class="top-task-item">
+                            <div class="top-task-icon @(task.IsCompleted ? "done" : "pending")">
+                                <i class="bi @(task.IsCompleted ? "bi-check-lg" : "bi-hourglass-split")"></i>
+                            </div>
+                            <div class="top-task-body">
+                                <div class="top-task-title">@task.Title</div>
+                                <div class="top-task-meta">@task.LessonName</div>
+                            </div>
+                            <div class="top-task-dur">@Math.Round(task.DurationMinutes)<span class="top-task-unit"> dk</span></div>
                         </div>
                     }
-                </div>
-
-                <div class="heatmap-day-labels mt-2">
-                    @foreach (var day in summary.DailySessionCounts)
-                    {
-                        <div class="heatmap-day-label">@day.Date.ToString("dd")</div>
-                    }
-                </div>
-            }
-            else
-            {
-                <div class="d-flex align-items-center justify-content-center py-4 text-white opacity-40">
-                    <i class="bi bi-calendar-x me-2"></i> Bu dönemde seans verisi yok
-                </div>
-            }
+                }
+                else
+                {
+                    <div class="text-center py-4 text-white opacity-50">Kayıt bulunamadı</div>
+                }
+            </div>
         </div>
+
     }
 </div>
 
@@ -341,9 +347,9 @@
     private bool isLoading = true;
     private string selectedRange = "7days";
 
-    private ApexChartOptions<TimeTrendDto> trendOptions = new();
-    private ApexChartOptions<LessonStatisticDto> pieOptions = new();
-    private ApexChartOptions<ProductivityDto> barOptions = new();
+    private ApexChartOptions<TimeTrendDto> trendOptions = new();   // 7 Gün: dikey bar
+    private ApexChartOptions<LessonStatisticDto> pieOptions = new(); // Ders Dağılımı: donut
+    // (3 Ay ve En Verimli Aralık artık özel HTML/CSS — ayrı ApexChart options yok)
 
     protected override async Task OnInitializedAsync()
     {
@@ -357,21 +363,79 @@
         await LoadData();
     }
 
-    private void BuildBarColors()
+    /// <summary>
+    /// 3 Ay görünümü için günlük seriyi AYLIK toplar ve SON 3 AYI döndürür
+    /// (bulunulan ay + önceki 2). Tüm aralığı temsil eder ama ekranı doldurmaz.
+    /// Label "dd MMM" formatında olduğundan ay adı (MMM) ile gruplanır, sıra korunur.
+    /// </summary>
+    private List<TimeTrendDto> GetTrendDisplay()
     {
-        if (summary == null) return;
-        var colors = summary.PeakProductivity.Select(p =>
-            p.IsPeakRange ? "#3b82f6" : "rgba(100,116,139,0.25)"
-        ).ToArray();
-        barOptions.Colors = colors.ToList();
-        barOptions.Fill = new Fill { Colors = colors.ToList() };
+        var src = summary?.StudyTrends ?? new List<TimeTrendDto>();
+        if (src.Count == 0) return src;
+
+        var monthly = new List<TimeTrendDto>();
+        foreach (var t in src)
+        {
+            var idx = t.Label.IndexOf(' ');
+            var month = idx >= 0 ? t.Label.Substring(idx + 1) : t.Label;
+            var existing = monthly.FirstOrDefault(m => m.Label == month);
+            if (existing == null)
+                monthly.Add(new TimeTrendDto { Label = month, Value = t.Value });
+            else
+                existing.Value += t.Value;
+        }
+        // Bu ay dahil son 3 ay.
+        return monthly.Count > 3 ? monthly.Skip(monthly.Count - 3).ToList() : monthly;
+    }
+
+    /// <summary>3 Ay görünümü için aylık özet + istatistikler (tamamı StudyTrends'ten hesaplanır).</summary>
+    private (List<TimeTrendDto> Months, int Total, int Avg, int Max, string MaxMonth, string Range, int AxisMax) MonthlyTrendData()
+    {
+        var months = GetTrendDisplay();
+        int total = (int)months.Sum(m => m.Value);
+        int avg = months.Count > 0 ? (int)Math.Round(months.Average(m => m.Value)) : 0;
+        var maxItem = months.Count > 0 ? months.Aggregate((a, b) => b.Value > a.Value ? b : a) : null;
+        int max = (int)Math.Round(maxItem?.Value ?? 0);
+        string maxMonth = maxItem != null ? FullMonthName(maxItem.Label) : "-";
+        int axisMax = Math.Max(2000, (int)(Math.Ceiling(max / 2000.0) * 2000));
+
+        var tr = new System.Globalization.CultureInfo("tr-TR");
+        var now = DateTime.Now;
+        int span = Math.Max(months.Count, 1);
+        var start = new DateTime(now.Year, now.Month, 1).AddMonths(-(span - 1));
+        var end = new DateTime(now.Year, now.Month, 1).AddMonths(1).AddDays(-1);
+        string range = $"{start.ToString("d MMMM", tr)} – {end.ToString("d MMMM yyyy", tr)}";
+
+        return (months, total, avg, max, maxMonth, range, axisMax);
+    }
+
+    private static string FullMonthName(string abbr) => abbr switch
+    {
+        "Oca" => "Ocak", "Şub" => "Şubat", "Mar" => "Mart", "Nis" => "Nisan",
+        "May" => "Mayıs", "Haz" => "Haziran", "Tem" => "Temmuz", "Ağu" => "Ağustos",
+        "Eyl" => "Eylül", "Eki" => "Ekim", "Kas" => "Kasım", "Ara" => "Aralık", _ => abbr
+    };
+
+    private static string Thousands(double v) => v.ToString("N0", new System.Globalization.CultureInfo("tr-TR"));
+
+    /// <summary>Heatmap hücresi için kısa süre etiketi: "45dk", "2s", "2.5s".</summary>
+    private static string FormatCompactDuration(double minutes)
+    {
+        int m = (int)Math.Round(minutes);
+        if (m < 60) return $"{m}dk";
+        double h = m / 60.0;
+        var hStr = Math.Abs(h - Math.Round(h)) < 0.05
+            ? Math.Round(h).ToString(System.Globalization.CultureInfo.InvariantCulture)
+            : h.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+        return hStr + "s";
     }
 
     private void OnSessionOrSyncRefresh()
     {
+        // Arka plan tazelemesi: spinner gösterme (sessiz güncelle).
         InvokeAsync(async () =>
         {
-            await LoadData();
+            await LoadData(showSpinner: false);
         });
     }
 
@@ -389,13 +453,19 @@
         await LoadData();
     }
 
-    private async Task LoadData()
+    private async Task LoadData(bool showSpinner = true)
     {
-        isLoading = true;
+        // Spinner YALNIZ ilk yükleme + filtre değişiminde gösterilir. Arka plan
+        // tazelemeleri (timer/sync olayları) sessiz güncellenir; aksi halde sayfa
+        // sürekli "loading" çakar.
+        if (showSpinner)
+        {
+            isLoading = true;
+            StateHasChanged();
+        }
         try
         {
             summary = await StatisticsService.GetStatisticsAsync(selectedRange);
-            BuildBarColors();
         }
         catch(Exception ex)
         {
@@ -411,26 +481,41 @@
     private void ConfigureCharts()
     {
         // Trend — zoom kapat, tam genişlik, sabit küçük yükseklik
-        trendOptions.Chart = new Chart 
-        { 
-            Toolbar = new Toolbar { Show = false }, 
-            Background = "transparent", 
+        trendOptions.Chart = new Chart
+        {
+            Toolbar = new Toolbar { Show = false },
+            Background = "transparent",
             ForeColor = "#94a3b8",
             Width = "100%",
             ParentHeightOffset = 0,
-            Zoom = new Zoom { Enabled = false }
+            Zoom = new Zoom { Enabled = false },
+            // Mobilde akicilik icin animasyon kapali.
+            Animations = new Animations { Enabled = false }
         };
         trendOptions.Theme = new Theme { Mode = Mode.Dark };
         trendOptions.Stroke = new Stroke { Curve = Curve.Smooth, Width = 2 };
-        trendOptions.Grid = new Grid { Show = true, BorderColor = "#374151", StrokeDashArray = 4, Padding = new Padding { Left = 0, Right = 0, Bottom = 0 } };
-        trendOptions.Xaxis = new XAxis { 
-            AxisBorder = new AxisBorder { Show = false }, 
+        trendOptions.Grid = new Grid { Show = true, BorderColor = "#374151", StrokeDashArray = 4, Padding = new Padding { Left = 12, Right = 8, Bottom = 0 } };
+        // Barlari biraz inceltip eksenden uzaklastir (ilk bar Y etiketlerine yapismasin).
+        trendOptions.PlotOptions = new PlotOptions { Bar = new PlotOptionsBar { ColumnWidth = "55%", BorderRadius = 4 } };
+        // Y ekseni dakika birimiyle etiketlensin.
+        trendOptions.Yaxis = new List<YAxis>
+        {
+            new YAxis
+            {
+                Labels = new YAxisLabels
+                {
+                    Style = new AxisLabelStyle { Colors = "#cbd5e1", FontSize = "11px" },
+                    Formatter = "function (v) { return Math.round(v) + ' dk'; }"
+                }
+            }
+        };
+        trendOptions.Xaxis = new XAxis {
+            AxisBorder = new AxisBorder { Show = false },
             AxisTicks = new AxisTicks { Show = false },
-            Labels = new XAxisLabels { 
-                Style = new AxisLabelStyle { Colors = "#94a3b8", FontSize = "10px" },
-                Rotate = -30
-            },
-            TickAmount = 5
+            Labels = new XAxisLabels {
+                Style = new AxisLabelStyle { Colors = "#cbd5e1", FontSize = "12px" },
+                Rotate = 0
+            }
         };
         trendOptions.Fill = new Fill { Type = FillType.Gradient, Gradient = new FillGradient { ShadeIntensity = 1, OpacityFrom = 0.4, OpacityTo = 0.05, Stops = new List<double> { 0, 100 } } };
         trendOptions.Tooltip = new Tooltip { Theme = Mode.Dark };
@@ -442,16 +527,15 @@
                 Breakpoint = 3000, 
                 Options = new ApexChartOptions<TimeTrendDto> 
                 { 
-                    Chart = new Chart { Height = 180, Width = "100%" },
-                    Xaxis = new XAxis 
-                    { 
-                        Labels = new XAxisLabels 
-                        { 
+                    Chart = new Chart { Height = 280, Width = "100%" },
+                    Xaxis = new XAxis
+                    {
+                        Labels = new XAxisLabels
+                        {
                             Show = true,
-                            Rotate = -30,
-                            Style = new AxisLabelStyle { Colors = "#94a3b8", FontSize = "9px" }
-                        },
-                        TickAmount = 5
+                            Rotate = 0,
+                            Style = new AxisLabelStyle { Colors = "#cbd5e1", FontSize = "11px" }
+                        }
                     }
                 } 
             },
@@ -460,9 +544,8 @@
                 Breakpoint = 480,
                 Options = new ApexChartOptions<TimeTrendDto>
                 {
-                    Xaxis = new XAxis { 
-                        Labels = new XAxisLabels { Show = true, Rotate = -45, Style = new AxisLabelStyle { Colors = "#94a3b8", FontSize = "8px" } },
-                        TickAmount = 4
+                    Xaxis = new XAxis {
+                        Labels = new XAxisLabels { Show = true, Rotate = 0, Style = new AxisLabelStyle { Colors = "#cbd5e1", FontSize = "10px" } }
                     }
                 }
             }
@@ -504,35 +587,6 @@
             }
         };
 
-        barOptions.Chart = new Chart { Toolbar = new Toolbar { Show = false }, Background = "transparent", ForeColor = "#94a3b8", Width = "100%", ParentHeightOffset = 0, Zoom = new Zoom { Enabled = false } };
-        barOptions.Theme = new Theme { Mode = Mode.Dark };
-        barOptions.Grid = new Grid { Show = true, BorderColor = "rgba(148,163,184,0.1)", StrokeDashArray = 4, Padding = new Padding { Left = 0, Right = 0, Bottom = 0 } };
-        barOptions.Xaxis = new XAxis
-        {
-            AxisBorder = new AxisBorder { Show = false },
-            AxisTicks  = new AxisTicks  { Show = false },
-            Labels     = new XAxisLabels { Rotate = -45, Style = new AxisLabelStyle { Colors = "#94a3b8", FontSize = "9px" } }
-        };
-        barOptions.PlotOptions = new PlotOptions { Bar = new PlotOptionsBar { BorderRadius = 4, ColumnWidth = "70%" } };
-        barOptions.Responsive = new List<Responsive<ProductivityDto>>
-        {
-            new Responsive<ProductivityDto>
-            {
-                Breakpoint = 3000,
-                Options = new ApexChartOptions<ProductivityDto>
-                {
-                    Chart = new Chart { Height = 120, Width = "100%" }
-                }
-            },
-            new Responsive<ProductivityDto>
-            {
-                Breakpoint = 480,
-                Options = new ApexChartOptions<ProductivityDto>
-                {
-                    Xaxis = new XAxis { Labels = new XAxisLabels { Show = false } }
-                }
-            }
-        };
     }
 }
 
@@ -557,6 +611,34 @@
         color: #1d4ed8;
     }
 
+    .peak-chart-caption {
+        font-size: 0.68rem;
+        color: var(--text-dim, #94a3b8);
+        line-height: 1.3;
+        margin-top: 4px;
+    }
+
+    /* En uzun süren görevler — okunur liste (tablo/scroll yerine) */
+    .top-task-list { display: flex; flex-direction: column; gap: 12px; padding-top: 4px; }
+    .top-task-item { display: flex; align-items: center; gap: 12px; }
+    .top-task-icon {
+        width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center; font-size: 0.95rem;
+    }
+    .top-task-icon.done { background: rgba(16,185,129,0.18); color: #10b981; }
+    .top-task-icon.pending { background: rgba(59,130,246,0.18); color: #3b82f6; }
+    .top-task-body { flex: 1; min-width: 0; }
+    .top-task-title {
+        font-size: 0.9rem; font-weight: 600; color: var(--text-main);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .top-task-meta { font-size: 0.75rem; color: var(--text-dim); margin-top: 2px; }
+    .top-task-dur {
+        font-size: 1rem; font-weight: 800; color: var(--text-main);
+        white-space: nowrap; flex-shrink: 0; font-variant-numeric: tabular-nums;
+    }
+    .top-task-unit { font-size: 0.72rem; font-weight: 500; color: var(--text-dim); }
+
     .st-muted-text {
         color: var(--st-text-secondary, #94a3b8);
     }
@@ -575,8 +657,61 @@
         flex-direction: column;
         padding: 16px 20px 20px;
         gap: 18px;
-        justify-content: space-between;
+        justify-content: center;
     }
+
+    /* ── Yeni peak tasarımı: hero aralık + 2 KPI + tek şerit zaman çizelgesi ── */
+    .peak-hero { text-align: center; padding: 8px 0 4px; }
+    .peak-hero-range {
+        font-size: clamp(2rem, 9vw, 3rem);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        line-height: 1.05;
+        color: #f1f5f9;
+        text-shadow: 0 0 24px rgba(59,130,246,0.35);
+    }
+    :root[data-theme="light"] .peak-hero-range { color: #0f172a; text-shadow: none; }
+    .peak-hero-sub { font-size: 0.85rem; color: #64748b; margin-top: 6px; }
+
+    .peak-stats {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        padding: 6px 0;
+    }
+    .peak-stat { display: flex; align-items: center; gap: 12px; }
+    .peak-stat-icon {
+        width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.1rem; color: #3b82f6;
+        background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.25);
+    }
+    .peak-stat-label { font-size: 0.72rem; color: #64748b; margin-bottom: 2px; }
+    .peak-stat-value { font-size: 1.4rem; font-weight: 800; color: #f1f5f9; line-height: 1; }
+    :root[data-theme="light"] .peak-stat-value { color: #0f172a; }
+    .peak-stat-unit { font-size: 0.8rem; font-weight: 500; color: #64748b; }
+    .peak-stat-divider { width: 1px; height: 40px; background: rgba(148,163,184,0.25); }
+
+    .peak-track-wrap { display: flex; flex-direction: column; gap: 8px; padding: 4px 2px; }
+    .peak-track {
+        position: relative; height: 14px; border-radius: 99px;
+        background: rgba(148,163,184,0.15); overflow: hidden;
+    }
+    .peak-track-fill {
+        position: absolute; top: 0; bottom: 0;
+        background: linear-gradient(90deg, #3b82f6, #2563eb);
+        border-radius: 99px;
+        box-shadow: 0 0 14px rgba(59,130,246,0.6);
+    }
+    .peak-track-ticks { display: flex; justify-content: space-between; }
+    .peak-track-ticks span { font-size: 0.62rem; color: #64748b; font-variant-numeric: tabular-nums; }
+
+    .peak-foot {
+        font-size: 0.72rem; color: #64748b; line-height: 1.4; text-align: center;
+        border-top: 1px solid var(--border-color); padding-top: 12px;
+    }
+    .peak-foot .bi { color: #3b82f6; }
 
     .peak-kpi-row {
         display: flex;
@@ -713,6 +848,86 @@
     /* ── Statistics Page Header ──────────────────────────── */
     .statistics-container {
         padding-bottom: calc(var(--bottom-bar-height, 70px) + 24px);
+    }
+
+    /* 30 Gün: takvim heatmap (günlük çalışma süresi) — 7 sütunlu, kaydırmasız */
+    .trend-heatmap {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 5px;
+        padding: 4px 0;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .trend-hm-cell {
+        aspect-ratio: 1 / 1;
+        min-width: 0;
+        border-radius: 8px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1px;
+        transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .trend-hm-cell.has-data { cursor: default; }
+    .trend-hm-cell.has-data:hover {
+        transform: scale(1.12);
+        box-shadow: 0 0 12px rgba(59, 130, 246, 0.6);
+    }
+    .trend-hm-day {
+        font-size: 0.55rem;
+        font-weight: 600;
+        line-height: 1;
+        color: rgba(255, 255, 255, 0.5);
+    }
+    .trend-hm-cell.has-data .trend-hm-day { color: rgba(255, 255, 255, 0.85); }
+    .trend-hm-val {
+        font-size: 0.66rem;
+        font-weight: 800;
+        line-height: 1;
+        color: #fff;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+    }
+    [data-theme="light"] .trend-hm-day { color: rgba(0, 0, 0, 0.45); }
+    [data-theme="light"] .trend-hm-cell.has-data .trend-hm-val { color: #0f172a; text-shadow: none; }
+
+    /* ── 3 Ay: aylık özet (özel yatay bar + ortalama çizgisi + KPI) ── */
+    .trend-daterange { font-size: 0.72rem; color: var(--text-dim); margin-top: 4px; }
+    .trend-daterange .bi { opacity: 0.7; }
+    .trend-avg-badge {
+        display: inline-flex; align-items: center; gap: 2px;
+        font-size: 0.7rem; font-weight: 700; color: #60a5fa;
+        background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3);
+        padding: 5px 10px; border-radius: 10px; white-space: nowrap; flex-shrink: 0;
+    }
+    .mtrend { padding: 14px 4px 6px; }
+    .mtrend-bars { position: relative; padding-top: 16px; }
+    .mtrend-row { display: grid; grid-template-columns: 48px 1fr 78px; column-gap: 12px; align-items: center; height: 42px; }
+    .mtrend-rowlabel { font-size: 0.8rem; font-weight: 600; color: var(--text-dim); }
+    .mtrend-track { height: 22px; background: rgba(148,163,184,0.1); border-radius: 7px; overflow: hidden; }
+    .mtrend-fill { height: 100%; border-radius: 7px; background: linear-gradient(90deg, #3b82f6, #60a5fa); min-width: 3px; }
+    .mtrend-rowval { font-size: 0.85rem; font-weight: 700; color: var(--text-main); text-align: right; white-space: nowrap; }
+    .mtrend-unit { font-size: 0.7rem; font-weight: 500; color: var(--text-dim); }
+    .mtrend-avgline { position: absolute; top: 16px; bottom: 0; width: 0; border-left: 1px dashed rgba(96,165,250,0.85); z-index: 2; }
+    .mtrend-avg-label { position: absolute; top: 0; transform: translateX(-50%); font-size: 0.62rem; font-weight: 700; color: #60a5fa; white-space: nowrap; }
+    .mtrend-xaxis { margin: 8px 90px 0 60px; display: flex; justify-content: space-between; }
+    .mtrend-xaxis span { font-size: 0.6rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+    .mtrend-xlabel { text-align: center; font-size: 0.62rem; color: var(--text-dim); margin-top: 4px; opacity: 0.7; }
+
+    .mtrend-kpis { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 14px; }
+    @@media (min-width: 576px) { .mtrend-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    .mtrend-kpi { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 12px; padding: 10px; min-width: 0; }
+    .mtrend-kpi-icon { width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; color: #3b82f6; background: rgba(59,130,246,0.12); }
+    .mtrend-kpi-body { min-width: 0; }
+    .mtrend-kpi-label { font-size: 0.62rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+    .mtrend-kpi-val { font-size: 0.95rem; font-weight: 800; color: var(--text-main); line-height: 1.1; white-space: nowrap; }
+    .mtrend-kpi-sub { font-size: 0.65rem; color: #60a5fa; font-weight: 600; }
+    .mtrend-foot { font-size: 0.7rem; color: var(--text-dim); margin-top: 12px; line-height: 1.4; }
+    .mtrend-foot .bi { color: #3b82f6; }
+
+    @@media (max-width: 360px) {
+        .mtrend-kpis { grid-template-columns: 1fr; }
     }
 
     .statistics-header-section {
